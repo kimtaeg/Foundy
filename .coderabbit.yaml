@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# 카페·음식점 창업 전 사전 점검 에이전트 — 4인 해커톤 (예선 마감 2026-11-23)
+
+language: "ko-KR"
+
+tone_instructions: "한국어로 간결하게 리뷰한다. 마감이 일주일이라 스타일 지적보다 버그, 보안, 리포트 근거 누락, 스키마 불일치를 우선한다."
+
+reviews:
+  profile: "chill"                  # 사소한 지적 줄이기 (일정이 짧음)
+  request_changes_workflow: false   # 리뷰어 1명 승인 규칙과 충돌하지 않게
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+    ignore_title_keywords:
+      - "WIP"
+      - "[skip review]"
+
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/.next/**"
+    - "!**/.venv/**"
+    - "!**/__pycache__/**"
+    - "!**/package-lock.json"
+    - "!**/pnpm-lock.yaml"
+    - "!**/*.svg"
+    - "!**/*.png"
+    - "!**/*.jpg"
+
+  path_instructions:
+    - path: "docs/report-schema.json"
+      instructions: |
+        프론트와 백엔드 사이의 약속 파일이다.
+        - 이 파일이 바뀌었는데 backend/agent 와 frontend 쪽 코드가 같은 PR에서 함께 바뀌지 않았다면 반드시 지적한다.
+        - 필드 삭제나 이름 변경은 하위 호환이 깨지는지 확인한다.
+
+    - path: "backend/agent/**"
+      instructions: |
+        에이전트(LLM tool use) 코드다. 다음을 중점적으로 본다.
+        - 업종 결정(주류 여부 → 휴게/일반음식점)이나 건물 용도 적합 여부 같은 규칙 판단을 LLM에게 맡기고 있지 않은지. 이런 판단은 코드나 rules/*.yaml 이 해야 한다.
+        - 판정 값이 "위반 소지 높음", "위반 소지 낮음·확인 권장", "판단 불가" 3가지 외의 값을 쓰지 않는지.
+        - 리포트 항목에 근거(데이터 원값 또는 조문 원문 + 링크)가 없는데 판단을 내리는 경로가 없는지. 근거가 없으면 "판단 불가"여야 한다.
+        - 특정 업종 이름("카페", "휴게음식점" 등)을 에이전트 코드에 하드코딩하지 않았는지.
+        - LLM 응답 파싱 실패, 도구 호출 실패, 타임아웃 시 리포트 생성이 멈추지 않는지.
+        - 점검 1회의 토큰·비용 기록이 빠지지 않았는지.
+
+    - path: "backend/tools/**"
+      instructions: |
+        외부 API 도구다 (도로명주소, 건축물대장, 국가법령정보, KIPRIS).
+        - 각 도구에 mocks/ 의 모의 응답 대체 경로가 있는지. API 실패나 USE_MOCK=true 일 때 예외로 끝나지 않고 모의 응답을 써야 한다.
+        - API 키를 코드에 하드코딩하지 않고 환경변수에서 읽는지.
+        - 타임아웃이 설정되어 있는지, 에러 응답(인증 실패, 한도 초과)을 구분해 처리하는지.
+        - 같은 주소·조문 재조회 시 캐시를 쓰는지.
+
+    - path: "backend/rules/**/*.yaml"
+      instructions: |
+        업종별 점검 규칙 묶음이다.
+        - 모든 check 항목에 laws(근거 법령)가 있는지.
+        - stage 값이 "계약 전", "개업 전", "운영 중" 중 하나인지.
+        - schedule 값이 D-숫자 형식인지.
+        - 법령명과 조문 번호 표기가 일관적인지 (실제 조문 존재 여부는 사람이 확인하도록 코멘트로 남긴다).
+
+    - path: "backend/mocks/**"
+      instructions: |
+        모의 응답이다. 실제 개인정보(실명, 실제 연락처, 주민번호 등)가 들어 있지 않은지만 확인한다.
+
+    - path: "backend/**/*.py"
+      instructions: |
+        FastAPI 백엔드다.
+        - 비동기 엔드포인트 안에서 블로킹 호출을 하지 않는지.
+        - SSE 스트리밍 응답이 에러가 나도 정상 종료 이벤트를 보내는지.
+        - CORS 허용 출처가 환경변수(FRONTEND_ORIGIN)로 제한되어 있는지.
+
+    - path: "backend/tests/**"
+      instructions: |
+        데모 시나리오 S1~S4 의 기대 결과(판정 단계)가 docs/mvp.md 와 맞는지 확인한다. 외부 API를 실제로 호출하는 테스트는 모의 모드로 바꾸도록 제안한다.
+
+    - path: "frontend/**/*.{ts,tsx}"
+      instructions: |
+        Next.js 프론트엔드다.
+        - 백엔드 리포트 데이터 타입이 docs/report-schema.json 과 맞는지.
+        - 백엔드가 느리거나 실패할 때 로딩·에러 상태가 화면에 표시되는지 (심사위원이 직접 실행하므로 빈 화면이 나오면 안 된다).
+        - 판정 3단계 배지와 근거(조문 링크)가 빠짐없이 표시되는지.
+        - API 키나 비밀값을 NEXT_PUBLIC_ 환경변수나 클라이언트 코드에 넣지 않았는지.
+        - "법률 자문이 아닌 사전 점검" 안내 문구가 리포트 화면에서 사라지지 않았는지.
+
+    - path: "**/.env*"
+      instructions: |
+        .env.example 외의 .env 파일이 커밋되었다면 즉시 지적하고, 노출된 키를 재발급하라고 안내한다.
+
+  tools:
+    ruff:
+      enabled: true
+    eslint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    markdownlint:
+      enabled: false
+    yamllint:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "**/CLAUDE.md"
+      - "docs/mvp.md"
+  learnings:
+    scope: auto
