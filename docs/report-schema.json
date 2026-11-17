@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "report-schema.json",
+  "title": "PrecheckReport",
+  "description": "창업 전 사전 점검 리포트. 프론트·백엔드 공용 약속 — 바꾸면 같은 PR에서 백엔드 생성 코드와 프론트 표시 코드를 함께 수정한다. (초안)",
+  "type": "object",
+  "required": ["input", "items", "schedule", "disclaimer"],
+  "properties": {
+    "input": {
+      "type": "object",
+      "required": ["business_type", "sells_alcohol", "address", "store_name", "open_date"],
+      "properties": {
+        "business_type": { "type": "string" },
+        "sells_alcohol": { "type": "boolean" },
+        "address": { "type": "string" },
+        "floor": { "type": "string" },
+        "store_name": { "type": "string" },
+        "open_date": { "type": "string", "format": "date" },
+        "menu_text": { "type": "string" }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/item" }
+    },
+    "schedule": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scheduleEntry" }
+    },
+    "disclaimer": {
+      "type": "string",
+      "description": "\"법률 자문이 아닌 사전 점검\" 안내 문구"
+    },
+    "usage": {
+      "type": "object",
+      "description": "점검 1회의 토큰·비용 기록",
+      "properties": {
+        "input_tokens": { "type": "integer" },
+        "output_tokens": { "type": "integer" },
+        "cost_usd": { "type": "number" }
+      }
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": ["id", "stage", "title", "verdict", "evidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "stage": { "enum": ["계약 전", "개업 전", "운영 중"] },
+        "title": { "type": "string" },
+        "verdict": { "enum": ["위반 소지 높음", "위반 소지 낮음·확인 권장", "판단 불가"] },
+        "explanation": { "type": "string" },
+        "evidence": {
+          "type": "array",
+          "description": "근거가 비어 있으면 verdict는 반드시 \"판단 불가\"",
+          "items": { "$ref": "#/$defs/evidence" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["kind", "source"],
+      "properties": {
+        "kind": { "enum": ["data", "law"] },
+        "source": { "type": "string", "description": "예: 건축물대장, 식품위생법 시행령 제21조" },
+        "value": { "type": "string", "description": "데이터 원값 또는 조문 원문" },
+        "url": { "type": "string", "format": "uri", "description": "law.go.kr 링크 등" }
+      }
+    },
+    "scheduleEntry": {
+      "type": "object",
+      "required": ["d_day", "task"],
+      "properties": {
+        "d_day": { "type": "string", "pattern": "^D-[0-9]+$" },
+        "date": { "type": "string", "format": "date" },
+        "task": { "type": "string" },
+        "related_item_id": { "type": "string" }
+      }
+    }
+  }
+}
