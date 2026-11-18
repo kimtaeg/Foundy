@@ -112,7 +112,8 @@
             "needs_reanalyze": { "type": "boolean" }
           }
         },
-        "site_id": { "type": ["string", "null"], "description": "후보 자리 변경 선택지일 때 해당 자리" }
+        "site_id": { "type": ["string", "null"], "description": "후보 자리 변경 선택지일 때 해당 자리" },
+        "remedy": { "type": ["string", "null"], "description": "규칙 묶음의 remedies 값. 허용된 대응 유형 검증용이며 화면에는 보여주지 않는다" }
       }
     },
     "prepared": {

@@ -138,10 +138,12 @@
   "time": { "text": "즉시", "basis": "data" },
   "cost": { "text": "월 고정비 +300,000원", "delta_krw": 4000000, "basis": "calc" },
   "apply": { "type": "set_main_site", "payload": { "site_id": "st-02" }, "needs_reanalyze": true },
-  "site_id": "st-02"
+  "site_id": "st-02",
+  "remedy": "change_site"
 }
 ```
 
+- `remedy`: 이 선택지가 규칙 묶음의 어떤 대응 유형(`remedies`)인지. 서버가 허용된 유형만 남기는 검증에 쓰고, 화면에는 보여주지 않는다.
 - `apply.type`: `update_store`(가게 정보·답변 수정) | `set_main_site`(기준 자리 변경) | `none`(기록만)
 - `time`, `cost`: **근거가 있을 때만 숫자를 쓴다.** `basis`는 `rule | calc | data | notice | null`이고, `null`이면 `text`를 "확인 필요"로 내리고 `delta_krw`는 `null`로 둔다. AI가 기간·금액을 추정해서 채우지 않는다.
 - 금액 차이(`delta_krw`)와 월 고정비 같은 숫자는 계산 도구가 계산한다. 선택지의 문장과 추천 이유만 AI가 쓴다.
