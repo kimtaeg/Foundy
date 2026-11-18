@@ -1,0 +1,49 @@
+{
+  "mvp": "S4",
+  "description": "문제없는 입력",
+  "store": {
+    "store_id": "s1",
+    "name": "모노커피",
+    "business_type_input": "카페",
+    "address": "서울 성동구 성수이로 00",
+    "address_detail": "1층",
+    "opening_date": "2027-03-02",
+    "answers": {
+      "sells_alcohol": true,
+      "has_employees": true
+    }
+  },
+  "tools": {
+    "uses": [
+      "제2종근린생활시설(일반음식점)"
+    ],
+    "violation": false,
+    "similar": []
+  },
+  "llm": {},
+  "expect": {
+    "business_type": "일반음식점",
+    "summary": {
+      "high": 0,
+      "low": 0,
+      "unknown": 0,
+      "ok": 4
+    },
+    "items": {
+      "building_use": {
+        "verdict": "ok"
+      },
+      "building_violation": {
+        "verdict": "ok"
+      },
+      "alcohol_vs_type": {
+        "verdict": "ok"
+      },
+      "trademark_similar": {
+        "verdict": "ok"
+      }
+    },
+    "no_cards": true,
+    "checklist_min": 7
+  }
+}

@@ -90,3 +90,31 @@ TM_JUDGMENT = TrademarkJudgment(verdict="low", title="'모노커피'와 비슷�
 TM_ADVICE = AdviceDraft(consequence="간판을 만든 뒤 문제되면 바꿔야 할 수 있어요.",
                         recommended_option_id="o-1", recommendation_reason="지금 바꾸는 비용이 가장 낮아요.",
                         user_action_text="이름을 바꿀지 정하기", user_action_type="decide")
+
+
+# ---- 시나리오 JSON → 가짜 도구·LLM ----
+def scenario_llm(canned: dict) -> "FakeLLM":
+    from agent.llm import FakeLLM
+
+    models = {"judge_trademark": TrademarkJudgment, "judge_ad_claims": AdJudgment, "ask": QuestionPick}
+    out = {}
+    for step, body in canned.items():
+        out[step] = (models.get(step) or AdviceDraft).model_validate(body)
+    return FakeLLM(out)
+
+
+class JsonTools:
+    """mocks/demo/*_inputs.json의 tools 부분을 그대로 돌려주는 도구 (예시 데이터 시연·mock 모드용)."""
+
+    def __init__(self, spec: dict):
+        self.spec = spec
+
+    def building(self, store):
+        return ToolResult(**self.spec["building"])
+
+    def trademark(self, name):
+        return ToolResult(**self.spec["trademark"])
+
+    def law(self, check_id):
+        r = self.spec.get("law", {}).get(check_id)
+        return ToolResult(**r) if r else ToolResult(ok=False, source="국가법령정보", error="mock 없음")
