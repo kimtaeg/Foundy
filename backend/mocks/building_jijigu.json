@@ -1,0 +1,101 @@
+{
+  "response": {
+    "header": {
+      "resultCode": "00",
+      "resultMsg": "NORMAL SERVICE"
+    },
+    "body": {
+      "items": {
+        "item": [
+          {
+            "rnum": 1,
+            "platPlc": "서울특별시 성동구 성수동2가 289-10번지",
+            "sigunguCd": "11200",
+            "bjdongCd": "11500",
+            "platGbCd": "0",
+            "bun": "0289",
+            "ji": "0010",
+            "mgmBldrgstPk": 1005120864,
+            "newPlatPlc": "서울특별시 성동구 성수이로 113 (성수동2가)",
+            "splotNm": " ",
+            "block": " ",
+            "lot": " ",
+            "jijiguGbCd": "1",
+            "jijiguGbCdNm": "용도지역코드",
+            "jijiguCd": "1230",
+            "jijiguCdNm": "준공업지역",
+            "reprYn": "1",
+            "etcJijigu": "준공업지역",
+            "crtnDay": "20220813"
+          },
+          {
+            "rnum": 2,
+            "platPlc": "서울특별시 성동구 성수동2가 289-10번지",
+            "sigunguCd": "11200",
+            "bjdongCd": "11500",
+            "platGbCd": "0",
+            "bun": "0289",
+            "ji": "0010",
+            "mgmBldrgstPk": 1005120864,
+            "newPlatPlc": "서울특별시 성동구 성수이로 113 (성수동2가)",
+            "splotNm": " ",
+            "block": " ",
+            "lot": " ",
+            "jijiguGbCd": "3",
+            "jijiguGbCdNm": "용도구역코드",
+            "jijiguCd": "300",
+            "jijiguCdNm": "지구단위계획구역",
+            "reprYn": "1",
+            "etcJijigu": "지구단위계획구역",
+            "crtnDay": "20220813"
+          },
+          {
+            "rnum": 3,
+            "platPlc": "서울특별시 성동구 성수동2가 289-10번지",
+            "sigunguCd": "11200",
+            "bjdongCd": "11500",
+            "platGbCd": "0",
+            "bun": "0289",
+            "ji": "0010",
+            "mgmBldrgstPk": 1005120863,
+            "newPlatPlc": "서울특별시 성동구 성수이로 113 (성수동2가)",
+            "splotNm": " ",
+            "block": " ",
+            "lot": " ",
+            "jijiguGbCd": "1",
+            "jijiguGbCdNm": "용도지역코드",
+            "jijiguCd": "1230",
+            "jijiguCdNm": "준공업지역",
+            "reprYn": "1",
+            "etcJijigu": "준공업지역",
+            "crtnDay": "20220813"
+          },
+          {
+            "rnum": 4,
+            "platPlc": "서울특별시 성동구 성수동2가 289-10번지",
+            "sigunguCd": "11200",
+            "bjdongCd": "11500",
+            "platGbCd": "0",
+            "bun": "0289",
+            "ji": "0010",
+            "mgmBldrgstPk": 1005120863,
+            "newPlatPlc": "서울특별시 성동구 성수이로 113 (성수동2가)",
+            "splotNm": " ",
+            "block": " ",
+            "lot": " ",
+            "jijiguGbCd": "3",
+            "jijiguGbCdNm": "용도구역코드",
+            "jijiguCd": "300",
+            "jijiguCdNm": "지구단위계획구역",
+            "reprYn": "1",
+            "etcJijigu": "지구단위계획구역",
+            "crtnDay": "20220813"
+          }
+        ]
+      },
+      "numOfRows": "100",
+      "pageNo": "1",
+      "totalCount": "4"
+    }
+  }
+}
