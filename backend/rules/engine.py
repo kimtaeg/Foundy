@@ -96,6 +96,16 @@ def check_spec(pack: dict, check_id: str) -> dict:
     raise KeyError(f"규칙 묶음에 없는 점검 항목: {check_id}")
 
 
+def render_title(spec: dict, verdict: str, **fmt) -> str | None:
+    """점검 항목의 판정별 제목 템플릿. 템플릿이 없으면 None."""
+    tpl = (spec.get("titles") or {}).get(verdict)
+    return tpl.format(**fmt) if tpl else None
+
+
+def required_question_ids(pack: dict) -> set[str]:
+    return {q["id"] for q in pack["ask"] if q.get("required")}
+
+
 def base_checklist(pack: dict, answers: dict) -> list[dict]:
     """개업 체크리스트 기본 항목. when 조건이 있으면 답이 참일 때만 포함한다.
 
