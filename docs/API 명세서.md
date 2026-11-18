@@ -807,7 +807,9 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 ```json
 {
   "fetched_at": "2026-11-20T09:00:00+09:00",
+  "ok": true,
   "excluded_count": 3,
+  "closed_count": 1,
   "items": [
     {
       "grant_id": "kstartup-000000",
@@ -835,6 +837,11 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 - 나이(`owner_birth_year`)·업력 같은 숫자 조건은 AI가 공고문에서 조건 값을 추출하고, 대조는 **계산 도구**가 한다.
 - `eligibility.result`: `eligible | partial | unknown` (2장)
 - 마감일은 체크리스트에 `source: grant`로 자동 추가된다.
+- `ok: false`면 공고 조회에 실패한 것이다 (`items`는 빈 배열). `closed_count`는 마감이 지나 뺀 공고 수다.
+- 조건을 뽑을 때 AI가 인용한 공고문 문장이 **원문에 실제로 있는지** 서버가 검증하고, 없거나 숫자 조건의 숫자가 인용에 없으면 그 조건은 `unknown`이다. 이 경우 `evidence`는 `null`이다.
+- 나이는 생년만 입력받아서 만 나이가 모호하다. 경계에서는 `fail`이 아니라 `unknown`이고 `note`에 "생일에 따라 달라져요"가 들어간다.
+- 마감일이 지나지 않은 `eligible`·`partial` 공고만 체크리스트에 들어가고(`added_to_checklist: true`), `unknown`은 들어가지 않는다.
+- `filter`(`all | eligible | closing_soon`)는 백엔드가 저장된 결과에서 거른다.
 
 ---
 

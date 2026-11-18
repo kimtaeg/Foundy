@@ -148,3 +148,43 @@ class ChatReply(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list)
     actions: list[ChatAction] = Field(default_factory=list)
     note: str = ""
+
+
+class GrantCheck(BaseModel):
+    condition: str  # 조건을 쉬운 말로 ("만 39세 이하")
+    result: Literal["pass", "unknown"]  # 명확히 맞지 않는(fail) 공고는 목록에서 제외된다
+    evidence: Evidence | None = None  # 공고문 원문 문장 (type="notice")
+    note: str = ""
+
+
+class GrantEligibility(BaseModel):
+    result: Literal["eligible", "partial", "unknown"]
+    decided_by: Literal["ai"] = "ai"
+    checks: list[GrantCheck] = Field(default_factory=list)
+
+
+class GrantSummary(BaseModel):
+    who: str = "[확인 필요]"
+    how_much: str = "[확인 필요]"
+    until: str | None = None
+    what_to_submit: list[str] = Field(default_factory=list)
+    by: Literal["ai"] = "ai"
+
+
+class GrantMatch(BaseModel):
+    grant_id: str
+    title: str
+    source: str
+    url: str | None = None
+    deadline: date | None = None
+    eligibility: GrantEligibility
+    summary: GrantSummary
+    added_to_checklist: bool = False
+
+
+class GrantsResult(BaseModel):
+    ok: bool = True
+    fetched_at: datetime | None = None
+    items: list[GrantMatch] = Field(default_factory=list)
+    excluded_count: int = 0  # 조건이 명확히 맞지 않아 뺀 공고
+    closed_count: int = 0  # 마감이 지나 뺀 공고

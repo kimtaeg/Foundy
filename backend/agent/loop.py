@@ -8,17 +8,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from rules.engine import (
     base_checklist, check_spec, derive_business_type, judge_building_use, load_pack, render_title,
 )
 
 from .advise import Counters, advise_item
+from .grants import grant_checklist_items, judge_grants
 from .guardrails import enforce
 from .judge import judge_ad_claims, judge_trademark
 from .llm import LLM
 from .ports import Calc, Emit, StoreInput, ToolResult, Tools
-from .schemas import ChecklistItem, Evidence, ReportItem
+from .schemas import ChecklistItem, Evidence, GrantsResult, ReportItem
 
 
 @dataclass
@@ -29,6 +31,7 @@ class AnalysisResult:
     summary: dict
     cost_krw: float = 0.0
     guardrail_changes: list[str] = field(default_factory=list)
+    grants: GrantsResult | None = None
 
 
 def _safe(source: str, fn, *args) -> ToolResult:
@@ -63,7 +66,7 @@ def _law_ev(res: ToolResult) -> list[Evidence]:
 
 def run_analysis(
     store: StoreInput, *, tools: Tools, calc: Calc, llm: LLM, pack: dict | None = None,
-    emit: Emit | None = None,
+    emit: Emit | None = None, include_grants: bool = False, today: date | None = None,
 ) -> AnalysisResult:
     pack = pack or load_pack("cafe_restaurant")
     emit = emit or (lambda event, data: None)
@@ -173,10 +176,24 @@ def run_analysis(
             items[idx] = item.model_copy(update={"added_to_checklist": [target.item_id]})
     step("checklist", "done", f"체크리스트 {len(checklist)}개 항목")
 
+    # 5. 정책 알림 (선택): 공고 자격 판정, 마감일을 체크리스트에 추가
+    grants_result: GrantsResult | None = None
+    if include_grants:
+        if not hasattr(tools, "grants"):
+            step("grants", "skipped", "지원사업 조회 도구가 없어요")
+        else:
+            step("grants", "running", "지원사업 조회 중")
+            g = _safe("지원사업", tools.grants, store)
+            grants_result = judge_grants(llm, store, g, today)
+            checklist += grant_checklist_items(grants_result, calc, store.opening_date, len(checklist) + 1, today)
+            step("grants", "failed" if not grants_result.ok else _status(g),
+                 f"지원사업 {len(grants_result.items)}건 (제외 {grants_result.excluded_count}건)"
+                 if grants_result.ok else "지원사업 조회 실패", source=g.source)
+
     summary = {k: sum(1 for i in items if i.verdict == k) for k in ("high", "low", "unknown", "ok")}
     for item in items:
         emit("item", {"check_id": item.check_id, "verdict": item.verdict, "decided_by": item.decided_by,
                       "title": item.title, "has_options": bool(item.options)})
     cost_krw = getattr(getattr(llm, "cost", None), "total_krw", 0.0)
     emit("done", {"summary": summary, "cost_krw": cost_krw})
-    return AnalysisResult(business_type, items, checklist, summary, cost_krw, changes)
+    return AnalysisResult(business_type, items, checklist, summary, cost_krw, changes, grants_result)

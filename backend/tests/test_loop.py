@@ -1,7 +1,12 @@
+from datetime import date
+
+from agent.grants import GrantExtraction
 from agent.llm import FakeLLM, LLMError
 from agent.loop import run_analysis
+from agent.ports import ToolResult
 from rules.engine import load_pack
 
+from .test_grants import AGE, grant
 from .fakes import (
     BUILDING_ADVICE, MAIN_SITE, SIMILAR, TM_ADVICE, TM_JUDGMENT, VIOLATION_ADVICE, FakeCalc, FakeTools,
     site_b, store,
@@ -129,3 +134,26 @@ def test_guardrail_forces_unknown_without_evidence():
     # 근거 없는 AI 판정이 새어 나가지 않는다: 건물 조회가 실패한 상태에서도 모든 항목이 유효한 값이다
     res, _ = run(tools=FakeTools(building_ok=False, trademark_ok=False))
     assert all(i.verdict == "unknown" or i.evidence for i in res.items)
+
+
+def test_grants_step_adds_checklist_items_and_result():
+    tools = FakeTools(similar=SIMILAR)
+    tools.grants = lambda s: ToolResult(ok=True, source="K-Startup", data={"grants": [grant()]})
+    fake = llm()
+    fake.responses["grants_extract"] = GrantExtraction(conditions=[AGE], who="w", how_much="h")
+    events = []
+    res = run_analysis(store(owner_birth_year=1998, sites=[]), tools=tools, calc=FakeCalc(), llm=fake, pack=PACK,
+                       emit=lambda e, d: events.append((e, d)), include_grants=True, today=date(2026, 11, 20))
+    assert res.grants.items[0].eligibility.result == "eligible"
+    assert res.checklist[-1].category == "정책" and res.checklist[-1].source == "grant"
+    assert [d["status"] for e, d in events if e == "step" and d["step"] == "grants"][-1] == "done"
+
+
+def test_grants_skipped_without_tool_and_off_by_default():
+    res, events = run()
+    assert res.grants is None and not any(d["step"] == "grants" for e, d in events if e == "step")
+    events2 = []
+    r2 = run_analysis(store(sites=[]), tools=FakeTools(), calc=FakeCalc(), llm=llm(), pack=PACK,
+                      emit=lambda e, d: events2.append((e, d)), include_grants=True)
+    assert [d["status"] for e, d in events2 if e == "step" and d["step"] == "grants"] == ["skipped"]
+    assert r2.grants is None
