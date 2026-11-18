@@ -43,3 +43,8 @@ def test_listing_result_and_cost_delta():
     other = {"deposit_krw": 34_000_000, "monthly_rent_krw": 2_800_000, "premium_krw": 10_000_000, "maintenance_krw": 200_000}
     assert costs.site_cost_delta(L, other) == {"initial_delta_krw": 4_000_000, "monthly_delta_krw": 300_000}
     assert costs.site_cost_delta(L, {"deposit_krw": 1}) is None
+
+
+def test_runway_ignores_non_numeric_funds():
+    for bad in ("많이", True, -1, [], {}):
+        assert costs.runway_months(bad, 1_000, 500) == {"available": False}

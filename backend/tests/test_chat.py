@@ -120,3 +120,12 @@ def test_focus_passed_only_when_it_exists():
 def test_llm_failure_returns_polite_fallback():
     r = chat(FakeLLM({"chat": LLMError("x")}), ctx(), "q")
     assert r.answer == FAILED and r.evidence == [] and r.actions == [] and r.note == NOTE
+
+
+def test_malformed_history_entries_are_ignored():
+    fake = llm(kind="chitchat", answer="네")
+    r = chat(fake, ctx(), "안녕", history=["bad", None, {"role": "user", "content": None}, {"role": "tool", "content": "x"},
+                                          {"role": "assistant", "content": "ok"}])
+    assert r.answer == "네"
+    sent = fake.calls[0]["user"].split("대화 기록: ")[1].split("\n")[0]
+    assert json.loads(sent) == [{"role": "user", "content": ""}, {"role": "assistant", "content": "ok"}]

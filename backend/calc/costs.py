@@ -48,7 +48,8 @@ def runway_months(funds_krw: int | None, initial: int | None, monthly: int | Non
 
     인테리어·장비·재료비·인건비는 들어 있지 않아 실제보다 낙관적인 값이다 (basis에 그대로 적는다).
     """
-    if funds_krw is None or initial is None or not monthly:
+    if (isinstance(funds_krw, bool) or not isinstance(funds_krw, (int, float)) or funds_krw < 0
+            or initial is None or not monthly):
         return {"available": False}
     left = funds_krw - initial
     return {"available": True, "value": round(max(left, 0) / monthly, 1), "short_of_initial": left < 0,

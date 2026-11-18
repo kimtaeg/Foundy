@@ -69,8 +69,8 @@ def _clip(text: str) -> str:
 
 
 def _history(history: list[dict]) -> list[dict]:
-    turns = [{"role": h.get("role"), "content": _clip(str(h.get("content", "")))}
-             for h in history if h.get("role") in ("user", "assistant")]
+    turns = [{"role": h["role"], "content": _clip(str(h.get("content") or ""))}
+             for h in history if isinstance(h, dict) and h.get("role") in ("user", "assistant")]
     return turns[-MAX_HISTORY_TURNS:]
 
 
