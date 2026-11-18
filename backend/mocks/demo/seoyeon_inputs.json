@@ -6,37 +6,166 @@
     "business_type_input": "카페",
     "address": "서울특별시 성동구 성수이로 00",
     "address_detail": "1층",
-    "address_codes": { "sigungu_cd": "11200", "bjdong_cd": "11500", "bun": "0000", "ji": "0000", "coord": { "lat": 37.54, "lng": 127.05 } },
+    "address_codes": {
+      "sigungu_cd": "11200",
+      "bjdong_cd": "11500",
+      "bun": "0000",
+      "ji": "0000",
+      "coord": {
+        "lat": 37.54,
+        "lng": 127.05
+      }
+    },
     "opening_date": "2027-03-02",
-    "answers": { "sells_alcohol": true, "uses_terrace": false, "has_employees": true, "funds_krw": 40000000 },
+    "answers": {
+      "sells_alcohol": true,
+      "uses_terrace": false,
+      "has_employees": true,
+      "funds_krw": 40000000
+    },
     "owner_birth_year": 1998,
     "sites": [
-      { "site_id": "st-01", "label": "A", "address": "서울특별시 성동구 성수이로 00", "floor_uses": ["제1종근린생활시설"], "is_main": true,
-        "listing": { "deposit_krw": 30000000, "monthly_rent_krw": 2500000, "maintenance_krw": 200000, "area_m2": 33 } },
-      { "site_id": "st-02", "label": "B", "address": "서울특별시 성동구 아차산로 00", "floor_uses": ["제2종근린생활시설"], "is_main": false,
-        "listing": { "deposit_krw": 34000000, "monthly_rent_krw": 2800000, "maintenance_krw": 200000, "area_m2": 33 } }
+      {
+        "site_id": "st-01",
+        "label": "A",
+        "address": "서울특별시 성동구 성수이로 00",
+        "floor_uses": [
+          "제1종근린생활시설"
+        ],
+        "is_main": true,
+        "listing": {
+          "deposit_krw": 30000000,
+          "monthly_rent_krw": 2500000,
+          "maintenance_krw": 200000,
+          "area_m2": 33
+        }
+      },
+      {
+        "site_id": "st-02",
+        "label": "B",
+        "address": "서울특별시 성동구 아차산로 00",
+        "floor_uses": [
+          "제2종근린생활시설"
+        ],
+        "is_main": false,
+        "listing": {
+          "deposit_krw": 34000000,
+          "monthly_rent_krw": 2800000,
+          "maintenance_krw": 200000,
+          "area_m2": 33
+        }
+      }
     ]
   },
   "tools": {
     "building": {
-      "ok": true, "source": "건축물대장 층별개요 (예시)", "from_mock": true, "fetched_at": "2026-11-20T14:03:00+09:00",
-      "data": { "floor_uses": ["제1종근린생활시설"], "violation": null }
+      "ok": true,
+      "source": "건축물대장 층별개요 (예시)",
+      "from_mock": true,
+      "fetched_at": "2026-11-20T14:03:00+09:00",
+      "data": {
+        "floor_uses": [
+          "제1종근린생활시설"
+        ],
+        "violation": null
+      }
     },
     "trademark": {
-      "ok": true, "source": "KIPRIS (예시)", "from_mock": true, "fetched_at": "2026-11-20T14:03:20+09:00",
-      "data": { "similar": [
-        { "reg_no": "4000000000001", "name": "모노 커피", "class_code": "43", "status": "등록", "url": "https://plus.kipris.or.kr/" },
-        { "reg_no": "4000000000002", "name": "MONO CAFE", "class_code": "43", "status": "등록", "url": "https://plus.kipris.or.kr/" }
-      ] }
+      "ok": true,
+      "source": "KIPRIS (예시)",
+      "from_mock": true,
+      "fetched_at": "2026-11-20T14:03:20+09:00",
+      "data": {
+        "similar": [
+          {
+            "reg_no": "4000000000001",
+            "name": "모노 커피",
+            "class_code": "43",
+            "status": "등록",
+            "url": "https://plus.kipris.or.kr/"
+          },
+          {
+            "reg_no": "4000000000002",
+            "name": "MONO CAFE",
+            "class_code": "43",
+            "status": "등록",
+            "url": "https://plus.kipris.or.kr/"
+          }
+        ]
+      }
     },
     "law": {
       "building_use": {
-        "ok": true, "source": "국가법령정보 (예시)", "from_mock": true, "fetched_at": "2026-11-20T14:03:40+09:00",
-        "data": { "articles": [ { "law_name": "건축법 시행령", "article": "별표 1", "url": "https://www.law.go.kr/법령/건축법시행령" } ] }
+        "ok": true,
+        "source": "국가법령정보 (예시)",
+        "from_mock": true,
+        "fetched_at": "2026-11-20T14:03:40+09:00",
+        "data": {
+          "articles": [
+            {
+              "law_name": "건축법 시행령",
+              "article": "별표 1",
+              "url": "https://www.law.go.kr/법령/건축법시행령"
+            }
+          ]
+        }
       },
       "alcohol_vs_type": {
-        "ok": true, "source": "국가법령정보 (예시)", "from_mock": true, "fetched_at": "2026-11-20T14:03:40+09:00",
-        "data": { "articles": [ { "law_name": "식품위생법 시행령", "article": "제21조", "url": "https://www.law.go.kr/법령/식품위생법시행령" } ] }
+        "ok": true,
+        "source": "국가법령정보 (예시)",
+        "from_mock": true,
+        "fetched_at": "2026-11-20T14:03:40+09:00",
+        "data": {
+          "articles": [
+            {
+              "law_name": "식품위생법 시행령",
+              "article": "제21조",
+              "url": "https://www.law.go.kr/법령/식품위생법시행령"
+            }
+          ]
+        }
+      }
+    },
+    "grants": {
+      "ok": true,
+      "source": "K-Startup (예시)",
+      "from_mock": true,
+      "fetched_at": "2026-11-20T14:04:00+09:00",
+      "data": {
+        "grants": [
+          {
+            "grant_id": "example-001",
+            "title": "2027 청년 창업 지원사업 (예시)",
+            "source": "K-Startup (예시)",
+            "url": "https://www.k-startup.go.kr/",
+            "deadline": "2027-01-31",
+            "text": "[예시 공고문] 2027 청년 창업 지원사업\n1. 신청 대상: 만 39세 이하의 예비창업자 또는 창업 3년 이내 기업의 대표자. 서울 소재 사업장을 두었거나 둘 예정인 자.\n2. 지원 내용: 사업화 자금 최대 1,000만 원 지원, 창업 멘토링 제공.\n3. 접수 기간: 2026-12-15 ~ 2027-01-31.\n4. 제출 서류: 사업계획서, 신분증 사본.\n5. 우대 사항: 여성 창업자는 가산점 부여."
+          },
+          {
+            "grant_id": "example-002",
+            "title": "서울 제조 소공인 스마트화 지원 (예시)",
+            "source": "기업마당 (예시)",
+            "url": "https://www.bizinfo.go.kr/",
+            "deadline": "2027-02-15",
+            "text": "[예시 공고문] 서울 제조 소공인 스마트화 지원\n신청 대상: 서울 소재 제조업을 영위하는 소공인. 제조업 외의 업종은 신청할 수 없음.\n지원 내용: 스마트 설비 도입비 최대 3,000만 원.\n접수 마감: 2027-02-15.\n제출 서류: 사업자등록증, 설비 견적서."
+          },
+          {
+            "grant_id": "example-003",
+            "title": "청년 외식업 창업 컨설팅 (예시)",
+            "source": "K-Startup (예시)",
+            "url": "https://www.k-startup.go.kr/",
+            "deadline": "2027-02-28",
+            "text": "[예시 공고문] 청년 외식업 창업 컨설팅\n신청 대상: 만 39세 이하 청년으로서 사업자등록을 마친 외식업 창업자.\n지원 내용: 메뉴 개발과 원가 관리 컨설팅 5회 무료 제공.\n접수 마감: 2027-02-28.\n제출 서류: 사업자등록증 사본, 신청서."
+          },
+          {
+            "grant_id": "example-004",
+            "title": "2026 청년 창업 아이디어 공모전 (예시)",
+            "source": "K-Startup (예시)",
+            "url": "https://www.k-startup.go.kr/",
+            "deadline": "2026-10-31",
+            "text": "[예시 공고문] 이미 마감된 공고입니다. 만 39세 이하 청년 대상. 접수 마감: 2026-10-31."
+          }
+        ]
       }
     }
   }

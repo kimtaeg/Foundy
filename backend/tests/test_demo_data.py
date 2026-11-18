@@ -98,3 +98,24 @@ def test_events_replayable(demo, items):
     assert [e["data"]["check_id"] for e in ev if e["event"] == "item"] == [i.check_id for i in items]
     assert demo["summary"] == {k: sum(1 for i in items if i.verdict == k) for k in ("high", "low", "unknown", "ok")}
     assert any(e["data"].get("status") == "fallback" for e in ev if e["event"] == "step")  # 예시 응답은 fallback 표시
+
+
+def test_grants_result(demo):
+    g = demo["grants"]
+    assert g["ok"] and g["excluded_count"] == 1 and g["closed_count"] == 1  # 제조업 공고 제외, 마감 공고 제외
+    by = {m["grant_id"]: m for m in g["items"]}
+    assert set(by) == {"example-001", "example-003"}
+    assert by["example-001"]["eligibility"]["result"] == "eligible"
+    assert by["example-003"]["eligibility"]["result"] == "partial"
+    for m in g["items"]:
+        assert m["eligibility"]["decided_by"] == "ai" and m["summary"]["by"] == "ai"
+        assert all(c["evidence"] and c["evidence"]["type"] == "notice" or c["result"] == "unknown"
+                   for c in m["eligibility"]["checks"])
+        assert all(c["result"] in ("pass", "unknown") for c in m["eligibility"]["checks"])
+
+
+def test_grant_deadlines_in_checklist(demo):
+    grant_items = [c for c in demo["checklist"] if c["source"] == "grant"]
+    assert {c["category"] for c in grant_items} == {"정책"} and len(grant_items) == 2
+    assert all(m["added_to_checklist"] for m in demo["grants"]["items"])
+    assert any(e["data"].get("step") == "grants" for e in demo["events"] if e["event"] == "step")

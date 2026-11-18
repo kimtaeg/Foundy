@@ -8,6 +8,8 @@ tools 반환값의 data 형태 (필수 키 기준):
                           "violation": True | False | None}           # None = 응답에 위반건축물 표기가 없음
 - trademark(name).data = {"similar": [{"reg_no", "name", "class_code", "status", "url"}, ...]}
 - law(check_id).data   = {"articles": [{"law_name", "article", "text", "url"}, ...]}  # 해당 점검 항목의 근거 조문
+- grants(store).data   = {"grants": [{"grant_id", "title", "source", "url", "deadline": "YYYY-MM-DD" | None,
+                                       "text": "공고문 본문(대상·조건·지원 내용·제출 서류 등)"}, ...]}
 조회에 실패하면 ok=False로 돌려준다 (예외를 던지지 않는다). 캐시·모의 응답이면 from_cache/from_mock을 켠다.
 """
 
@@ -61,10 +63,16 @@ class Tools(Protocol):
 
     def law(self, check_id: str) -> ToolResult: ...
 
+    def grants(self, store: StoreInput) -> ToolResult: ...  # 정책 알림에서만 쓴다
+
 
 class Calc(Protocol):
     def checklist_dates(self, opening_date: date, week: int) -> dict:
         """{"due_date": date, "dday": int, "group_label": "계약 전|개업 4주 전|개업 직전|개업 후"}"""
+        ...
+
+    def date_info(self, opening_date: date, due_date: date) -> dict:
+        """마감일처럼 날짜가 이미 정해진 항목용. checklist_dates와 같은 형태로 돌려준다."""
         ...
 
     def site_cost_delta(self, base_listing: dict, other_listing: dict) -> dict | None:

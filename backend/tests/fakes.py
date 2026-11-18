@@ -115,6 +115,18 @@ class JsonTools:
     def trademark(self, name):
         return ToolResult(**self.spec["trademark"])
 
+    def grants(self, store):
+        return ToolResult(**self.spec["grants"])
+
     def law(self, check_id):
         r = self.spec.get("law", {}).get(check_id)
         return ToolResult(**r) if r else ToolResult(ok=False, source="국가법령정보", error="mock 없음")
+
+
+def _date_info(self, opening_date, due_date):
+    dday = (due_date - opening_date).days
+    label = "계약 전" if dday <= -56 else "개업 4주 전" if dday <= -28 else "개업 직전" if dday < 0 else "개업 후"
+    return {"due_date": due_date, "dday": dday, "group_label": label}
+
+
+FakeCalc.date_info = _date_info
