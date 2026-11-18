@@ -40,6 +40,10 @@ class Site(BaseModel):
     floor_uses: list[str] = Field(default_factory=list)
     listing: dict | None = None  # deposit_krw, monthly_rent_krw, maintenance_krw, premium_krw, area_m2
     is_main: bool = False
+    # 반경 내 상권 지표. 없는 지표는 키를 빼거나 {"available": False}로 둔다 (숫자를 만들지 않는다)
+    # 예: {"same_type_count": 14, "open_close_trend": {"available": False}, "foot_traffic": {"available": False}}
+    area_metrics: dict | None = None
+    area_avg_rent_per_m2: int | None = None  # 지역 평균 ㎡당 임대료 (원천 확정 전에는 예시 값)
 
 
 class StoreInput(BaseModel):

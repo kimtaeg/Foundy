@@ -119,3 +119,18 @@ def test_grant_deadlines_in_checklist(demo):
     assert {c["category"] for c in grant_items} == {"정책"} and len(grant_items) == 2
     assert all(m["added_to_checklist"] for m in demo["grants"]["items"])
     assert any(e["data"].get("step") == "grants" for e in demo["events"] if e["event"] == "step")
+
+
+def test_site_compare(demo):
+    from agent.schemas import CompareResult
+
+    cmp = CompareResult(**demo["site_compare"])
+    a, b = cmp.sites
+    assert (a.site_id, b.site_id) == ("st-01", "st-02")
+    assert a.building_check["verdict"] == "high" and b.building_check["verdict"] == "ok"
+    assert a.listing_result.initial_cost_krw == 40_000_000 and b.listing_result.monthly_fixed_krw == 3_000_000
+    assert a.listing_result.runway_months["available"] and a.listing_result.vs_area_average["available"]
+    assert a.area_metrics["open_close_trend"] == {"available": False}  # 없는 지표는 지어내지 않는다
+    assert cmp.summary_by == "ai" and cmp.summary
+    for s in cmp.sites:
+        assert 1 <= len(s.listing_result.site_questions) <= 4
