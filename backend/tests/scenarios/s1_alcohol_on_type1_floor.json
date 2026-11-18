@@ -1,0 +1,91 @@
+{
+  "mvp": "S1",
+  "description": "휴게음식점 용도 층 + 주류 판매",
+  "store": {
+    "store_id": "s1",
+    "name": "모노커피",
+    "business_type_input": "카페",
+    "address": "서울 성동구 성수이로 00",
+    "address_detail": "1층",
+    "opening_date": "2027-03-02",
+    "answers": {
+      "sells_alcohol": true,
+      "has_employees": false
+    }
+  },
+  "tools": {
+    "uses": [
+      "제1종근린생활시설"
+    ],
+    "violation": false,
+    "similar": []
+  },
+  "llm": {
+    "advise_building_use": {
+      "consequence": "이대로 계약하면 영업신고가 반려돼 보증금이 묶일 수 있어요.",
+      "option_summaries": [
+        {
+          "option_id": "o-1",
+          "summary": "술 없이 카페로 시작해요."
+        }
+      ],
+      "recommended_option_id": "o-1",
+      "recommendation_reason": "지금 바로 진행할 수 있는 방법이에요.",
+      "drafts": [
+        {
+          "kind": "inquiry_message",
+          "title": "구청 건축과 문의 문자",
+          "body": "성수이로 00 1층 건물의 용도를 확인하고 싶어요."
+        },
+        {
+          "kind": "contract_clause",
+          "title": "임대차 특약 문구",
+          "body": "일반음식점 신고가 불가능하면 계약을 해지할 수 있다."
+        }
+      ],
+      "user_action_text": "구청에 문의 문자 보내기",
+      "user_action_type": "send",
+      "user_action_est_minutes": 1,
+      "user_action_draft_kind": "inquiry_message"
+    }
+  },
+  "expect": {
+    "business_type": "일반음식점",
+    "summary": {
+      "high": 1,
+      "low": 0,
+      "unknown": 0,
+      "ok": 3
+    },
+    "items": {
+      "building_use": {
+        "verdict": "high",
+        "decided_by": "rule",
+        "remedies": [
+          "change_business_type",
+          "request_use_change"
+        ],
+        "user_action": "send",
+        "prepared_kinds": [
+          "inquiry_message",
+          "contract_clause"
+        ]
+      },
+      "building_violation": {
+        "verdict": "ok"
+      },
+      "alcohol_vs_type": {
+        "verdict": "ok"
+      },
+      "trademark_similar": {
+        "verdict": "ok"
+      }
+    },
+    "absent": [
+      "ad_claims"
+    ],
+    "checklist_linked": {
+      "건물 확인·임대차 계약": "building_use"
+    }
+  }
+}
