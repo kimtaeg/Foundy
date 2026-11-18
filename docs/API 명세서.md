@@ -12,6 +12,7 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-17 | 최초 작성 |
+| 2026-11-18 (결과 카드) | 점검 리포트 항목을 **"결과물 + 결정 한 번"** 구조로 변경: `consequence`, `options[]`, `recommendation`, `prepared[]`, `user_action`, `chosen_option` 추가, `next_action` 제거. 선택지 적용 `POST /report/items/{id}/choose` 추가, SSE `advise` step 추가, 대시보드 `pending_decisions` 추가, 체크리스트 항목에 `prepared`(신고서류 초안) 추가, 챗봇 `choose_option` 액션 추가 |
 | 2026-11-18 | 아키텍처 문서(11-18)에 맞춰 전면 갱신: 일정표·신고를 **개업 체크리스트**(`/checklist`)로 통합, 항목별 질문(`/report/items/{id}/ask`)을 **내 가게 챗봇**(`/chat`)으로 확장, **입지·상권 지도와 매물 비교**(`/map`, `/sites`) 추가, **대출 안내 삭제**(`/loans`), **지원사업 자격 판정은 AI가 데이터에 근거해 판정**(`decided_by: ai`), 자격 값을 `eligible / partial / unknown`으로 통일(`ineligible` 삭제), 깨져 있던 화면-API 매핑표 복구 |
 
 ### 범위 표기
@@ -36,7 +37,8 @@
 | GET | `/api/runs/{run_id}/stream` | 진행 상황 SSE | 핵심 |
 | GET | `/api/runs/{run_id}` | 실행 상태 (SSE 대체 폴링) | 핵심 |
 | GET | `/api/stores/{store_id}/dashboard` | 내 가게 대시보드 | 핵심 |
-| GET | `/api/stores/{store_id}/report` | 점검 리포트 | 핵심 |
+| GET | `/api/stores/{store_id}/report` | 점검 리포트 (결과 카드: 선택지·추천·대신 만든 결과물) | 핵심 |
+| POST | `/api/stores/{store_id}/report/items/{item_id}/choose` | 리포트 항목의 선택지 적용 (추천대로 진행 등) | 핵심 |
 | GET | `/api/stores/{store_id}/checklist` | 개업 체크리스트 (시기별·카테고리별) | 핵심 |
 | PATCH | `/api/stores/{store_id}/checklist/{item_id}` | 체크리스트 완료 체크 | 핵심 |
 | GET | `/api/stores/{store_id}/alerts` | 알림 목록 | 핵심 |
@@ -110,6 +112,60 @@
 | `ok` | 문제 없음 | 통과 (항목은 숨기지 않고 접어서 표시) |
 
 - `decided_by`: `rule`(규칙 묶음) | `ai`(AI 판정). `decided_by: ai`인 항목은 `high`가 될 수 없다.
+
+### 결과 카드 객체 (점검 리포트 항목의 추가 필드)
+
+리포트 항목은 판정만 보여주지 않고 **"결과물 + 결정 한 번"** 형태로 내려간다. 에이전트가 조사·비교·작성까지 하고, 사용자 몫은 결정·서명·방문으로 줄인다.
+
+| 필드 | 설명 |
+| --- | --- |
+| `title` | 결론 한 줄. 법 용어 대신 결과 중심의 쉬운 말 ("이 자리에서는 술을 팔 수 없어요") |
+| `reason` | 이유를 한두 문장으로 |
+| `consequence` | 안 하면 생기는 일 (돈·시간 기준) |
+| `options[]` | 선택지. 각 선택지는 아래 Option 참고. 만들 수 없으면 빈 배열 |
+| `recommendation` | `{ option_id, reason }`. 추천 선택지 하나와 이유. 선택지가 없으면 `null` |
+| `prepared[]` | 에이전트가 대신 만들어 둔 결과물 (Prepared) |
+| `user_action` | 사용자가 할 일 **1개**와 소요 시간 (UserAction) |
+| `chosen_option` | 사용자가 고른 `option_id`. 아직이면 `null` |
+
+**Option**
+
+```json
+{
+  "option_id": "o-3",
+  "label": "후보 자리 B로 변경",
+  "summary": "B는 1층 제2종 근린생활시설이라 일반음식점 신고가 가능해요.",
+  "time": { "text": "즉시", "basis": "data" },
+  "cost": { "text": "월 고정비 +300,000원", "delta_krw": 4000000, "basis": "calc" },
+  "apply": { "type": "set_main_site", "payload": { "site_id": "st-02" }, "needs_reanalyze": true },
+  "site_id": "st-02"
+}
+```
+
+- `apply.type`: `update_store`(가게 정보·답변 수정) | `set_main_site`(기준 자리 변경) | `none`(기록만)
+- `time`, `cost`: **근거가 있을 때만 숫자를 쓴다.** `basis`는 `rule | calc | data | notice | null`이고, `null`이면 `text`를 "확인 필요"로 내리고 `delta_krw`는 `null`로 둔다. AI가 기간·금액을 추정해서 채우지 않는다.
+- 금액 차이(`delta_krw`)와 월 고정비 같은 숫자는 계산 도구가 계산한다. 선택지의 문장과 추천 이유만 AI가 쓴다.
+- 선택지의 종류는 규칙 묶음의 해당 점검 항목에 적힌 `remedies`(가능한 대응 유형) 범위 안에서만 만든다. 후보 자리 선택지(`site_id`)는 후보 자리가 있을 때만 나온다.
+- 후보 자리가 없는데 자리 변경이 맞는 대응이면 `"label": "후보 자리 추가해 비교하기"`, `apply.type: none`으로 내려주고 `/sites` 흐름으로 안내한다.
+
+**Prepared**
+
+```json
+{ "prepared_id": "p-01", "kind": "inquiry_message", "title": "구청 건축과 문의 문자", "body": "…", "editable": true }
+```
+
+- `kind`: `inquiry_message`(문의 문자·전화 스크립트) | `contract_clause`(임대차 특약 문구) | `document_draft`(신고서류 초안) | `link`(열람·신청 링크, `url` 사용)
+- 초안은 **가게 정보와 조회 데이터를 문장에 채워 넣는 것**으로 제한한다. 조회하지 않은 사실을 새로 쓰지 않고, 모르는 칸은 `[확인 필요]`로 비워 둔다.
+- 법률 효력이 있는 문서(특약 문구 등)에는 "참고용 초안입니다. 계약 전에 전문가 확인을 권장합니다" 문구를 `body` 끝에 붙인다.
+
+**UserAction**
+
+```json
+{ "type": "send", "text": "구청에 문의 문자 보내기", "est_minutes": 1, "prepared_id": "p-01" }
+```
+
+- `type`: `send`(보내기) | `sign`(서명·제출) | `visit`(방문) | `decide`(결정)
+- 정부24 제출, 서명, 구청 방문은 자동화할 수 없는 영역이다. 서비스는 이 단계 전까지를 대신하고 `user_action`에는 사용자가 직접 해야 하는 일 하나만 적는다.
 
 ### 지원사업 자격 판정 (Eligibility)
 
@@ -262,7 +318,7 @@ event: step
 data: {"step":"law","status":"fallback","message":"법령 API 응답 지연 → 저장된 조문 사용"}
 
 event: item
-data: {"check_id":"alcohol_vs_type","verdict":"ok","decided_by":"rule","title":"일반음식점으로 신고하면 주류 판매 가능"}
+data: {"check_id":"building_use","verdict":"high","decided_by":"rule","title":"이 자리에서는 술을 팔 수 없어요","has_options":true}
 
 event: done
 data: {"run_id":"a91d...","summary":{"high":1,"low":3,"unknown":1,"ok":7},"cost_krw":0}
@@ -279,6 +335,7 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 | `law` | 조문 조회 |
 | `rules` | 규칙 묶음 판정 (업종 구분, 건물 용도) |
 | `interpret` | AI 판정·요약 (해당 신고·인허가, 위험) |
+| `advise` | 선택지·추천·문의 문자·서류 초안 생성 (판정이 `ok`가 아닌 항목) |
 | `checklist` | 개업일 역산 체크리스트 생성 (계산 도구) |
 | `grants` | 지원사업 조회·AI 자격 판정 |
 | `location` | 입지 데이터 |
@@ -304,8 +361,11 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
   "store": { "store_id": "8f2c...", "name": "모노커피", "business_type": "일반음식점", "opening_date": "2027-03-02", "d_day": -102 },
   "last_run": { "run_id": "a91d...", "finished_at": "2026-11-20T14:05:00+09:00" },
   "report_summary": { "high": 1, "low": 3, "unknown": 1, "ok": 7 },
+  "pending_decisions": [
+    { "item_id": "r-01", "title": "이 자리에서는 술을 팔 수 없어요", "verdict": "high", "recommended_option": "후보 자리 B로 변경" }
+  ],
   "today_todos": [
-    { "item_id": "c-01", "task": "임대차 계약 전 구청 건축과에 용도 확인", "due_date": "2027-01-05", "category": "건물·시설" }
+    { "item_id": "c-01", "task": "구청에 문의 문자 보내기", "due_date": "2027-01-05", "category": "건물·시설", "est_minutes": 1, "prepared_id": "p-01" }
   ],
   "checklist_progress": { "done": 2, "total": 9 },
   "alerts": { "unread": 2, "latest": [ { "title": "청년 창업 지원사업 새 공고", "type": "grant_new", "is_example": false } ] },
@@ -322,6 +382,8 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 
 - `menus` 값: `ready | not_requested | example | unavailable`. `example`은 화면에 "예시 데이터" 배지를 붙인다.
 - `d_day`는 개업일까지 남은 일수를 음수로 표현한다 (개업일 당일 0).
+- `pending_decisions`: 선택지가 있는데 아직 `chosen_option`이 없는 리포트 항목. 대시보드 첫 화면에서 "결정할 것"으로 보여주고 카드를 열면 `[추천대로 진행]`을 바로 누를 수 있다.
+- `today_todos`는 사용자가 직접 해야 하는 일(`user_action`)을 보여준다. "~를 확인하세요" 대신 "구청에 문의 문자 보내기 (1분)"처럼 구체적인 행동과 소요 시간, 대신 만든 결과물(`prepared_id`)을 함께 둔다.
 
 ---
 
@@ -343,26 +405,85 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
       "items": [
         {
           "item_id": "r-01",
-          "check_id": "building_violation",
-          "title": "위반건축물 여부 확인 필요",
-          "verdict": "unknown",
+          "check_id": "building_use",
+          "title": "이 자리에서는 술을 팔 수 없어요",
+          "verdict": "high",
           "decided_by": "rule",
-          "reason": "건축물대장 응답에 위반건축물 표기 정보가 없습니다.",
-          "next_action": "정부24에서 건축물대장을 열람해 '위반건축물' 표기를 확인하거나 구청 건축과에 문의하세요.",
-          "evidence": [ { "type": "data", "source": "건축물대장 표제부", "value": "...", "fetched_at": "..." } ],
+          "reason": "술을 팔려면 일반음식점으로 신고해야 하는데, 이 건물 1층은 휴게음식점(카페)까지만 가능한 제1종 근린생활시설이에요.",
+          "consequence": "이대로 계약하면 영업신고가 반려돼 보증금이 묶일 수 있어요.",
+          "options": [
+            {
+              "option_id": "o-1", "label": "술 빼고 카페로 시작", "summary": "휴게음식점으로 신고합니다. 바로 가능해요.",
+              "time": { "text": "즉시", "basis": "rule" },
+              "cost": { "text": "추가 비용 없음", "delta_krw": 0, "basis": "rule" },
+              "apply": { "type": "update_store", "payload": { "answers": { "sells_alcohol": false } }, "needs_reanalyze": true },
+              "site_id": null
+            },
+            {
+              "option_id": "o-2", "label": "용도변경 신청", "summary": "구청 승인과 건물주 동의가 필요해요.",
+              "time": { "text": "확인 필요", "basis": null },
+              "cost": { "text": "확인 필요", "delta_krw": null, "basis": null },
+              "apply": { "type": "none" },
+              "site_id": null
+            },
+            {
+              "option_id": "o-3", "label": "후보 자리 B로 변경", "summary": "B는 1층 제2종 근린생활시설이라 일반음식점 신고가 가능해요.",
+              "time": { "text": "즉시", "basis": "data" },
+              "cost": { "text": "월 고정비 +300,000원, 초기 비용 +4,000,000원", "delta_krw": 4000000, "basis": "calc" },
+              "apply": { "type": "set_main_site", "payload": { "site_id": "st-02" }, "needs_reanalyze": true },
+              "site_id": "st-02"
+            }
+          ],
+          "recommendation": { "option_id": "o-3", "reason": "①은 주류 매출을 포기해야 하고, ②는 개업일(3/2) 안에 끝난다는 보장이 없어요." },
+          "prepared": [
+            { "prepared_id": "p-01", "kind": "inquiry_message", "title": "구청 건축과 문의 문자", "body": "성동구 성수이로 00 1층 건물의 용도가 일반음식점 영업에 적합한지 확인하고 싶습니다…", "editable": true },
+            { "prepared_id": "p-02", "kind": "contract_clause", "title": "임대차 특약 문구", "body": "임차 목적물이 일반음식점 영업신고가 불가능한 경우 임차인은 계약을 해지할 수 있고, 임대인은 보증금을 전액 반환한다.", "editable": true },
+            { "prepared_id": "p-03", "kind": "link", "title": "건축물대장 열람", "url": "https://www.gov.kr/..." }
+          ],
+          "user_action": { "type": "send", "text": "구청에 문의 문자 보내기", "est_minutes": 1, "prepared_id": "p-01" },
+          "evidence": [ { "type": "data", "source": "건축물대장 층별개요", "value": "1층 제1종근린생활시설", "fetched_at": "..." }, { "type": "law", "law_name": "건축법 시행령", "article": "별표 1", "url": "https://www.law.go.kr/..." } ],
+          "chosen_option": null,
           "added_to_checklist": ["c-01"]
         },
         {
           "item_id": "r-02",
           "check_id": "trademark_similar",
-          "title": "'모노커피'와 유사한 등록 상표가 있습니다",
+          "title": "'모노커피'와 비슷한 상표가 이미 등록돼 있어요",
           "verdict": "low",
           "decided_by": "ai",
-          "reason": "같은 서비스 분류에 발음이 비슷한 등록 상표 2건이 있습니다.",
-          "next_action": "변리사 상담 또는 이름 변경을 검토하세요.",
-          "alternatives": ["○○", "△△"],
+          "reason": "같은 서비스 분류에 발음이 비슷한 등록 상표 2건이 있어요.",
+          "consequence": "간판을 달고 난 뒤 상표권자가 문제 삼으면 간판과 메뉴판을 바꿔야 할 수 있어요.",
+          "options": [
+            { "option_id": "o-1", "label": "이름 바꾸기", "summary": "겹치지 않는 후보: ○○, △△", "time": { "text": "즉시", "basis": "rule" }, "cost": { "text": "간판 제작 전이면 추가 비용 없음", "delta_krw": 0, "basis": "rule" }, "apply": { "type": "update_store", "payload": { "name": "○○" }, "needs_reanalyze": true }, "site_id": null },
+            { "option_id": "o-2", "label": "그대로 진행", "summary": "위험을 알고 진행합니다.", "time": { "text": "즉시", "basis": "rule" }, "cost": { "text": "확인 필요", "delta_krw": null, "basis": null }, "apply": { "type": "none" }, "site_id": null }
+          ],
+          "recommendation": { "option_id": "o-1", "reason": "간판을 만들기 전이라 지금 바꾸는 비용이 가장 낮아요." },
+          "prepared": [
+            { "prepared_id": "p-04", "kind": "link", "title": "KIPRIS 유사 상표 2건 보기", "url": "https://..." }
+          ],
+          "user_action": { "type": "decide", "text": "이름을 바꿀지 정하기", "est_minutes": 3, "prepared_id": null },
           "evidence": [ { "type": "data", "source": "KIPRIS", "value": "등록 4000000000000 '모노 커피' (제43류)", "url": "...", "fetched_at": "..." } ],
+          "chosen_option": null,
           "added_to_checklist": []
+        },
+        {
+          "item_id": "r-03",
+          "check_id": "building_violation",
+          "title": "위반건축물인지 확인할 수 없어요",
+          "verdict": "unknown",
+          "decided_by": "rule",
+          "reason": "건축물대장 응답에 위반건축물 표기 정보가 없어요.",
+          "consequence": "위반건축물이면 영업신고가 반려될 수 있어요.",
+          "options": [],
+          "recommendation": null,
+          "prepared": [
+            { "prepared_id": "p-05", "kind": "inquiry_message", "title": "구청 건축과 문의 문자 (위반건축물 여부)", "body": "…", "editable": true },
+            { "prepared_id": "p-06", "kind": "link", "title": "정부24 건축물대장 열람", "url": "https://www.gov.kr/..." }
+          ],
+          "user_action": { "type": "send", "text": "구청에 문의 문자 보내기", "est_minutes": 1, "prepared_id": "p-05" },
+          "evidence": [ { "type": "data", "source": "건축물대장 표제부", "value": "위반건축물 표기 없음(필드 미제공)", "fetched_at": "..." } ],
+          "chosen_option": null,
+          "added_to_checklist": ["c-01"]
         }
       ]
     },
@@ -375,6 +496,35 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 
 - 항목에 대한 추가 질문("이 항목은 왜 이런가요?")은 챗봇 `/chat`의 `focus`로 한다 (11장).
 - `added_to_checklist`: 이 항목에서 파생돼 체크리스트에 추가된 `item_id` 목록 (`checklist_items.report_item_id`).
+- **결과 카드 구조**: `verdict`가 `ok`가 아닌 항목은 결론(`title`) → 이유(`reason`) → 안 하면 생기는 일(`consequence`) → 선택지(`options`) → 추천(`recommendation`) → 대신 만든 결과물(`prepared`) → 사용자가 할 일 1개(`user_action`) 순으로 화면에 보여준다. 법 조문과 근거(`evidence`)는 "자세히 보기"로 접어 둔다. 필드 정의는 2장 "결과 카드 객체" 참고.
+- `title`은 법 용어 대신 **결과 중심의 쉬운 말**로 쓴다. `verdict: ok` 항목은 `title`과 `reason`만 있으면 된다.
+- 선택지를 만들 수 없으면(`options: []`) 문의 문자 같은 `prepared`와 `user_action`만 내려준다.
+
+### `POST /api/stores/{store_id}/report/items/{item_id}/choose` — 선택지 적용
+
+요청
+
+```json
+{ "option_id": "o-3" }
+```
+
+응답 `200`
+
+```json
+{
+  "item_id": "r-01",
+  "chosen_option": "o-3",
+  "applied": [ { "type": "set_main_site", "site_id": "st-02" } ],
+  "recomputed": ["checklist"],
+  "needs_reanalyze": true,
+  "run_id": "b72e..."
+}
+```
+
+- 사용자가 `[추천대로 진행]` 또는 다른 선택지를 눌렀을 때 호출한다. 서버가 `apply`에 적힌 변경(가게 정보 수정, 기준 자리 변경 등)을 반영한다.
+- `needs_reanalyze: true`이면 서버가 곧바로 재분석 실행을 시작하고 `run_id`를 돌려준다 (`runs.trigger = user`). 프론트는 진행 화면으로 이동한다.
+- `apply.type`이 `none`인 선택지는 `chosen_option`만 기록한다.
+- 이미 선택한 항목을 다시 호출하면 선택을 바꾼다 (이전 선택으로 생긴 변경은 재분석으로 다시 계산된다).
 
 ---
 
@@ -420,6 +570,7 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
           "due_date": "2027-02-02",
           "documents": ["영업신고서", "위생교육 이수증", "건강진단결과서", "임대차계약서 사본"],
           "agency": "관할 구청 위생과",
+          "prepared": [ { "prepared_id": "p-10", "kind": "document_draft", "title": "영업신고서 초안 (가게 정보로 채움)", "body": "…", "editable": true } ],
           "source": "rule",
           "report_item_id": null,
           "evidence": [ { "type": "law", "law_name": "식품위생법", "article": "제37조", "url": "..." } ],
@@ -459,6 +610,7 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 - 날짜(`due_date`, `dday`)는 규칙 묶음의 `week` 값과 개업일로 **계산 도구**가 계산한다. AI는 날짜를 직접 계산하지 않는다.
 - 조건에 맞지 않는 카테고리(예: 직원 없음 → 고용)는 `hidden_categories`로 내려주고 프론트는 숨긴다.
 - 필요 서류·담당 기관은 규칙 묶음에 적힌 값이며 근거 링크를 함께 둔다.
+- 서류가 필요한 항목에는 `prepared`로 **가게 정보를 채운 신고서류 초안**(`kind: document_draft`)을 함께 내려준다. 채우지 못하는 칸은 `[확인 필요]`로 둔다. 제출은 사용자가 직접 한다 (`user_action.type: sign`).
 - 지원사업 마감일은 `source: grant`로 자동 추가된다.
 
 ### `PATCH /api/stores/{store_id}/checklist/{item_id}`
@@ -513,7 +665,8 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 - 조건 변경(개업일, 직원 유무 등)은 `actions`로 **제안만** 하고, 사용자가 확인하면 프론트가 `PATCH /stores/{store_id}`로 반영한다.
   - 개업일 변경: 응답의 `recomputed: ["checklist"]`로 체크리스트 날짜만 재계산
   - 답변·주소·업종 변경: `needs_reanalyze: true`이면 프론트가 `POST /analyze`를 호출하고 `runs.trigger`는 `chat`으로 기록된다.
-- `actions[].type`: `update_store` | `check_item` | `navigate`
+- `actions[].type`: `update_store` | `check_item` | `navigate` | `choose_option`
+- `choose_option`: 대화 중 "그럼 B 자리로 할게요"처럼 리포트 항목의 선택지를 고르려는 경우. `payload`는 `{ "item_id": "r-01", "option_id": "o-3" }`이고, 사용자가 확인하면 프론트가 `POST /report/items/{item_id}/choose`를 호출한다.
 
 ---
 
@@ -748,7 +901,7 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 | 가게 등록 `/new` | `POST /stores`, `POST /stores/{id}/answers` | 핵심 |
 | 조사 중 `/stores/{id}/run/{runId}` | `POST /stores/{id}/analyze`, `GET /runs/{runId}/stream`, `GET /runs/{runId}` | 핵심 |
 | 내 가게 `/stores/{id}` | `GET /stores/{id}/dashboard`, `PATCH /stores/{id}`, `GET /alerts`, `PATCH /alerts/{alertId}` | 핵심 |
-| 점검 리포트 `/stores/{id}/report` | `GET /report` | 핵심 |
+| 점검 리포트 `/stores/{id}/report` | `GET /report`, `POST /report/items/{itemId}/choose` | 핵심 |
 | 개업 체크리스트 `/stores/{id}/checklist` | `GET /checklist`, `PATCH /checklist/{itemId}` | 핵심 |
 | 내 가게 챗봇 (모든 화면의 패널) | `POST /chat`, 제안 확인 시 `PATCH /stores/{id}` | 시간되면 |
 | 입지·상권 지도 `/stores/{id}/map` | `GET /map`, `POST /sites`, `PATCH /sites/{siteId}`, `DELETE /sites/{siteId}`, `POST /sites/compare`, `GET /market` | 시간되면 (`/market`은 예시) |
