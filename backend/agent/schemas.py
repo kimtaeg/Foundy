@@ -132,3 +132,19 @@ class Question(BaseModel):
     type: Literal["boolean", "number", "text"]
     why: str
     optional: bool = False
+
+
+class ChatAction(BaseModel):
+    """챗봇이 제안하는 동작. 사용자가 확인해야 프론트가 해당 API를 호출한다 (API 명세서 8장)."""
+
+    type: Literal["update_store", "choose_option", "check_item", "navigate"]
+    label: str
+    payload: dict = Field(default_factory=dict)
+    requires_confirm: bool = True
+
+
+class ChatReply(BaseModel):
+    answer: str
+    evidence: list[Evidence] = Field(default_factory=list)
+    actions: list[ChatAction] = Field(default_factory=list)
+    note: str = ""
