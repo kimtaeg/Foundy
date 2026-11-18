@@ -4,3 +4,6 @@ httpx
 pyyaml
 python-dotenv
 pytest
+openai
+pydantic
+google-genai
