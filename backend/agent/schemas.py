@@ -188,3 +188,26 @@ class GrantsResult(BaseModel):
     items: list[GrantMatch] = Field(default_factory=list)
     excluded_count: int = 0  # 조건이 명확히 맞지 않아 뺀 공고
     closed_count: int = 0  # 마감이 지나 뺀 공고
+
+
+class ListingResult(BaseModel):
+    initial_cost_krw: int | None = None
+    monthly_fixed_krw: int | None = None
+    rent_per_m2_krw: int | None = None
+    vs_area_average: dict = Field(default_factory=lambda: {"available": False})
+    runway_months: dict = Field(default_factory=lambda: {"available": False})
+    site_questions: list[str] = Field(default_factory=list)
+
+
+class SiteCompareItem(BaseModel):
+    site_id: str
+    label: str
+    building_check: dict = Field(default_factory=dict)  # {"verdict": ok|high|unknown, "summary": ...}
+    area_metrics: dict | None = None
+    listing_result: ListingResult
+
+
+class CompareResult(BaseModel):
+    sites: list[SiteCompareItem]
+    summary: str
+    summary_by: Literal["ai", "rule"] = "ai"  # AI 요약이 숫자 검증을 통과하지 못하면 규칙 요약

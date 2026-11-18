@@ -11,6 +11,7 @@
 import json
 import os
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -22,6 +23,7 @@ load_dotenv(ROOT / ".env")
 
 from agent.cost import CostTracker  # noqa: E402
 from agent.llm import make_llm  # noqa: E402
+from agent.location import compare_sites  # noqa: E402
 from agent.loop import run_analysis  # noqa: E402
 from agent.ports import StoreInput  # noqa: E402
 from agent.questions import select_questions  # noqa: E402
@@ -63,9 +65,13 @@ def main() -> None:
             incomplete.append(f"example-001(기대 eligible, 실제 {g.get('example-001')})")
         if "example-003" not in g or "example-002" in g or res.grants.excluded_count != 1:
             incomplete.append("지원사업 예시(003 포함, 002 제외 기대)")
+        cmp = compare_sites(llm, store, store.sites, pack, res.business_type)
+        if cmp.summary_by != "ai":
+            incomplete.append("후보 자리 비교 요약(AI 요약이 숫자 검증을 통과하지 못함)")
         if not incomplete:
             break
         print(f"시도 {attempt}: 결과 카드가 비었거나 기대와 다른 항목 {incomplete} → 다시 시도")
+        time.sleep(30)  # 무료 티어의 분당 호출 한도(429)를 피한다
     else:
         sys.exit(f"결과 카드를 모두 채우지 못했어요: {incomplete}")
     out = {
@@ -84,6 +90,7 @@ def main() -> None:
         "report_items": [i.model_dump(mode="json") for i in res.items],
         "checklist": [c.model_dump(mode="json") for c in res.checklist],
         "grants": res.grants.model_dump(mode="json") if res.grants else None,
+        "site_compare": cmp.model_dump(mode="json"),
         "guardrail_changes": res.guardrail_changes,
     }
     path = DEMO / "seoyeon.json"

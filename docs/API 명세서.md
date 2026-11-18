@@ -753,12 +753,14 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
     {
       "site_id": "st-01",
       "label": "A",
+      "building_check": { "verdict": "high", "summary": "일반음식점은(는) 제2종근린생활시설에서만 가능한데, 이 건물은 제1종근린생활시설이에요." },
+      "area_metrics": { "same_type_count": 14, "open_close_trend": { "available": false }, "foot_traffic": { "available": false } },
       "listing_result": {
-        "initial_cost_krw": 43000000,
+        "initial_cost_krw": 40000000,
         "monthly_fixed_krw": 2700000,
-        "rent_per_m2_krw": 75757,
-        "vs_area_average": { "available": false },
-        "runway_months": { "value": 14.8, "basis": "준비 자금 40,000,000원 기준", "available": true },
+        "rent_per_m2_krw": 75758,
+        "vs_area_average": { "available": true, "area_average_per_m2_krw": 70000, "diff_pct": 8 },
+        "runway_months": { "available": true, "value": 14.8, "short_of_initial": false, "basis": "준비 자금 100,000,000원에서 보증금·권리금 40,000,000원을 뺀 돈을 월 고정비로 나눈 값 (인테리어·운영비 제외)" },
         "site_questions": [
           "권리금 10,000,000원에 포함된 시설·집기 목록을 받을 수 있나요?",
           "전 임차인이 이 자리에서 장사를 접은 이유가 무엇인가요?"
@@ -771,6 +773,10 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 }
 ```
 
+- `building_check`는 규칙 묶음이 자리의 건축물대장 용도로 신고 업종 가능 여부를 판정한 것이다 (`ok | high | unknown`).
+- `summary_by`: `ai` | `rule`. AI 요약에 **제공된 계산·상권 값에 없는 숫자**가 들어 있으면 서버가 그 요약을 버리고 규칙으로 만든 요약(`rule`)을 내려준다. AI가 못 쓰는 경우(LLM 실패)도 마찬가지다.
+- `site_questions`는 자리마다 최대 4개다. AI가 못 만들면 관리비·권리금·이전 임차인·건물 점검 결과에 따른 기본 질문이 나간다.
+- `runway_months`는 인테리어·장비·재료비·인건비가 빠진 **낙관적인 값**이다. 준비 자금이 초기 비용(보증금+권리금)보다 적으면 `value`는 0이고 `short_of_initial`이 `true`다.
 - `initial_cost_krw`, `monthly_fixed_krw`, `rent_per_m2_krw`, `runway_months`는 **계산 도구**가 입력값으로 계산한다. AI는 숫자를 만들지 않고 요약과 현장 질문만 생성한다.
 - `runway_months`는 `funds_krw` 답변이 있을 때만 계산한다. 없으면 `available: false`.
 - `vs_area_average`는 지역 평균 임대료 원천이 [예시]인 동안 `{"is_example": true, ...}` 또는 `available: false`로 내려간다.
