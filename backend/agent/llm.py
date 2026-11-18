@@ -131,6 +131,45 @@ class GeminiLLM:
         raise LLMError(f"LLM 호출 실패 (step={step}): {last}") from last
 
 
+class GuardedLLM:
+    """분석 1회 안에서 LLM이 계속 실패하면 남은 호출을 건너뛰는 보호막 (시연 중 먹통 방지).
+
+    - 연속으로 max_failures번 실패하면 이후 호출은 기다리지 않고 바로 LLMError를 낸다 (한도 초과·서비스 장애 때 수 분씩 기다리지 않게).
+    - 첫 호출부터 time_budget_sec가 지나도 같다.
+    - LLMError를 받은 쪽은 이미 'AI 없이' 처리하도록 되어 있어서, 결과는 줄어들지만 분석은 끝난다.
+    """
+
+    def __init__(self, inner, max_failures: int = 3, time_budget_sec: float = 150.0, clock=time.monotonic):
+        self.inner, self.max_failures, self.time_budget_sec, self.clock = inner, max_failures, time_budget_sec, clock
+        self.consecutive = 0
+        self.failures = 0  # 누적 실패 수 (화면에 'AI 없이 처리' 표시용)
+        self.started: float | None = None
+
+    @property
+    def cost(self):
+        return getattr(self.inner, "cost", None)
+
+    @property
+    def tripped(self) -> bool:
+        return self.consecutive >= self.max_failures or (
+            self.started is not None and self.clock() - self.started > self.time_budget_sec)
+
+    def parse(self, *, step: str, tier: Tier, system: str, user: str, schema: type[T]) -> T:
+        if self.started is None:
+            self.started = self.clock()
+        if self.tripped:
+            self.failures += 1
+            raise LLMError(f"LLM 호출 중단 (step={step}): 연속 실패 또는 시간 초과")
+        try:
+            out = self.inner.parse(step=step, tier=tier, system=system, user=user, schema=schema)
+        except LLMError:
+            self.consecutive += 1
+            self.failures += 1
+            raise
+        self.consecutive = 0
+        return out
+
+
 def make_llm(cost: CostTracker | None = None) -> LLM:
     """LLM_PROVIDER 환경변수로 제공자를 고른다 (기본 gemini)."""
     provider = os.getenv("LLM_PROVIDER", "gemini").strip().lower()

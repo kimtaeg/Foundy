@@ -157,3 +157,22 @@ def test_grants_skipped_without_tool_and_off_by_default():
                       emit=lambda e, d: events2.append((e, d)), include_grants=True)
     assert [d["status"] for e, d in events2 if e == "step" and d["step"] == "grants"] == ["skipped"]
     assert r2.grants is None
+
+
+def test_llm_outage_stops_calling_after_three_failures_and_marks_fallback():
+    from agent.llm import LLMError as _E
+
+    down = FakeLLM({k: _E("down") for k in ("judge_trademark", "advise_building_use", "advise_building_violation",
+                                           "advise_trademark_similar")})
+    res, events = run(llm_=down)
+    assert len(down.calls) == 3  # 세 번 실패한 뒤에는 나머지 AI 호출을 하지 않는다
+    assert res.items and res.checklist  # 분석은 끝까지 진행
+    status = {d["step"]: d["status"] for e, d in events if e == "step" and d["status"] != "running"}
+    assert status["interpret"] == "fallback" and status["advise"] == "fallback"
+    assert events[-1][0] == "done"
+
+
+def test_healthy_llm_keeps_done_status():
+    _, events = run()
+    status = {d["step"]: d["status"] for e, d in events if e == "step" and d["status"] != "running"}
+    assert status["interpret"] == "done" and status["advise"] == "done"

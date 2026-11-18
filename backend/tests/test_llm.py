@@ -155,3 +155,65 @@ def test_gemini_thinking_level_from_env(monkeypatch):
     client = FakeGenaiClient([_gresp(parsed=Q)])
     GeminiLLM(client=client).parse(step="s", tier="fast", system="", user="", schema=Question)
     assert client.configs[0][2].thinking_config is None
+
+
+# ---- GuardedLLM: 연속 실패·시간 초과 시 남은 호출 건너뛰기 ----
+from agent.llm import GuardedLLM
+
+
+class CountingLLM:
+    def __init__(self, outcomes):
+        self.outcomes, self.calls = list(outcomes), 0
+
+    def parse(self, **kw):
+        self.calls += 1
+        o = self.outcomes.pop(0) if self.outcomes else LLMError("x")
+        if isinstance(o, Exception):
+            raise o
+        return o
+
+
+def _call(g):
+    return g.parse(step="s", tier="fast", system="", user="", schema=Question)
+
+
+def test_guard_trips_after_consecutive_failures_and_stops_calling():
+    inner = CountingLLM([LLMError("1"), LLMError("2"), LLMError("3")])
+    g = GuardedLLM(inner, max_failures=3)
+    for _ in range(3):
+        with pytest.raises(LLMError):
+            _call(g)
+    assert g.tripped
+    for _ in range(5):
+        with pytest.raises(LLMError, match="중단"):
+            _call(g)
+    assert inner.calls == 3 and g.failures == 8  # 중단된 호출도 AI 없이 처리된 것으로 센다
+
+
+def test_guard_resets_on_success():
+    inner = CountingLLM([LLMError("1"), LLMError("2"), Q, LLMError("3"), LLMError("4"), Q])
+    g = GuardedLLM(inner, max_failures=3)
+    results = []
+    for _ in range(6):
+        try:
+            results.append(_call(g))
+        except LLMError:
+            results.append(None)
+    assert results == [None, None, Q, None, None, Q] and not g.tripped
+
+
+def test_guard_time_budget():
+    now = [0.0]
+    inner = CountingLLM([Q, Q, Q])
+    g = GuardedLLM(inner, time_budget_sec=100, clock=lambda: now[0])
+    assert _call(g) == Q
+    now[0] = 101.0
+    with pytest.raises(LLMError, match="중단"):
+        _call(g)
+    assert inner.calls == 1
+
+
+def test_guard_passes_cost_through():
+    inner = CountingLLM([Q])
+    inner.cost = CostTracker()
+    assert GuardedLLM(inner).cost is inner.cost

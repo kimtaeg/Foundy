@@ -18,7 +18,7 @@ from .advise import Counters, advise_item
 from .grants import grant_checklist_items, judge_grants
 from .guardrails import enforce
 from .judge import judge_ad_claims, judge_trademark
-from .llm import LLM
+from .llm import LLM, GuardedLLM
 from .ports import Calc, Emit, StoreInput, ToolResult, Tools
 from .schemas import ChecklistItem, Evidence, GrantsResult, ReportItem
 
@@ -64,12 +64,20 @@ def _law_ev(res: ToolResult) -> list[Evidence]:
     ]
 
 
+def _ai_status(guarded: GuardedLLM, before: int, done_msg: str) -> tuple[str, str]:
+    """AI 호출이 실패해 일부를 AI 없이 처리했으면 fallback으로 알린다."""
+    if guarded.failures > before:
+        return "fallback", "AI 응답이 불안정해 일부를 AI 없이 처리했어요"
+    return "done", done_msg
+
+
 def run_analysis(
     store: StoreInput, *, tools: Tools, calc: Calc, llm: LLM, pack: dict | None = None,
     emit: Emit | None = None, include_grants: bool = False, today: date | None = None,
 ) -> AnalysisResult:
     pack = pack or load_pack("cafe_restaurant")
     emit = emit or (lambda event, data: None)
+    llm = guarded = GuardedLLM(llm)  # 연속 실패·시간 초과 시 남은 LLM 호출을 건너뛴다
     business_type = derive_business_type(pack, store.answers)
     counters = Counters()
 
@@ -135,6 +143,7 @@ def run_analysis(
     step("rules", "done", "규칙 판정 완료")
 
     step("interpret", "running", "AI 판정 중")
+    before = guarded.failures
     for spec in pack["checks"]:
         if spec["id"] == "trademark_similar":
             drafts.append(judge_trademark(llm, store, t, spec, new_id()))
@@ -142,10 +151,11 @@ def run_analysis(
             item = judge_ad_claims(llm, store, spec, new_id())
             if item:
                 drafts.append((item, {}))
-    step("interpret", "done", "AI 판정 완료")
+    step("interpret", *_ai_status(guarded, before, "AI 판정 완료"))
 
     # 3. 결과 카드 (선택지·추천·대신 만든 결과물)
     step("advise", "running", "해결 방안 만드는 중")
+    before = guarded.failures
     items: list[ReportItem] = []
     changes: list[str] = []
     for item, extras in drafts:
@@ -155,7 +165,7 @@ def run_analysis(
         item, c = enforce(item, allowed_remedies=spec.get("remedies"))
         changes += [f"{item.item_id}: {x}" for x in c]
         items.append(item)
-    step("advise", "done", "해결 방안 준비 완료")
+    step("advise", *_ai_status(guarded, before, "해결 방안 준비 완료"))
 
     # 4. 개업 체크리스트 (날짜는 계산 도구)
     step("checklist", "running", "개업 체크리스트 만드는 중")
@@ -183,10 +193,12 @@ def run_analysis(
             step("grants", "skipped", "지원사업 조회 도구가 없어요")
         else:
             step("grants", "running", "지원사업 조회 중")
+            before = guarded.failures
             g = _safe("지원사업", tools.grants, store)
             grants_result = judge_grants(llm, store, g, today)
             checklist += grant_checklist_items(grants_result, calc, store.opening_date, len(checklist) + 1, today)
-            step("grants", "failed" if not grants_result.ok else _status(g),
+            ai_failed = guarded.failures > before
+            step("grants", "failed" if not grants_result.ok else ("fallback" if ai_failed else _status(g)),
                  f"지원사업 {len(grants_result.items)}건 (제외 {grants_result.excluded_count}건)"
                  if grants_result.ok else "지원사업 조회 실패", source=g.source)
 
