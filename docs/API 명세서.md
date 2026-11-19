@@ -12,6 +12,8 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-17 | 최초 작성 |
+| 2026-11-19 (프로토타입 반영) | **로그인·계정**(소셜 로그인, 사용자별 가게 소유), **마이페이지**(`PATCH /stores`가 영향 `impacts[]`·초기화된 카드 `reset_items[]`를 돌려줌, 변경 기록 `/changes`), **다음으로 할 일**(`next_steps[]`), 알림 유형 확장과 `as_of`(시점 이동 시연), AI 상담 응답 `kind`·`contacts[]`·통화 준비, **상권 분석**으로 재편(`/map`·`/market`, 후보 자리 `/sites` 전부 제거), 점검 카드 선택지 `set_main_site` 제거(`adds_checklist` 추가), 지원사업 보기·필터, 화면–API 매핑 갱신 |
+| 2026-11-19 (실행 단계·자동 체크) | 결과 카드에 **실행 단계** `action_status`와 `POST /report/items/{id}/action` 추가, 점검 카드를 완료하면 연결된 체크리스트 항목을 자동 완료(`auto_checked`). 지원사업 항목에 `poster` 추가. 상권 분석은 **입지를 정한 사용자**의 주소 기준으로 한정(`/map`의 주변 업소는 카카오 CE7·FD6, 후보 자리 직접 입력 제거). 입지를 정하지 않은 사용자는 대상이 아니다 |
 | 2026-11-18 (결과 카드) | 점검 리포트 항목을 **"결과물 + 결정 한 번"** 구조로 변경: `consequence`, `options[]`, `recommendation`, `prepared[]`, `user_action`, `chosen_option` 추가, `next_action` 제거. 선택지 적용 `POST /report/items/{id}/choose` 추가, SSE `advise` step 추가, 대시보드 `pending_decisions` 추가, 체크리스트 항목에 `prepared`(신고서류 초안) 추가, 챗봇 `choose_option` 액션 추가 |
 | 2026-11-18 | 아키텍처 문서(11-18)에 맞춰 전면 갱신: 일정표·신고를 **개업 체크리스트**(`/checklist`)로 통합, 항목별 질문(`/report/items/{id}/ask`)을 **내 가게 챗봇**(`/chat`)으로 확장, **입지·상권 지도와 매물 비교**(`/map`, `/sites`) 추가, **대출 안내 삭제**(`/loans`), **지원사업 자격 판정은 AI가 데이터에 근거해 판정**(`decided_by: ai`), 자격 값을 `eligible / partial / unknown`으로 통일(`ineligible` 삭제), 깨져 있던 화면-API 매핑표 복구 |
 
@@ -29,30 +31,33 @@
 
 | 메서드 | 경로 | 설명 | 범위 |
 | --- | --- | --- | --- |
-| POST | `/api/stores` | 가게 등록 + 되묻기 질문 | 핵심 |
+| POST | `/api/auth/social` | 소셜 로그인(카카오·Google·네이버) → 세션 토큰 | 핵심 |
+| POST | `/api/auth/logout` | 로그아웃 | 핵심 |
+| GET | `/api/me` | 내 계정과 내 가게(`store_id`, 없으면 `null` → 첫 설정) | 핵심 |
+| PATCH | `/api/me` | 계정 이름 수정 | 핵심 |
+| POST | `/api/stores` | 가게 등록(첫 설정) + 되묻기 질문. 계정당 1개 | 핵심 |
 | POST | `/api/stores/{store_id}/answers` | 되묻기 답변 | 핵심 |
 | GET | `/api/stores/{store_id}` | 가게 정보 | 핵심 |
-| PATCH | `/api/stores/{store_id}` | 가게 정보 수정 (개업일 변경 시 체크리스트 날짜 재계산) | 핵심 |
+| PATCH | `/api/stores/{store_id}` | 마이페이지 가게 정보 수정 (영향 분석·영향받는 카드 초기화·재반영) | 핵심 |
+| GET | `/api/stores/{store_id}/changes` | 최근 변경 반영 기록 | 핵심 |
 | POST | `/api/stores/{store_id}/analyze` | 분석 실행 | 핵심 |
 | GET | `/api/runs/{run_id}/stream` | 진행 상황 SSE | 핵심 |
 | GET | `/api/runs/{run_id}` | 실행 상태 (SSE 대체 폴링) | 핵심 |
-| GET | `/api/stores/{store_id}/dashboard` | 내 가게 대시보드 | 핵심 |
-| GET | `/api/stores/{store_id}/report` | 점검 리포트 (결과 카드: 선택지·추천·대신 만든 결과물) | 핵심 |
+| GET | `/api/stores/{store_id}/dashboard` | 내 가게 대시보드 (결정할 것·직접 할 일·다음 할 일) | 핵심 |
+| GET | `/api/stores/{store_id}/report` | 점검 리포트 (결과 카드: 선택지·추천·대신 만든 결과물·기관 전화번호) | 핵심 |
 | POST | `/api/stores/{store_id}/report/items/{item_id}/choose` | 리포트 항목의 선택지 적용 (추천대로 진행 등) | 핵심 |
-| GET | `/api/stores/{store_id}/checklist` | 개업 체크리스트 (시기별·카테고리별) | 핵심 |
+| POST | `/api/stores/{store_id}/report/items/{item_id}/action` | 사용자가 할 일의 진행 상태 기록 (`sent`, `done`, 결과 메모) → 다음 할 일·체크리스트 자동 체크 | 핵심 |
+| GET | `/api/stores/{store_id}/checklist` | 개업 체크리스트 (시기별·카테고리별, 달력은 프론트가 같은 응답으로 그림) | 핵심 |
 | PATCH | `/api/stores/{store_id}/checklist/{item_id}` | 체크리스트 완료 체크 | 핵심 |
-| GET | `/api/stores/{store_id}/alerts` | 알림 목록 | 핵심 |
+| GET | `/api/stores/{store_id}/alerts` | 알림 목록 (유형 탭, 액션, `as_of` 시점 이동) | 핵심 |
 | PATCH | `/api/stores/{store_id}/alerts/{alert_id}` | 알림 읽음 처리 | 핵심 |
-| POST | `/api/demo` | 예시로 해보기 (이서연 씨 사례) | 핵심 |
+| POST | `/api/demo` | 예시로 해보기 / 예시 계정 (이서연 씨 사례) | 핵심 |
 | GET | `/api/health` | 헬스체크 | 핵심 |
-| POST | `/api/stores/{store_id}/chat` | 내 가게 챗봇 | 시간되면 |
-| GET | `/api/stores/{store_id}/grants` | 정책 알림 (지원사업 자격 판정) | 시간되면 |
-| GET | `/api/stores/{store_id}/map` | 입지·상권 지도 (후보 자리, 주변 동종 가게) | 시간되면 |
-| POST | `/api/stores/{store_id}/sites` | 후보 자리 추가 | 시간되면 |
-| PATCH | `/api/stores/{store_id}/sites/{site_id}` | 후보 자리 수정 (매물 정보 입력, 기준 자리 지정) | 시간되면 |
-| DELETE | `/api/stores/{store_id}/sites/{site_id}` | 후보 자리 삭제 | 시간되면 |
-| POST | `/api/stores/{store_id}/sites/compare` | 매물 비교 (비용 합산, 평균 대비, 현장 질문) | 시간되면 |
-| GET | `/api/stores/{store_id}/market` | 상권 분석의 메뉴·가격대, 지역 평균 임대료 | 예시 |
+| POST | `/api/stores/{store_id}/chat` | AI 상담 (근거 기반 답변, 확인 후 적용 제안, 통화 준비) | 시간되면 |
+| GET | `/api/stores/{store_id}/chat/suggestions` | 상황별 추천 질문 | 시간되면 |
+| GET | `/api/stores/{store_id}/grants` | 지원사업 (자격 판정, 포스터, 필터) | 시간되면 |
+| GET | `/api/stores/{store_id}/map` | 상권 분석: 지도 마커·상권 요약·경쟁 강도 | 시간되면 |
+| GET | `/api/stores/{store_id}/market` | 상권 분석: 가격대 분포·평균 임대료 | 예시 |
 | POST | `/api/stores/{store_id}/refresh` | 다시 조회 → 바뀐 것만 알림 | 시간되면 |
 | POST | `/internal/refresh` | 예약 재조회 (토큰 보호) | 로드맵 |
 
@@ -62,7 +67,7 @@
 
 - Base URL: `{NEXT_PUBLIC_API_BASE_URL}/api`
 - 형식: JSON, UTF-8. 날짜는 `YYYY-MM-DD`, 시각은 ISO 8601(+09:00)
-- 인증: 없음 (예선 프로토타입). 가게는 `store_id`(UUID)로 식별한다. `/internal/*`만 `Authorization: Bearer {INTERNAL_TOKEN}`
+- 인증: **로그인 필요**. 로그인 후 받은 토큰을 `Authorization: Bearer {ACCESS_TOKEN}`으로 보낸다 (`/auth/*`, `/health`, `/demo` 제외). 가게는 `store_id`(UUID)로 식별하고 **한 계정이 가게 한 개**를 가진다. 다른 계정의 `store_id`는 `403`이다. `/internal/*`만 `Authorization: Bearer {INTERNAL_TOKEN}`
 - 성공 응답: 리소스 JSON을 그대로 반환
 - 에러 응답:
 
@@ -73,11 +78,29 @@
 | HTTP | code | 상황 |
 | --- | --- | --- |
 | 400 | `INVALID_INPUT` | 필수값 누락, 날짜 형식 오류 |
-| 404 | `STORE_NOT_FOUND`, `RUN_NOT_FOUND`, `SITE_NOT_FOUND`, `ITEM_NOT_FOUND` |  |
+| 401 | `UNAUTHORIZED` | 로그인 토큰이 없거나 만료됨 |
+| 403 | `FORBIDDEN` | 다른 계정의 가게에 접근함 |
+| 404 | `STORE_NOT_FOUND`, `RUN_NOT_FOUND`, `ITEM_NOT_FOUND` |  |
 | 409 | `RUN_IN_PROGRESS` | 같은 가게의 분석이 이미 실행 중 |
+| 409 | `STORE_EXISTS` | 이미 가게를 등록한 계정이 다시 등록함 (수정은 `PATCH`) |
 | 422 | `ADDRESS_NOT_RESOLVED` | 주소를 코드로 바꾸지 못함 |
 | 429 | `RATE_LIMITED` | 외부 API 한도 초과 (가능하면 캐시·mock으로 대체하고 에러를 내지 않음) |
 | 500 | `INTERNAL_ERROR` |  |
+
+### 인증과 계정 [핵심]
+
+예선 프로토타입은 **소셜 로그인 화면**(카카오·Google·네이버 버튼)으로 계정을 만든다. 실제 서비스에서는 백엔드가 소셜 로그인(OAuth)의 인가 코드를 교환해 사용자를 식별하고 **자체 세션 토큰(JWT)**을 발급하며, 사용자는 PostgreSQL `users`에 저장한다. 백엔드는 토큰의 `user_id`로 가게 소유를 확인한다. 비밀번호는 서비스가 직접 받지 않는다.
+
+`POST /api/auth/social` 요청: `{ "provider": "kakao", "code": "…" }` (OAuth 인가 코드). 응답 `200`
+
+```json
+{ "access_token": "…", "user": { "user_id": "u-01", "name": "김창업", "provider": "kakao", "joined_at": "2026-11-19" }, "store_id": null }
+```
+
+- `store_id`가 `null`이면 프론트는 **첫 설정**(가게 등록)으로 보내고, 값이 있으면 내 가게 홈으로 보낸다.
+- `GET /api/me`는 같은 `user`와 `store_id`를 돌려준다. `PATCH /api/me`는 `{ "name": "…" }`만 받고 점검 결과에는 영향이 없다.
+- 계정마다 가게·점검 결과·체크리스트·알림·상담 기록이 따로 저장된다. 계정을 바꾸면 완전히 다른 가게가 나온다.
+- 시연용 **예시 계정**(이서연)은 `POST /api/demo`로 들어간다 (13장).
 
 ## 2. 공통 객체
 
@@ -127,47 +150,68 @@
 | `prepared[]` | 에이전트가 대신 만들어 둔 결과물 (Prepared) |
 | `user_action` | 사용자가 할 일 **1개**와 소요 시간 (UserAction) |
 | `chosen_option` | 사용자가 고른 `option_id`. 아직이면 `null` |
+| `action_status` | `user_action`의 진행 상태: `pending`(아직) \| `sent`(보냄·제출함, 결과 대기) \| `done`(완료). 기본 `pending` |
+| `action_reply` | 사용자가 남긴 결과 메모. 선택이고 없으면 `null` |
+| `resolved_title` | 선택지를 적용해 재분석한 뒤 판정이 바뀐 경우의 결론 한 줄. 판정이 그대로면 `null` |
+| `verdict_before` | 선택 적용 전 판정. 선택 전이거나 판정이 안 바뀌면 `null` |
+| `applied_changes[]` | 선택을 적용했을 때 바뀐 내용 문장 목록 (가게 정보 before→after, 체크리스트 추가·변경, 판정 변화). 선택 전이면 빈 배열 |
+
+화면은 이 항목을 **결정 → 실행 → 완료** 3단계로 보여준다. 선택지가 없는 항목은 결정 단계가 이미 끝난 것으로 보고 실행부터 시작한다.
 
 **Option**
 
 ```json
 {
   "option_id": "o-3",
-  "label": "후보 자리 B로 변경",
-  "summary": "B는 1층 제2종 근린생활시설이라 일반음식점 신고가 가능해요.",
-  "time": { "text": "즉시", "basis": "data" },
-  "cost": { "text": "월 고정비 +300,000원", "delta_krw": 4000000, "basis": "calc" },
-  "apply": { "type": "set_main_site", "payload": { "site_id": "st-02" }, "needs_reanalyze": true },
-  "site_id": "st-02",
-  "remedy": "change_site"
+  "label": "다른 자리를 알아보기",
+  "summary": "계약 전이라면 용도가 맞는 다른 자리에서 시작할 수 있어요. 새 주소를 정하면 정보 수정에서 바꿔 점검을 다시 돌려요.",
+  "time": { "text": "확인 필요", "basis": null },
+  "cost": { "text": "확인 필요", "delta_krw": null, "basis": null },
+  "apply": { "type": "none", "adds_checklist": ["x-0"] },
+  "remedy": "find_other_site"
 }
 ```
 
 - `remedy`: 이 선택지가 규칙 묶음의 어떤 대응 유형(`remedies`)인지. 서버가 허용된 유형만 남기는 검증에 쓰고, 화면에는 보여주지 않는다.
-- `apply.type`: `update_store`(가게 정보·답변 수정) | `set_main_site`(기준 자리 변경) | `none`(기록만)
+- `apply.type`: `update_store`(가게 정보·답변 수정) | `none`(기록만). 기준 자리를 바꾸는 유형(`set_main_site`)과 후보 자리(`site_id`)는 없다. 이 서비스는 이미 정한 자리 하나를 기준으로 한다.
+- `apply.adds_checklist`: 이 선택지를 고르면 체크리스트에 추가되는 항목 id 목록. 선택을 되돌리면 다시 빠진다.
 - `time`, `cost`: **근거가 있을 때만 숫자를 쓴다.** `basis`는 `rule | calc | data | notice | null`이고, `null`이면 `text`를 "확인 필요"로 내리고 `delta_krw`는 `null`로 둔다. AI가 기간·금액을 추정해서 채우지 않는다.
-- 금액 차이(`delta_krw`)와 월 고정비 같은 숫자는 계산 도구가 계산한다. 선택지의 문장과 추천 이유만 AI가 쓴다.
-- 선택지의 종류는 규칙 묶음의 해당 점검 항목에 적힌 `remedies`(가능한 대응 유형) 범위 안에서만 만든다. 후보 자리 선택지(`site_id`)는 후보 자리가 있을 때만 나온다.
-- 후보 자리가 없는데 자리 변경이 맞는 대응이면 `"label": "후보 자리 추가해 비교하기"`, `apply.type: none`으로 내려주고 `/sites` 흐름으로 안내한다.
+- 금액 차이(`delta_krw`) 같은 숫자는 계산 도구가 계산한다. 선택지의 문장과 추천 이유만 AI가 쓴다.
+- 선택지의 종류는 규칙 묶음의 해당 점검 항목에 적힌 `remedies`(가능한 대응 유형) 범위 안에서만 만든다.
 
 **Prepared**
 
 ```json
-{ "prepared_id": "p-01", "kind": "inquiry_message", "title": "구청 건축과 문의 문자", "body": "…", "editable": true }
+{ "prepared_id": "p-01", "kind": "inquiry_message", "title": "구청 건축과 문의 문구 (전화·민원용)", "body": "…", "editable": true,
+  "contact": { "agency": "성동구청 건축과", "phone": "02-2286-5114", "tip": "대표번호로 걸어 건축과로 연결 요청", "source": "rule", "verified": false } }
 ```
 
-- `kind`: `inquiry_message`(문의 문자·전화 스크립트) | `contract_clause`(임대차 특약 문구) | `document_draft`(신고서류 초안) | `link`(열람·신청 링크, `url` 사용)
+- `kind`: `inquiry_message`(전화·민원 접수용 문의 문구. 웹에서는 문자 앱을 열 수 없어서 복사해 쓴다) | `contract_clause`(임대차 특약 문구) | `document_draft`(신고서류 초안) | `link`(열람·신청 링크, `url` 사용)
+- `inquiry_message`에는 문의할 기관의 `contact`(`agency`, `phone`, `tip`, `verified`)를 함께 내려준다. 전화번호는 AI가 만들지 않고 규칙 묶음·관할 기관 데이터(관할 구청은 주소의 시군구 기준)에서만 가져오며, 확인하지 못한 번호는 `phone: null`로 두고 화면에서 "확인 필요"로 표시한다. `verified: false`이면 "예시 번호·걸기 전 확인" 배지를 붙인다. 개업 체크리스트의 `agency`에도 같은 방식으로 전화번호를 붙일 수 있다.
 - 초안은 **가게 정보와 조회 데이터를 문장에 채워 넣는 것**으로 제한한다. 조회하지 않은 사실을 새로 쓰지 않고, 모르는 칸은 `[확인 필요]`로 비워 둔다.
 - 법률 효력이 있는 문서(특약 문구 등)에는 "참고용 초안입니다. 계약 전에 전문가 확인을 권장합니다" 문구를 `body` 끝에 붙인다.
 
 **UserAction**
 
 ```json
-{ "type": "send", "text": "구청에 문의 문자 보내기", "est_minutes": 1, "prepared_id": "p-01" }
+{ "type": "send", "text": "구청 건축과에 전화로 문의하기", "est_minutes": 3, "prepared_id": "p-01" }
 ```
 
-- `type`: `send`(보내기) | `sign`(서명·제출) | `visit`(방문) | `decide`(결정)
+- `type`: `send`(문의하기: 전화·민원 접수) | `sign`(서명·제출) | `visit`(방문) | `decide`(결정)
 - 정부24 제출, 서명, 구청 방문은 자동화할 수 없는 영역이다. 서비스는 이 단계 전까지를 대신하고 `user_action`에는 사용자가 직접 해야 하는 일 하나만 적는다.
+- 선택한 선택지에 따라 `user_action`이 달라질 수 있다 (선택지별 `user_action`을 둘 수 있고, 없으면 카드의 기본 `user_action`을 쓴다).
+
+**NextStep (다음으로 할 일)**
+
+```json
+{ "kind": "new", "title": "용도가 맞는 다른 후보 자리 알아보기", "sub": "이 선택으로 새로 생긴 할 일 · 예정 01.05", "go": { "page": "checklist", "item_id": "x-0" } }
+```
+
+- `kind`: `new`(이번 선택으로 새로 생긴 할 일) | `decide`(아직 결정하지 않은 카드) | `do`(다른 카드의 직접 할 일) | `task`(가장 가까운 체크리스트). 이 순서로 정렬해 **최대 5개**를 내려준다.
+- 정렬과 선택은 **코드가 한다** (AI 아님). 결정은 `verdict: high`인 카드가 먼저이고, 직접 할 일은 `action_status: pending`인 카드만, 체크리스트는 아직 완료하지 않은 항목 중 `due_date`가 빠른 2개다. `task`의 `sub`에는 담당 기관 전화번호(`contact`)를 붙일 수 있다.
+- 비어 있으면 "점검 리포트의 모든 항목을 마쳤어요. 체크리스트로 이어가세요"를 보여준다.
+- 같은 내용이 알림(`type: next`)으로 남는다 (12장).
+
 
 ### 지원사업 자격 판정 (Eligibility)
 
@@ -182,9 +226,9 @@
 
 ---
 
-## 3. 가게 등록과 되묻기 [핵심]
+## 3. 가게 등록(첫 설정)과 마이페이지 [핵심]
 
-### `POST /api/stores` — 가게 등록
+### `POST /api/stores` — 가게 등록 (로그인 후 첫 설정)
 
 요청
 
@@ -195,11 +239,15 @@
   "address": "서울특별시 성동구 성수이로 00",
   "address_detail": "1층",
   "opening_date": "2027-03-02",
-  "owner_birth_year": 1998
+  "owner_birth_year": 1998,
+  "menu_text": "디톡스에 좋은 케일 주스"
 }
 ```
 
 - `owner_birth_year`는 선택. 정책 자격 판정에만 쓴다.
+- `menu_text`는 선택. 효능 표현 점검(`ad_claims`)에 쓴다.
+- 로그인한 계정이 가게를 아직 갖고 있지 않을 때만 호출할 수 있다 (이미 있으면 `409 STORE_EXISTS`). 가입 직후 첫 설정 화면에서 호출한다.
+- `address`는 필수다. 이 서비스는 **어디에서 사업을 할지 이미 정한 사용자**를 대상으로 하고, 이 주소를 기준으로 점검 리포트와 상권 분석을 한다. 주소를 바꾸려면 `PATCH /stores/{store_id}`를 쓴다 (`needs_reanalyze: true`).
 
 응답 `201`
 
@@ -216,7 +264,7 @@
     { "id": "sells_alcohol", "text": "술도 판매하시나요?", "type": "boolean", "why": "술을 팔면 신고 업종이 휴게음식점에서 일반음식점으로 바뀝니다." },
     { "id": "uses_terrace", "text": "테라스나 가게 앞 공간을 쓰시나요?", "type": "boolean", "why": "옥외 영업은 별도 확인이 필요합니다." },
     { "id": "has_employees", "text": "직원을 고용하시나요?", "type": "boolean", "why": "직원이 있으면 근로계약·4대보험 일정이 생깁니다." },
-    { "id": "funds_krw", "text": "준비된 자금은 얼마인가요?", "type": "number", "optional": true, "why": "지원사업 안내와 매물 비교의 버틸 수 있는 기간 계산에 씁니다." }
+    { "id": "funds_krw", "text": "준비된 자금은 얼마인가요?", "type": "number", "optional": true, "why": "지원사업 안내에 씁니다." }
   ]
 }
 ```
@@ -260,24 +308,65 @@
   "opening_date": "2027-03-02",
   "answers": { "sells_alcohol": true, "uses_terrace": false, "has_employees": true, "funds_krw": 40000000 },
   "owner_birth_year": 1998,
+  "menu_text": "디톡스에 좋은 케일 주스",
   "region": "서울 성동구",
   "is_demo": false
 }
 ```
 
-### `PATCH /api/stores/{store_id}` — 가게 정보 수정
+### `PATCH /api/stores/{store_id}` — 마이페이지: 가게 정보 수정
 
-요청 (바꿀 필드만)
+마이페이지에서 사업 정보를 바꾸면 **영향받는 점검만 다시 반영**한다. 요청은 바꾼 필드만 보낸다.
 
 ```json
-{ "opening_date": "2027-04-01" }
+{ "address": "서울특별시 성동구 성수이로 99", "opening_date": "2027-04-01", "answers": { "sells_alcohol": false } }
 ```
 
-응답 `200`: 수정된 가게 + `"recomputed": ["checklist"]`
+수정할 수 있는 필드: `name`, `business_type_input`, `address`, `address_detail`, `opening_date`, `menu_text`, `owner_birth_year`, `answers.sells_alcohol`, `answers.uses_terrace`, `answers.has_employees`, `answers.funds_krw`.
 
-- 개업일 변경은 외부 API를 다시 부르지 않고 **계산 도구**로 체크리스트 날짜만 재계산한다.
-- 주소·업종·답변 변경은 `"needs_reanalyze": true`를 반환한다.
+응답 `200`
+
+```json
+{
+  "store_id": "8f2c...",
+  "changed": [ { "field": "address", "from": "…성수이로 12", "to": "…성수이로 99" } ],
+  "impacts": ["building", "law", "checklist", "market"],
+  "reset_items": [ { "item_id": "r-01", "title": "건물 용도·주류", "chosen_label": "다른 자리를 알아보기" } ],
+  "recomputed": ["checklist"],
+  "needs_reanalyze": true,
+  "run_id": "b72e..."
+}
+```
+
+**영향 규칙** (코드가 정하며 AI가 판단하지 않는다)
+
+| 바꾼 필드 | `impacts` | 다시 하는 일 |
+| --- | --- | --- |
+| `opening_date` | `dates` | 체크리스트 날짜만 계산 도구로 재계산 (외부 조회 없음) |
+| `name` | `trademark` | 상표 검색(KIPRIS) |
+| `address`, `address_detail` | `building`, `law`, `checklist`, `market` | 건축물대장·조문 조회, 체크리스트 재구성, 상권 분석 |
+| `business_type_input`, `answers.sells_alcohol` | `building`, `law`, `checklist`, (`market`) | 업종 구분·건물 용도·신고 항목 |
+| `answers.uses_terrace` | `law`, `checklist` | 옥외영업 관련 점검 |
+| `answers.has_employees` | `checklist` | 고용 카테고리 표시 여부 |
+| `menu_text` | `ad` | 광고 문구 점검(AI) |
+| `owner_birth_year` | `grants` | 지원사업 자격 판정 |
+| `answers.funds_krw` | `costs` | 비용·지원사업 계산 |
+| `answers.my_americano_krw` | (없음) | 저장만 (상권 분석의 가격 포지셔닝 입력값) |
+
+- **영향받는 점검 카드의 선택은 초기화한다.** 예를 들어 주소가 바뀌면 건물 용도 카드(`r-01`)와 위반건축물 카드(`r-03`)의 `chosen_option`·`action_status`가 지워지고 다시 결정 대기가 된다. 지워진 카드는 `reset_items[]`로 알려 주고, 프론트는 **저장 전에** 이 목록을 미리 보여 준다 (미리보기는 같은 규칙으로 프론트가 계산하거나 `?dry_run=true`로 호출한다).
+- 카드가 초기화되면 그 카드로 생긴 체크리스트 항목(`adds_checklist`)과 자동 체크(`auto_checked`)도 함께 풀린다. 사용자가 직접 체크한 항목은 그대로 둔다.
+- 개업일만 바뀌면 `needs_reanalyze`는 `false`이고 `recomputed: ["checklist"]`만 돌려준다.
+- `needs_reanalyze: true`이면 서버가 영향받는 단계만 담아 재분석을 시작하고 `run_id`를 돌려준다 (`runs.trigger = user`, 진행은 4장의 SSE). 마이페이지는 "다시 반영 중" 진행 창으로 보여 준다.
 - 챗봇이 제안한 조건 변경도 사용자가 확인한 뒤 이 엔드포인트로 반영한다 (`/chat`의 `actions` 참고).
+- 변경 내용은 `GET /api/stores/{store_id}/changes`에 남는다.
+
+### `GET /api/stores/{store_id}/changes` — 최근 변경 반영 기록
+
+```json
+{ "items": [ { "change_id": "ch-01", "at": "2026-11-19", "lines": ["주소: …성수이로 12 → …성수이로 99", "건물 용도·주류 카드 선택 초기화 (다시 결정 대기)"] } ] }
+```
+
+- 최근 10건. 같은 내용이 알림(`type: change`)으로도 남는다 (12장).
 
 ---
 
@@ -288,10 +377,10 @@
 요청
 
 ```json
-{ "scope": ["building", "law", "trademark", "checklist", "grants", "location"] }
+{ "scope": ["building", "law", "trademark", "checklist", "grants", "market"] }
 ```
 
-- `scope` 생략 시 핵심 전체(`building`, `law`, `trademark`, `checklist`). `grants`, `location`은 구현 여부에 따라 무시될 수 있다.
+- `scope` 생략 시 핵심 전체(`building`, `law`, `trademark`, `checklist`). `grants`, `market`은 구현 여부에 따라 무시될 수 있다. 마이페이지 수정으로 시작한 재분석은 `impacts`에 해당하는 단계만 `scope`로 담는다.
 
 응답 `202`
 
@@ -337,10 +426,10 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 | `law` | 조문 조회 |
 | `rules` | 규칙 묶음 판정 (업종 구분, 건물 용도) |
 | `interpret` | AI 판정·요약 (해당 신고·인허가, 위험) |
-| `advise` | 선택지·추천·문의 문자·서류 초안 생성 (판정이 `ok`가 아닌 항목) |
+| `advise` | 선택지·추천·문의 문구·서류 초안 생성 (판정이 `ok`가 아닌 항목) |
 | `checklist` | 개업일 역산 체크리스트 생성 (계산 도구) |
 | `grants` | 지원사업 조회·AI 자격 판정 |
-| `location` | 입지 데이터 |
+| `market` | 상권 분석 데이터 (주변 동종 업소 조회) |
 - `status`: `running | done | fallback | skipped | failed`. `fallback`은 캐시·mock으로 대체했다는 뜻이고 화면에 표시한다.
 - 스트림이 끊기면 `GET /api/runs/{run_id}`로 상태와 `events`를 폴링한다.
 
@@ -364,18 +453,19 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
   "last_run": { "run_id": "a91d...", "finished_at": "2026-11-20T14:05:00+09:00" },
   "report_summary": { "high": 1, "low": 3, "unknown": 1, "ok": 7 },
   "pending_decisions": [
-    { "item_id": "r-01", "title": "이 자리에서는 술을 팔 수 없어요", "verdict": "high", "recommended_option": "후보 자리 B로 변경" }
+    { "item_id": "r-01", "title": "이 자리에서는 술을 팔 수 없어요", "verdict": "high", "recommended_option": "다른 자리를 알아보기" }
   ],
   "today_todos": [
-    { "item_id": "c-01", "task": "구청에 문의 문자 보내기", "due_date": "2027-01-05", "category": "건물·시설", "est_minutes": 1, "prepared_id": "p-01" }
+    { "item_id": "r-01", "task": "구청 건축과에 전화로 문의하기", "due_date": "2027-01-05", "category": "건물·시설", "est_minutes": 3, "prepared_id": "p-01" }
   ],
+  "next_steps": [ { "kind": "decide", "title": "결정하기 · 상표 점검", "sub": "추천: 이름 바꾸기", "go": { "page": "report", "item_id": "r-02" } } ],
   "checklist_progress": { "done": 2, "total": 9 },
   "alerts": { "unread": 2, "latest": [ { "title": "청년 창업 지원사업 새 공고", "type": "grant_new", "is_example": false } ] },
   "menus": {
     "report": "ready",
     "checklist": "ready",
     "chat": "ready",
-    "map": "not_requested",
+    "map": "ready",
     "market": "example",
     "grants": "ready"
   }
@@ -385,7 +475,8 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 - `menus` 값: `ready | not_requested | example | unavailable`. `example`은 화면에 "예시 데이터" 배지를 붙인다.
 - `d_day`는 개업일까지 남은 일수를 음수로 표현한다 (개업일 당일 0).
 - `pending_decisions`: 선택지가 있는데 아직 `chosen_option`이 없는 리포트 항목. 대시보드 첫 화면에서 "결정할 것"으로 보여주고 카드를 열면 `[추천대로 진행]`을 바로 누를 수 있다.
-- `today_todos`는 사용자가 직접 해야 하는 일(`user_action`)을 보여준다. "~를 확인하세요" 대신 "구청에 문의 문자 보내기 (1분)"처럼 구체적인 행동과 소요 시간, 대신 만든 결과물(`prepared_id`)을 함께 둔다.
+- `next_steps[]`: 가장 최근에 실행·완료한 카드 이후 이어서 할 일(NextStep). 처음에는 결정 대기 카드와 가장 가까운 체크리스트로 채운다.
+- `today_todos`는 사용자가 직접 해야 하는 일(`user_action`)을 보여준다. "~를 확인하세요" 대신 "구청 건축과에 전화로 문의하기 (3분)"처럼 구체적인 행동과 소요 시간, 대신 만든 결과물(`prepared_id`)을 함께 둔다.
 
 ---
 
@@ -419,30 +510,27 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
               "time": { "text": "즉시", "basis": "rule" },
               "cost": { "text": "추가 비용 없음", "delta_krw": 0, "basis": "rule" },
               "apply": { "type": "update_store", "payload": { "answers": { "sells_alcohol": false } }, "needs_reanalyze": true },
-              "site_id": null
             },
             {
               "option_id": "o-2", "label": "용도변경 신청", "summary": "구청 승인과 건물주 동의가 필요해요.",
               "time": { "text": "확인 필요", "basis": null },
               "cost": { "text": "확인 필요", "delta_krw": null, "basis": null },
               "apply": { "type": "none" },
-              "site_id": null
             },
             {
-              "option_id": "o-3", "label": "후보 자리 B로 변경", "summary": "B는 1층 제2종 근린생활시설이라 일반음식점 신고가 가능해요.",
-              "time": { "text": "즉시", "basis": "data" },
-              "cost": { "text": "월 고정비 +300,000원, 초기 비용 +4,000,000원", "delta_krw": 4000000, "basis": "calc" },
-              "apply": { "type": "set_main_site", "payload": { "site_id": "st-02" }, "needs_reanalyze": true },
-              "site_id": "st-02"
+              "option_id": "o-3", "label": "다른 자리를 알아보기", "summary": "계약 전이라면 용도가 맞는 다른 자리에서 시작할 수 있어요. 새 주소를 정하면 정보 수정에서 바꿔 점검을 다시 돌려요.",
+              "time": { "text": "확인 필요", "basis": null },
+              "cost": { "text": "확인 필요", "delta_krw": null, "basis": null },
+              "apply": { "type": "none", "adds_checklist": ["x-0"] }
             }
           ],
-          "recommendation": { "option_id": "o-3", "reason": "①은 주류 매출을 포기해야 하고, ②는 개업일(3/2) 안에 끝난다는 보장이 없어요." },
+          "recommendation": { "option_id": "o-3", "reason": "①은 주류 매출을 포기해야 하고, ②는 개업일(3/2) 안에 끝난다는 보장이 없어요. 계약 전이라면 용도가 맞는 자리를 다시 알아보는 쪽이 가장 안전해요." },
           "prepared": [
-            { "prepared_id": "p-01", "kind": "inquiry_message", "title": "구청 건축과 문의 문자", "body": "성동구 성수이로 00 1층 건물의 용도가 일반음식점 영업에 적합한지 확인하고 싶습니다…", "editable": true },
+            { "prepared_id": "p-01", "kind": "inquiry_message", "title": "구청 건축과 문의 문구 (전화·민원용)", "body": "성동구 성수이로 00 1층 건물의 용도가 일반음식점 영업에 적합한지 확인하고 싶습니다…", "editable": true },
             { "prepared_id": "p-02", "kind": "contract_clause", "title": "임대차 특약 문구", "body": "임차 목적물이 일반음식점 영업신고가 불가능한 경우 임차인은 계약을 해지할 수 있고, 임대인은 보증금을 전액 반환한다.", "editable": true },
             { "prepared_id": "p-03", "kind": "link", "title": "건축물대장 열람", "url": "https://www.gov.kr/..." }
           ],
-          "user_action": { "type": "send", "text": "구청에 문의 문자 보내기", "est_minutes": 1, "prepared_id": "p-01" },
+          "user_action": { "type": "send", "text": "구청 건축과에 전화로 문의하기", "est_minutes": 3, "prepared_id": "p-01" },
           "evidence": [ { "type": "data", "source": "건축물대장 층별개요", "value": "1층 제1종근린생활시설", "fetched_at": "..." }, { "type": "law", "law_name": "건축법 시행령", "article": "별표 1", "url": "https://www.law.go.kr/..." } ],
           "chosen_option": null,
           "added_to_checklist": ["c-01"]
@@ -479,10 +567,10 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
           "options": [],
           "recommendation": null,
           "prepared": [
-            { "prepared_id": "p-05", "kind": "inquiry_message", "title": "구청 건축과 문의 문자 (위반건축물 여부)", "body": "…", "editable": true },
+            { "prepared_id": "p-05", "kind": "inquiry_message", "title": "구청 건축과 문의 문구 (위반건축물 여부)", "body": "…", "editable": true },
             { "prepared_id": "p-06", "kind": "link", "title": "정부24 건축물대장 열람", "url": "https://www.gov.kr/..." }
           ],
-          "user_action": { "type": "send", "text": "구청에 문의 문자 보내기", "est_minutes": 1, "prepared_id": "p-05" },
+          "user_action": { "type": "send", "text": "구청 건축과에 전화로 문의하기", "est_minutes": 3, "prepared_id": "p-05" },
           "evidence": [ { "type": "data", "source": "건축물대장 표제부", "value": "위반건축물 표기 없음(필드 미제공)", "fetched_at": "..." } ],
           "chosen_option": null,
           "added_to_checklist": ["c-01"]
@@ -496,11 +584,11 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 }
 ```
 
-- 항목에 대한 추가 질문("이 항목은 왜 이런가요?")은 챗봇 `/chat`의 `focus`로 한다 (11장).
+- 항목에 대한 추가 질문("이 항목은 왜 이런가요?")은 AI 상담 `/chat`의 `focus`로 한다 (8장).
 - `added_to_checklist`: 이 항목에서 파생돼 체크리스트에 추가된 `item_id` 목록 (`checklist_items.report_item_id`).
 - **결과 카드 구조**: `verdict`가 `ok`가 아닌 항목은 결론(`title`) → 이유(`reason`) → 안 하면 생기는 일(`consequence`) → 선택지(`options`) → 추천(`recommendation`) → 대신 만든 결과물(`prepared`) → 사용자가 할 일 1개(`user_action`) 순으로 화면에 보여준다. 법 조문과 근거(`evidence`)는 "자세히 보기"로 접어 둔다. 필드 정의는 2장 "결과 카드 객체" 참고.
 - `title`은 법 용어 대신 **결과 중심의 쉬운 말**로 쓴다. `verdict: ok` 항목은 `title`과 `reason`만 있으면 된다.
-- 선택지를 만들 수 없으면(`options: []`) 문의 문자 같은 `prepared`와 `user_action`만 내려준다.
+- 선택지를 만들 수 없으면(`options: []`) 문의 문구와 기관 전화번호 같은 `prepared`와 `user_action`만 내려준다.
 
 ### `POST /api/stores/{store_id}/report/items/{item_id}/choose` — 선택지 적용
 
@@ -516,17 +604,35 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 {
   "item_id": "r-01",
   "chosen_option": "o-3",
-  "applied": [ { "type": "set_main_site", "site_id": "st-02" } ],
+  "applied": [],
+  "added_checklist": ["x-0"],
+  "applied_changes": ["체크리스트에 추가: 용도가 맞는 다른 후보 자리 알아보기", "이 자리의 점검은 위반 소지 높음으로 유지돼요"],
   "recomputed": ["checklist"],
-  "needs_reanalyze": true,
-  "run_id": "b72e..."
+  "needs_reanalyze": false
 }
 ```
 
-- 사용자가 `[추천대로 진행]` 또는 다른 선택지를 눌렀을 때 호출한다. 서버가 `apply`에 적힌 변경(가게 정보 수정, 기준 자리 변경 등)을 반영한다.
+- 사용자가 `[추천대로 진행]` 또는 다른 선택지를 눌렀을 때 호출한다. 서버가 `apply`에 적힌 변경(가게 정보·답변 수정, 체크리스트 항목 추가)을 반영한다.
 - `needs_reanalyze: true`이면 서버가 곧바로 재분석 실행을 시작하고 `run_id`를 돌려준다 (`runs.trigger = user`). 프론트는 진행 화면으로 이동한다.
 - `apply.type`이 `none`인 선택지는 `chosen_option`만 기록한다.
 - 이미 선택한 항목을 다시 호출하면 선택을 바꾼다 (이전 선택으로 생긴 변경은 재분석으로 다시 계산된다).
+- 응답의 `applied_changes`, `verdict_before`, `resolved_title`로 화면이 "무엇이 바뀌었는지"를 바로 보여준다. 선택을 바꾸면 `action_status`는 `pending`으로 돌아간다.
+
+### `POST /api/stores/{store_id}/report/items/{item_id}/action` — 할 일 진행 상태 기록
+
+요청
+
+```json
+{ "status": "done", "reply": "구청에서 내일 답변 주기로 함" }
+```
+
+응답 `200`: `{ "item_id": "r-01", "action_status": "done", "action_reply": "구청에서 내일 답변 주기로 함", "auto_checked": ["c-01"], "next_steps": [ … ] }`
+
+- `status`: `pending | sent | done`. `pending`으로 보내면 되돌린다. `reply`는 선택.
+- `status`가 `done`이 되면 이 카드와 연결된 체크리스트 항목을 서버가 자동으로 완료하고 `auto_checked`에 `item_id`를 담는다. 한 체크리스트 항목에 카드가 여러 개 연결돼 있으면 **연결된 카드가 모두 `done`일 때** 자동 완료된다. 카드를 `pending`으로 되돌리거나 선택을 바꾸면 **자동으로 체크된 항목만** 되돌리고, 사용자가 직접 바꾼 체크는 유지한다.
+- 응답의 `next_steps[]`는 **다음으로 할 일**(NextStep, 2장)이다. `sent`이면 "답변을 기다리는 동안 먼저 할 일", `done`이면 "이제 이 순서로 할 일"로 보여 준다. 프론트는 이 목록을 완료한 카드 안에 바로 그린다.
+- 서비스는 문자 발송·정부24 제출을 대신하지 않는다. 사용자가 직접 한 뒤 상태만 기록한다.
+- `sent`와 `done`은 알림(`type: next`, 12장)으로 남고, `pending`으로 되돌리면 그 알림은 사라진다. `done`이 되면 관련 결정 대기 알림은 닫는다.
 
 ---
 
@@ -611,9 +717,12 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 - `source`: `rule`(규칙 묶음 기본 항목) | `report`(점검 리포트에서 파생) | `grant`(지원사업 마감)
 - 날짜(`due_date`, `dday`)는 규칙 묶음의 `week` 값과 개업일로 **계산 도구**가 계산한다. AI는 날짜를 직접 계산하지 않는다.
 - 조건에 맞지 않는 카테고리(예: 직원 없음 → 고용)는 `hidden_categories`로 내려주고 프론트는 숨긴다.
+- 점검 리포트 항목과 같은 일인 체크리스트 항목은 `report_item_ids[]`로 연결하고 `auto_checked`(자동 체크 여부)를 내려준다. 연결 관계는 규칙 묶음(`checklist`의 `report_links`)에 둔다. 예) 건물 확인·임대차 계약 검토 ↔ 건물 용도 점검 + 위반건축물 점검, 영업신고 서류 준비 ↔ 영업신고 서류 점검.
 - 필요 서류·담당 기관은 규칙 묶음에 적힌 값이며 근거 링크를 함께 둔다.
 - 서류가 필요한 항목에는 `prepared`로 **가게 정보를 채운 신고서류 초안**(`kind: document_draft`)을 함께 내려준다. 채우지 못하는 칸은 `[확인 필요]`로 둔다. 제출은 사용자가 직접 한다 (`user_action.type: sign`).
 - 지원사업 마감일은 `source: grant`로 자동 추가된다.
+- **달력 보기**는 별도 API 없이 같은 응답의 `due_date`와 개업일(`opening_date`)로 프론트가 그린다. 점은 카테고리 색, 개업일은 깃발로 표시하고 지원사업 마감(`source: grant`)도 함께 보여 준다. `.ics` 내보내기는 프론트가 응답으로 파일을 만든다.
+- 카드로 인해 생긴 항목(`source: report`)은 그 카드의 선택을 되돌리면 사라진다.
 
 ### `PATCH /api/stores/{store_id}/checklist/{item_id}`
 
@@ -625,7 +734,7 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 
 ---
 
-## 8. 내 가게 챗봇 [시간되면]
+## 8. AI 상담 [시간되면]
 
 ### `POST /api/stores/{store_id}/chat`
 
@@ -638,173 +747,146 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
     { "role": "user", "content": "..." },
     { "role": "assistant", "content": "..." }
   ],
-  "focus": { "type": "report_item", "id": "r-01" }
+  "focus": { "type": "report_item", "id": "r-03" }
 }
 ```
 
 - `history`는 프론트가 보관해 매번 보낸다 (서버는 대화 기록을 저장하지 않는다).
-- `focus`는 선택. `report_item` | `checklist_item` | `grant` | `site`를 지정하면 해당 항목을 우선 근거로 삼는다. 리포트 항목의 "이 항목은 왜 이런가요?" 버튼이 이것을 쓴다.
+- `focus`는 선택. `report_item` | `checklist_item` | `grant`를 지정하면 그 항목을 **우선 근거**로 삼는다. 리포트 카드의 "이 항목 질문하기"가 이것을 쓰고, 화면은 그 카드를 대화 위에 고정해 보여 준다. 다른 주제를 물으면 고정된 카드에 갇히지 않고 그 주제로 답한다.
 
 응답 `200`
 
 ```json
 {
-  "answer": "위반건축물로 표기되면 영업 신고가 반려될 수 있습니다. 다만 이 가게 건물은 표기 여부가 확인되지 않았습니다…",
-  "evidence": [ { "type": "law", "law_name": "식품위생법", "article": "제37조", "url": "..." } ],
+  "kind": "grounded",
+  "answer": "건축물대장 응답에 위반건축물 표기 정보가 없어요. 위반건축물이면 영업신고가 반려될 수 있어요.",
+  "evidence": [ { "type": "data", "source": "건축물대장 표제부", "value": "위반건축물 표기 없음(필드 미제공)", "fetched_at": "…" } ],
   "actions": [
     {
       "type": "update_store",
-      "label": "개업일을 2027-04-01로 변경하고 일정 다시 계산",
+      "label": "개업일 2027-03-02 → 2027-04-01 변경",
+      "summary": ["개업일 2027-03-02 → 2027-04-01", "체크리스트 날짜 재계산 (예: 건축물대장 확인 01.05 → 02.04)"],
       "payload": { "opening_date": "2027-04-01" },
       "requires_confirm": true
     }
   ],
-  "note": "이 가게의 조회 결과 안에서만 답했습니다. 최종 판단은 관할 기관에 확인하세요."
+  "contacts": [],
+  "call_prep": null,
+  "follow_up": ["왜 이런가요?", "안 하면 어떻게 되나요?", "전화로 문의할 땐 뭐라고 하죠?"],
+  "note": "이 가게의 점검 결과 안에서만 답했어요. 최종 판단은 관할 기관에 확인하세요."
 }
 ```
 
-- 답변은 **이 가게에 저장된 근거 안에서만** 한다. 근거 밖이면 "판단 불가"로 답하고 관할 기관을 안내한다.
-- 조건 변경(개업일, 직원 유무 등)은 `actions`로 **제안만** 하고, 사용자가 확인하면 프론트가 `PATCH /stores/{store_id}`로 반영한다.
-  - 개업일 변경: 응답의 `recomputed: ["checklist"]`로 체크리스트 날짜만 재계산
-  - 답변·주소·업종 변경: `needs_reanalyze: true`이면 프론트가 `POST /analyze`를 호출하고 `runs.trigger`는 `chat`으로 기록된다.
-- `actions[].type`: `update_store` | `check_item` | `navigate` | `choose_option`
-- `choose_option`: 대화 중 "그럼 B 자리로 할게요"처럼 리포트 항목의 선택지를 고르려는 경우. `payload`는 `{ "item_id": "r-01", "option_id": "o-3" }`이고, 사용자가 확인하면 프론트가 `POST /report/items/{item_id}/choose`를 호출한다.
+**`kind`**
+
+| 값 | 뜻 | 화면 |
+| --- | --- | --- |
+| `grounded` | 이 가게의 저장된 근거 안에서 답함 | "근거 기반" 배지 + 근거 칩 |
+| `change` | 조건 변경·선택지 적용·체크 처리를 **제안** | "변경 제안" 배지 + 전/후 미리보기 + `[확인하고 적용]` |
+| `oos` | 근거 밖(세금·4대보험·대출 등) → 판단 불가 | "판단 불가" 배지 + 문의할 기관 전화번호(`contacts[]`) |
+| `chitchat` | 인사·안내 | 배지 없음 |
+
+**규칙**
+
+- 답변은 **이 가게에 저장된 근거 안에서만** 한다. 사실을 묻는 질문인데 인용할 근거(`evidence`)가 없으면 서버가 `kind`를 `oos`로 바꾸고 관할 기관을 안내한다. 근거는 AI가 쓰지 않고, AI가 고른 항목 id를 코드가 그 항목의 근거로 채운다.
+- 근거 칩(`evidence[]`)을 누르면 리포트의 "판정 근거 자세히"와 같은 창이 열린다.
+- **바꾸는 일은 제안만 한다.** `actions[]`는 `requires_confirm: true`이고 `summary[]`에 변경 전후를 담는다. 사용자가 확인하면 프론트가 아래 API를 호출한다. 확인하기 전에는 아무것도 바뀌지 않는다.
+  - `update_store`: `PATCH /stores/{store_id}` (개업일 변경은 `recomputed: ["checklist"]`, 그 밖은 `needs_reanalyze`)
+  - `choose_option`: `payload`는 `{ "item_id": "r-01", "option_id": "o-3" }`, `POST /report/items/{item_id}/choose`
+  - `check_item`: `payload`는 `{ "item_id": "c-03" }`, `PATCH /checklist/{item_id}`
+  - `navigate`: 화면 이동(확인 불필요). `payload`는 `{ "page": "report", "item_id": "r-01" }`
+- `contacts[]`: 문의할 기관 연락처 목록 `{ agency, phone, tip, verified }`. 전화번호는 AI가 만들지 않고 규칙 묶음·기관 데이터에서만 가져온다 (2장 Prepared의 `contact`와 같은 규칙).
+- `call_prep`: **통화 준비 도우미**. "구청에 전화하기 전에 뭘 준비하죠?"처럼 물으면 돌려준다.
+
+```json
+{ "item_id": "r-03", "contact": { "agency": "성동구청 건축과", "phone": "02-2286-5114", "verified": false },
+  "steps": ["안녕하세요, 카페 창업을 준비 중인 예비 창업자입니다. 건축과 담당자를 연결해 주실 수 있을까요?", "…"],
+  "questions": ["이 건물(해당 층)이 위반건축물로 등재돼 있나요?", "…"] }
+```
+
+  통화 후 결과는 `POST /report/items/{item_id}/action`(`sent`, `reply`)으로 기록한다. 스크립트는 가게 정보와 조회 데이터로만 채우고 모르는 칸은 `[확인 필요]`로 둔다.
+- **"오늘 뭐부터 하죠?"**: 결정할 것 1개와 직접 할 일 1개를 요약한다. 추천 선택지는 `choose_option` 제안으로 붙는다. 정렬은 코드(2장 NextStep)가 하고 AI는 문장만 만든다.
+- 범위 밖: **세금·4대보험 신고 일정, 대출·금리, 법률 해석, 금액 계산**은 답하지 않고 `oos`로 안내한다. 대출 안내는 제공하지 않는다.
+
+### `GET /api/stores/{store_id}/chat/suggestions` — 추천 질문
+
+```json
+{ "items": ["오늘 뭐부터 하죠?", "건물 용도·주류 선택지 뭐가 달라요?", "구청에 전화하기 전에 뭘 준비하죠?", "개업일을 4월 1일로 미루고 싶어요", "부가세는 언제 신고하나요?"] }
+```
+
+- 가게의 현재 상태(결정 대기 카드, 개업까지 남은 일수, 고정된 `focus`)로 코드가 고른다. `focus`가 있으면 그 카드에 맞는 후속 질문(왜 이런가요 / 안 하면 어떻게 되나요 / 다른 방법은 없나요 / 전화로 문의할 땐)을 돌려준다.
 
 ---
 
-## 9. 입지·상권 지도와 매물 비교 [시간되면]
+## 9. 상권 분석 [시간되면]
+
+**어디에서 사업을 할지 이미 정한 사용자**를 위한 기능이다. 정한 주소(`address`) 주변의 경쟁 가게를 지도에 자동으로 보여 주고, 경쟁 강도와 가격대를 정리한다. 후보 자리 직접 입력·매물 비교(`/sites`)는 없다.
 
 ### `GET /api/stores/{store_id}/map`
 
-내 가게와 후보 자리, 주변 동종 가게를 지도에 표시하는 데이터.
-
-쿼리: `radius_m` (기본 300)
+쿼리: `radius_m` (`100 | 200 | 300`, 기본 300), `category` (`all | 카페 | 음식점`)
 
 ```json
 {
   "center": { "lat": 37.54, "lng": 127.05 },
+  "address": "서울특별시 성동구 성수이로 00 1층",
   "radius_m": 300,
-  "sites": [
-    {
-      "site_id": "st-01",
-      "label": "A",
-      "address": "서울특별시 성동구 성수이로 00",
-      "coord": { "lat": 37.54, "lng": 127.05 },
-      "is_main": true,
-      "building_check": { "verdict": "ok", "summary": "1층 제2종근린생활시설" },
-      "area_metrics": {
-        "same_type_count": 14,
-        "open_close_trend": { "opened_1y": null, "closed_1y": null, "available": false },
-        "foot_traffic": { "available": false }
-      },
-      "listing": null,
-      "listing_result": null
-    }
+  "shops": [
+    { "id": "k0", "name": "빽다방 성수역점", "category": "카페", "sub_category": "빽다방", "distance_m": 0, "coord": { "lat": 37.54515, "lng": 127.05713 }, "place_url": "http://place.map.kakao.com/565393305", "is_franchise": true, "is_example": false }
   ],
-  "nearby_shops": [
-    { "name": "○○카페", "category": "카페", "distance_m": 120, "coord": { "lat": 37.54, "lng": 127.05 } }
+  "summary": {
+    "total_count": 54,
+    "shown_count": 15,
+    "within": { "100": 4, "200": 11, "300": 15 },
+    "density_per_km2": 191,
+    "competition": "mid",
+    "categories": [ { "name": "카페", "count": 4 }, { "name": "커피전문점", "count": 2 } ],
+    "franchise": { "count": 4, "ratio_pct": 27 },
+    "dessert_count": 2,
+    "nearest": [ { "name": "빽다방 성수역점", "distance_m": 0 } ]
+  },
+  "unavailable": { "open_close_trend": { "available": false }, "foot_traffic": { "available": false } },
+  "insights": [
+    { "text": "프랜차이즈가 4곳(27%)이에요. 같은 가격·메뉴로 맞서면 불리해서, 메뉴나 분위기로 차별화하는 편이 안전해요.", "basis": "가게 이름 규칙 분류" }
   ],
-  "evidence": [ { "type": "data", "source": "소상공인 상가(상권)정보", "fetched_at": "...", "from_cache": false, "from_mock": false } ]
+  "field_checks": [ "평일·주말 낮과 저녁에 가게 앞을 지나는 사람을 직접 세어 보기 (유동인구 데이터가 없어요)" ],
+  "evidence": [ { "type": "data", "source": "카카오 로컬 카테고리 검색(CE7, FD6)", "fetched_at": "...", "from_cache": false, "from_mock": false } ]
 }
 ```
 
-- 데이터가 없는 지표는 숫자를 지어내지 않고 `available: false`로 내려준다. 화면에는 "데이터 없음"으로 표시한다.
-- 지도 SDK가 로드되지 않으면 프론트는 지도 없이 `sites`를 표로 보여준다.
+- `shops`는 카카오 카테고리 검색(CE7 카페, FD6 음식점)의 결과다. 한 번에 최대 45건이라 **총 개수는 `meta.total_count`(`total_count`)로, 마커는 받은 만큼만** 표시한다. 반경 밖 가게는 `distance_m`으로 프론트가 흐리게 처리한다.
+- 메뉴·가격은 공개 데이터가 없어 내려주지 않는다. 화면은 `place_url` 링크로 연결한다.
+- `competition`(`low | mid | high`)과 밀집도, 프랜차이즈 비율은 **계산·규칙**으로 만든다. 프랜차이즈 판별은 규칙 묶음의 브랜드 목록(`franchise_brands`)으로 가게 이름을 분류한 값이다. AI가 만들지 않는다.
+- `insights[]`는 위 숫자에서 규칙으로 만든 "이 자리에서 눈여겨볼 점" 문장(참고용)이고 `basis`를 함께 둔다. 숫자는 조회·계산 값만 쓴다.
+- 데이터가 없는 지표(폐업 추이·유동인구)는 숫자를 지어내지 않고 `available: false`로 둔다. 화면은 "데이터 없음"으로 표시한다.
+- 지도 SDK가 로드되지 않으면 프론트는 지도 없이 `summary`와 목록만 보여 준다.
+- 주소를 바꾸면(`PATCH /stores`) `impacts`에 `market`이 들어가고 이 화면도 다시 계산된다.
 
-### `POST /api/stores/{store_id}/sites` — 후보 자리 추가
-
-```json
-{ "address": "서울특별시 성동구 아차산로 00", "address_detail": "2층" }
-```
-
-응답 `201`: 생성된 site (`label` 자동 부여 A, B, …, 주소→좌표 변환 + 건물 확인 + 반경 내 동종 업소 수 조회). 주소 변환 실패 시 `422 ADDRESS_NOT_RESOLVED`.
-
-### `PATCH /api/stores/{store_id}/sites/{site_id}` — 후보 자리 수정
-
-```json
-{
-  "is_main": true,
-  "listing": { "deposit_krw": 30000000, "monthly_rent_krw": 2500000, "maintenance_krw": 200000, "premium_krw": 10000000, "area_m2": 33 }
-}
-```
-
-- 모든 필드는 선택. `is_main: true`로 바꾸면 기존 기준 자리는 해제된다.
-- `listing`은 사용자가 입력한 값 그대로 저장한다 (서비스가 추정하지 않음).
-
-### `DELETE /api/stores/{store_id}/sites/{site_id}`
-
-응답 `204`
-
-### `POST /api/stores/{store_id}/sites/compare` — 매물 비교
-
-요청
-
-```json
-{ "site_ids": ["st-01", "st-02"] }
-```
-
-- 생략하면 `listing`이 입력된 모든 자리를 비교한다.
-
-응답
-
-```json
-{
-  "sites": [
-    {
-      "site_id": "st-01",
-      "label": "A",
-      "building_check": { "verdict": "high", "summary": "일반음식점은(는) 제2종근린생활시설에서만 가능한데, 이 건물은 제1종근린생활시설이에요." },
-      "area_metrics": { "same_type_count": 14, "open_close_trend": { "available": false }, "foot_traffic": { "available": false } },
-      "listing_result": {
-        "initial_cost_krw": 40000000,
-        "monthly_fixed_krw": 2700000,
-        "rent_per_m2_krw": 75758,
-        "vs_area_average": { "available": true, "area_average_per_m2_krw": 70000, "diff_pct": 8 },
-        "runway_months": { "available": true, "value": 14.8, "short_of_initial": false, "basis": "준비 자금 100,000,000원에서 보증금·권리금 40,000,000원을 뺀 돈을 월 고정비로 나눈 값 (인테리어·운영비 제외)" },
-        "site_questions": [
-          "권리금 10,000,000원에 포함된 시설·집기 목록을 받을 수 있나요?",
-          "전 임차인이 이 자리에서 장사를 접은 이유가 무엇인가요?"
-        ]
-      }
-    }
-  ],
-  "summary": "A 자리는 반경 300m에 카페가 14곳으로 B보다 경쟁이 심하지만, 초기 비용은 B보다 낮습니다. …",
-  "summary_by": "ai"
-}
-```
-
-- `building_check`는 규칙 묶음이 자리의 건축물대장 용도로 신고 업종 가능 여부를 판정한 것이다 (`ok | high | unknown`).
-- `summary_by`: `ai` | `rule`. AI 요약에 **제공된 계산·상권 값에 없는 숫자**가 들어 있으면 서버가 그 요약을 버리고 규칙으로 만든 요약(`rule`)을 내려준다. AI가 못 쓰는 경우(LLM 실패)도 마찬가지다.
-- `site_questions`는 자리마다 최대 4개다. AI가 못 만들면 관리비·권리금·이전 임차인·건물 점검 결과에 따른 기본 질문이 나간다.
-- `runway_months`는 인테리어·장비·재료비·인건비가 빠진 **낙관적인 값**이다. 준비 자금이 초기 비용(보증금+권리금)보다 적으면 `value`는 0이고 `short_of_initial`이 `true`다.
-- `initial_cost_krw`, `monthly_fixed_krw`, `rent_per_m2_krw`, `runway_months`는 **계산 도구**가 입력값으로 계산한다. AI는 숫자를 만들지 않고 요약과 현장 질문만 생성한다.
-- `runway_months`는 `funds_krw` 답변이 있을 때만 계산한다. 없으면 `available: false`.
-- `vs_area_average`는 지역 평균 임대료 원천이 [예시]인 동안 `{"is_example": true, ...}` 또는 `available: false`로 내려간다.
-
----
-
-## 10. 상권 분석의 메뉴·가격대 [예시]
+## 10. 가격대·메뉴 (상권 분석) [예시]
 
 ### `GET /api/stores/{store_id}/market`
+
+쿼리: `my_price` (선택, 내 아메리카노 가격 원)
 
 ```json
 {
   "is_example": true,
   "example_notice": "예시 데이터입니다. 실제 조회 결과가 아닙니다.",
   "radius_m": 300,
-  "competitors": [ { "name": "예시카페A", "distance_m": 120, "signature": "아메리카노", "price_americano": 4500 } ],
   "price_distribution": { "americano": { "min": 2000, "median": 4500, "max": 6500 } },
-  "area_average_rent": { "is_example": true, "per_m2_krw": 72000, "as_of": "2026-Q3" },
-  "gaps": ["디저트 전문점 없음", "저가 브랜드 3곳 밀집"]
+  "position": { "level": "low", "diff_from_median_krw": -1500, "text": "중앙값 4,500원보다 1,500원 낮아요 · 저가 구간" },
+  "area_average_rent": { "is_example": true, "per_m2_krw": 72000, "as_of": "2026-Q3" }
 }
 ```
 
-- 동종 업소 **목록과 거리**는 `/map`의 `nearby_shops`로 실제 조회가 가능하다. 이 엔드포인트의 메뉴·가격과 지역 평균 임대료만 예시로 남는다.
+- 주변 가게의 메뉴·가격은 공개 데이터가 없어서 **예시 분포**로 비교한다. `my_price`를 넣으면 구간(`low` 3,500원 미만 / `mid` 5,500원 이하 / `high`)과 중앙값과의 차이를 계산 도구가 계산한다. AI는 숫자를 만들지 않는다.
+- 내 가격은 `PATCH /stores/{store_id}`의 `answers.my_americano_krw`로 저장한다 (다시 반영 없음).
+- 동종 업소 목록과 거리는 `/map`에서 실제 조회가 가능하다. 이 엔드포인트의 가격 분포와 지역 평균 임대료만 예시로 남는다.
 - 민간 상권 서비스(예: 오픈업)의 데이터는 약관상 쓰지 않는다.
 
 ---
 
-## 11. 정책 알림 [시간되면]
+## 11. 지원사업 [시간되면]
 
 ### `GET /api/stores/{store_id}/grants`
 
@@ -822,6 +904,10 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
       "title": "2027 ○○ 청년 창업 지원사업",
       "source": "K-Startup",
       "url": "https://...",
+      "poster": { "url": null, "source": "generated", "credit": null },
+      "category": "사업화",
+      "region": "전국",
+      "amount_text": "최대 1,500만원",
       "deadline": "2027-01-31",
       "eligibility": {
         "result": "partial",
@@ -847,7 +933,10 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 - 조건을 뽑을 때 AI가 인용한 공고문 문장이 **원문에 실제로 있는지** 서버가 검증하고, 없거나 숫자 조건의 숫자가 인용에 없으면 그 조건은 `unknown`이다. 이 경우 `evidence`는 `null`이다.
 - 나이는 생년만 입력받아서 만 나이가 모호하다. 경계에서는 `fail`이 아니라 `unknown`이고 `note`에 "생일에 따라 달라져요"가 들어간다.
 - 마감일이 지나지 않은 `eligible`·`partial` 공고만 체크리스트에 들어가고(`added_to_checklist: true`), `unknown`은 들어가지 않는다.
-- `filter`(`all | eligible | closing_soon`)는 백엔드가 저장된 결과에서 거른다.
+- 화면은 **포스터 카드 그리드**(포스터·신청 가능성 배지·마감 D-day·누가/얼마/언제까지/제출물 요약·조건 칩)와 리스트, 마감 달력 세 가지 보기를 갖는다. 상세 창에는 포스터 원본, 조건별 공고문 인용, 제출서류, 신청 링크, 제외된 공고 건수(`excluded_count`)를 보여 준다.
+- 화면은 **포스터 카드 그리드**(포스터·신청 가능성 배지·마감 D-day·누가/얼마/언제까지/제출물 요약·조건 칩), 리스트, 마감 달력 세 가지 보기를 갖는다. 상세 창에는 포스터 원본, 조건별 공고문 인용, 제출서류, 신청 링크, 제외된 공고 건수(`excluded_count`)를 보여 준다.
+- `filter`(`all | eligible | closing_soon`)는 백엔드가 저장된 결과에서 거른다. 분야(`category`: 사업화 / 융자 / 공간 / 교육 / 멘토링)·지역·정렬(`sort`: `deadline | fit`)은 프론트가 목록에서 거른다.
+- `poster`: 공고 응답에 이미지가 있으면 `{ "url": "…", "source": "api", "credit": "주관 기관" }`로 내려주고, 없으면 `url: null`, `source: "generated"`로 두어 화면이 제목·기관·마감으로 포스터형 카드를 만든다. 이미지는 출처 표시와 원문 링크를 함께 둔다. K-Startup 응답에 이미지·첨부 필드가 있는지는 프로브로 확인한다.
 
 ---
 
@@ -855,17 +944,22 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 
 ### `GET /api/stores/{store_id}/alerts`
 
+쿼리: `type` (선택, 아래 유형), `as_of` (선택, `YYYY-MM-DD`. 시연용 시점 이동)
+
 ```json
 {
+  "as_of": "2026-11-19",
   "items": [
-    { "alert_id": "al-01", "type": "grant_new", "title": "새 지원사업 공고", "body": "…", "is_example": false, "read": false, "created_at": "..." },
-    { "alert_id": "al-02", "type": "data_changed", "title": "주변 카페 1곳 개업", "diff": { "before": 13, "after": 14 }, "is_example": true, "read": false, "created_at": "..." }
+    { "alert_id": "al-01", "type": "next", "title": "“건물 용도·주류” 완료 · 다음 할 일 5개", "body": "결정하기 · 상표 점검 → 전화로 문의하기 → …", "cta": { "label": "카드 열기", "page": "report", "item_id": "r-01" }, "is_example": false, "read": false, "created_at": "..." },
+    { "alert_id": "al-02", "type": "change", "title": "주변 카페 1곳 개업 · 반경 300m 54 → 55곳", "body": "다시 조회로 감지된 변화", "diff": { "before": 54, "after": 55 }, "cta": { "label": "상권 분석 열기", "page": "market" }, "is_example": true, "read": false, "created_at": "..." }
   ]
 }
 ```
 
-- `type`: `grant_new | grant_deadline | data_changed | checklist`
-- 개업 6개월 후 알림 등 시간이 지나야 발생하는 알림은 `is_example: true`로 보여준다.
+- `type`(화면의 탭): `decision`(결정 필요: 선택지가 있는데 아직 고르지 않은 카드) | `next`(다음 할 일: 카드를 `sent`·`done`으로 바꿀 때 남는 알림) | `deadline`(마감 임박: 체크리스트 기한·지원사업 마감) | `change`(변경 감지: 다시 조회로 달라진 점, 마이페이지에서 정보를 바꿔 다시 반영한 기록) | `grant`(새 지원사업). 이전 값은 `grant_new → grant`, `grant_deadline·checklist → deadline`, `data_changed → change`로 합쳤다.
+- 모든 알림에는 **바로 처리할 곳**(`cta`: 라벨·화면·항목 id)을 붙인다. "결정 대기 → 카드 열기", "영업신고 D-7 → 서류 초안 열기"처럼 알림이 곧 다음 행동이어야 한다.
+- 알림은 서버가 상태에서 만든다. `decision`은 결정 대기 카드가 있는 동안 유지되고 선택하면 사라진다. `next`는 `POST /report/items/{id}/action` 때 만들고 `pending`으로 되돌리면 지운다. `change`는 `PATCH /stores`와 다시 조회에서 만든다.
+- **시점 이동(시연용)**: `as_of`를 개업 D-7이나 개업 6개월 후 날짜로 주면 그 날짜 기준으로 기한·마감 알림(체크리스트 D-7, 부가세·위생교육 갱신 확인, 월간 상권 요약, 새 지원사업)을 만들어 돌려준다. 시간이 지나야 발생하는 알림은 모두 `is_example: true`이고, 화면은 "예시" 배지를 붙인다. 부가세 신고 기한 같은 정확한 날짜는 AI가 지어내지 않고 "국세청 안내로 확인하세요"로 둔다.
 
 ### `PATCH /api/stores/{store_id}/alerts/{alert_id}`
 
@@ -889,15 +983,17 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 
 ## 13. 데모와 헬스체크 [핵심]
 
-### `POST /api/demo` — 예시로 해보기 (이서연 씨 사례)
+### `POST /api/demo` — 예시로 해보기 / 예시 계정 (이서연 씨 사례)
+
+로그인 화면의 "예시 계정으로 둘러보기"와 첫 설정 화면의 "예시로 해보기"가 같은 엔드포인트를 쓴다.
 
 응답 `201`
 
 ```json
-{ "store_id": "demo-…", "run_id": "…", "cached": true }
+{ "access_token": "…", "user": { "user_id": "demo-…", "name": "이서연", "provider": "demo" }, "store_id": "demo-…", "run_id": "…", "cached": true }
 ```
 
-- 미리 저장해 둔 결과를 복사해 새 `store_id`로 만든다 (`is_demo: true`). 외부 API가 전부 실패해도 동작해야 한다.
+- 미리 저장해 둔 결과를 복사해 새 `store_id`로 만든다 (`is_demo: true`). **가입·로그인 없이** 접속할 수 있고, 외부 API가 전부 실패해도 동작해야 한다. 체크리스트는 2개 완료 상태로 시작한다.
 - 프론트는 `/stores/{store_id}?demo=1`로 이동하고, SSE는 저장된 이벤트를 짧은 간격으로 재생한다.
 
 ### `GET /api/health`
@@ -912,13 +1008,15 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 
 | 화면 (경로) | 호출 API | 범위 |
 | --- | --- | --- |
-| 시작 `/` | `GET /health`, `POST /demo` | 핵심 |
-| 가게 등록 `/new` | `POST /stores`, `POST /stores/{id}/answers` | 핵심 |
-| 조사 중 `/stores/{id}/run/{runId}` | `POST /stores/{id}/analyze`, `GET /runs/{runId}/stream`, `GET /runs/{runId}` | 핵심 |
-| 내 가게 `/stores/{id}` | `GET /stores/{id}/dashboard`, `PATCH /stores/{id}`, `GET /alerts`, `PATCH /alerts/{alertId}` | 핵심 |
-| 점검 리포트 `/stores/{id}/report` | `GET /report`, `POST /report/items/{itemId}/choose` | 핵심 |
-| 개업 체크리스트 `/stores/{id}/checklist` | `GET /checklist`, `PATCH /checklist/{itemId}` | 핵심 |
-| 내 가게 챗봇 (모든 화면의 패널) | `POST /chat`, 제안 확인 시 `PATCH /stores/{id}` | 시간되면 |
-| 입지·상권 지도 `/stores/{id}/map` | `GET /map`, `POST /sites`, `PATCH /sites/{siteId}`, `DELETE /sites/{siteId}`, `POST /sites/compare`, `GET /market` | 시간되면 (`/market`은 예시) |
-| 정책 알림 `/stores/{id}/grants` | `GET /grants` | 시간되면 |
+| 로그인 `/login` (카카오·Google·네이버, 예시 계정) | `POST /auth/social`, `POST /demo`, `GET /me` | 핵심 |
+| 첫 설정 `/start` (로그인 후 가게가 없을 때. 이름·업종·주소·개업일·메뉴 문구 → 되묻기 → 조사 중) | `POST /stores`, `POST /stores/{id}/answers` | 핵심 |
+| 조사 중 `/stores/{id}/run/{runId}` (첫 설정·마이페이지 재반영 공용) | `POST /stores/{id}/analyze`, `GET /runs/{runId}/stream`, `GET /runs/{runId}` | 핵심 |
+| 내 가게 홈 `/stores/{id}` (결정할 것·직접 할 일·다음 할 일) | `GET /stores/{id}/dashboard`, `POST /report/items/{itemId}/choose` | 핵심 |
+| 점검 리포트 `/stores/{id}/report` (결정 → 실행 → 완료, 다음으로 할 일, 체크리스트 자동 체크) | `GET /report`, `POST /report/items/{itemId}/choose`, `POST /report/items/{itemId}/action` | 핵심 |
+| 개업 체크리스트 `/stores/{id}/checklist` (시기별·카테고리별·달력. 달력은 같은 응답의 `due_date`와 개업일로 프론트가 그리고 `.ics`는 프론트에서 생성) | `GET /checklist`, `PATCH /checklist/{itemId}` | 핵심 |
+| 알림 센터 `/stores/{id}/alerts` (유형 탭·액션 버튼·시점 이동 시연) | `GET /alerts?type=&as_of=`, `PATCH /alerts/{alertId}` | 핵심 / 개업 후 알림은 예시 |
+| 마이페이지 `/me` (계정, 가게 정보·영업 조건 수정, 영향 미리보기, 최근 변경, 로그아웃, 가게 정보 다시 설정) | `GET /me`, `PATCH /me`, `GET /stores/{id}`, `PATCH /stores/{id}`, `GET /stores/{id}/changes` | 핵심 |
+| AI 상담 `/stores/{id}/chat` (질문 대상 고정, 추천 질문, 제안 카드, 통화 준비) | `POST /chat`, `GET /chat/suggestions`, 제안 확인 시 `PATCH /stores/{id}`·`POST /report/items/{id}/choose`·`PATCH /checklist/{id}` | 시간되면 |
+| 상권 분석 `/stores/{id}/market` (지도, 상권 요약, 경쟁 강도, 가격 포지셔닝, 눈여겨볼 점, 현장 확인) | `GET /map`, `GET /market` | 시간되면 (`/market`은 예시) |
+| 지원사업 `/stores/{id}/grants` (포스터 카드·필터·정렬·보기 전환) | `GET /grants` | 시간되면 |
 | 다시 조회 (내 가게의 버튼) | `POST /refresh` | 시간되면 |
