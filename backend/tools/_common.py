@@ -19,7 +19,7 @@ class ToolError(Exception):
         super().__init__(code)
 
 
-def get_json(client: httpx.Client, url: str, **kwargs) -> dict:
+def get_response(client: httpx.Client, url: str, **kwargs) -> httpx.Response:
     try:
         response = client.get(url, timeout=5.0, **kwargs)
         response.raise_for_status()
@@ -30,6 +30,11 @@ def get_json(client: httpx.Client, url: str, **kwargs) -> dict:
         raise ToolError(f"HTTP_{exc.response.status_code}", fallback=True) from None
     except httpx.RequestError:
         raise ToolError("NETWORK_ERROR", fallback=True) from None
+    return response
+
+
+def get_json(client: httpx.Client, url: str, **kwargs) -> dict:
+    response = get_response(client, url, **kwargs)
     try:
         data = response.json()
     except ValueError:
