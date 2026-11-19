@@ -121,7 +121,7 @@ cafe-precheck/
 ### Environment Variables
 
 - 실제 값은 각자 `.env`에만 두고 **절대 커밋하지 않는다.** 새 환경변수를 쓰면 `.env.example`에 이름만 추가한다.
-- backend: `LLM_API_KEY`, `LLM_MODEL`, `JUSO_API_KEY`, `BUILDING_API_KEY`, `LAW_OC`, `KIPRIS_API_KEY`, `USE_MOCK`, `FRONTEND_ORIGIN`
+- backend: `LLM_API_KEY`, `LLM_MODEL`, `JUSO_API_KEY`, `BUILDING_API_KEY`, `LAW_OC`, `KIPRIS_API_KEY`, `USE_MOCK`, `FRONTEND_ORIGIN`, `DATABASE_URL`
 - frontend: `NEXT_PUBLIC_API_BASE_URL`
 - API 키가 커밋된 것을 발견하면 즉시 알리고, 해당 키는 재발급해야 한다고 안내한다.
 
@@ -135,7 +135,7 @@ fix/#이슈번호-버그명
 
 커밋 타입: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 
-- `main`은 항상 배포 가능한 상태로 유지한다. `main`에 머지되면 frontend는 Vercel, backend는 배포 서버로 자동 배포된다.
+- `main`은 항상 배포 가능한 상태로 유지한다. `main`에 머지되면 frontend는 Vercel, backend는 Railway로 자동 배포된다. DB는 Railway PostgreSQL이다.
 - PR은 하루 안에 머지할 수 있는 크기로 나눈다.
 
 ## PR Rules
