@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 합성 예시. API에서 가져온 실제 상표 데이터가 아님. -->
+<response mock_is_example="true" mock_query="모노커피">
+  <header><successYN>Y</successYN><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body><items>
+    <item><applicationNumber>4020260000001</applicationNumber><applicationStatus>등록</applicationStatus><classificationCode>43</classificationCode><registrationNumber>4000000000001</registrationNumber><title>모노 커피</title></item>
+    <item><applicationNumber>4020260000002</applicationNumber><applicationStatus>등록</applicationStatus><classificationCode>43</classificationCode><registrationNumber>4000000000002</registrationNumber><title>MONO CAFE</title></item>
+  </items></body>
+  <count><numOfRows>100</numOfRows><pageNo>1</pageNo><totalCount>2</totalCount></count>
+</response>
