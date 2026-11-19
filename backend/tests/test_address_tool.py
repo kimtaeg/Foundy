@@ -82,7 +82,7 @@ def test_live_ambiguity_does_not_fallback_even_at_demo_address(address_payload):
 def test_missing_and_invalid_fields(address_payload, mutation, error):
     mutation(address_payload)
     with client_for(address_payload) as client:
-        result = AddressTool(client, api_key="test").resolve_address(ADDRESS)
+        result = AddressTool(client, api_key="test", allow_fallback=False).resolve_address(ADDRESS)
     assert not result.ok and result.error == error
 
 
@@ -129,3 +129,48 @@ def test_cache_is_used_only_after_failure_and_keeps_original_time(address_payloa
     assert second.ok and second.from_cache and not second.from_mock
     assert first.fetched_at == second.fetched_at == NOW
     assert second.error == "CACHE_FALLBACK:NETWORK_ERROR"
+
+
+@pytest.mark.parametrize("field,value,error", [
+    ("b_code", "invalid", "ADDRESS_CODES_UNAVAILABLE"),
+    ("main_address_no", "invalid", "ADDRESS_CODES_UNAVAILABLE"),
+    ("sub_address_no", "invalid", "ADDRESS_CODES_UNAVAILABLE"),
+    ("mountain_yn", "invalid", "ADDRESS_CODES_UNAVAILABLE"),
+    ("x", "invalid", "COORDINATES_UNAVAILABLE"),
+    ("y", "999", "COORDINATES_UNAVAILABLE"),
+])
+@pytest.mark.parametrize("cached", [False, True])
+def test_invalid_provider_fields_use_cache_or_matching_mock(address_payload, field, value, error, cached):
+    cache = MemoryCache()
+    with client_for(address_payload) as client:
+        tool = AddressTool(client, api_key="test", cache=cache, clock=lambda: NOW)
+        if cached:
+            assert tool.resolve_address(ADDRESS).ok
+        target = address_payload["documents"][0]
+        (target if field in ("x", "y") else target["address"])[field] = value
+        result = tool.resolve_address(ADDRESS)
+    assert result.ok and result.from_cache is cached and result.from_mock is not cached
+    assert result.fetched_at == (NOW if cached else None)
+    assert result.error == f"{'CACHE_FALLBACK' if cached else 'MOCK_FALLBACK'}:{error}"
+
+
+@pytest.mark.parametrize("total,error", [(0, "ADDRESS_NOT_FOUND"), (2, "AMBIGUOUS_ADDRESS")])
+def test_semantic_failure_never_uses_previous_cache(address_payload, total, error):
+    cache = MemoryCache()
+    with client_for(address_payload) as client:
+        tool = AddressTool(client, api_key="test", cache=cache)
+        assert tool.resolve_address(ADDRESS).ok
+        address_payload["meta"]["total_count"] = total
+        if total == 0:
+            address_payload["documents"] = []
+        result = tool.resolve_address(ADDRESS)
+    assert not result.ok and result.error == error
+    assert not result.from_cache and not result.from_mock
+
+
+def test_malformed_response_does_not_use_another_address_mock(address_payload):
+    address_payload["documents"][0]["x"] = "invalid"
+    with client_for(address_payload) as client:
+        result = AddressTool(client, api_key="test").resolve_address("fixture에 없는 주소")
+    assert not result.ok and result.error == "COORDINATES_UNAVAILABLE"
+    assert not result.from_mock and not result.from_cache
