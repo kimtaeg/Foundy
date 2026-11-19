@@ -72,6 +72,16 @@
         },
         "user_action": { "$ref": "#/$defs/userAction" },
         "chosen_option": { "type": ["string", "null"], "description": "사용자가 고른 option_id. 아직이면 null" },
+        "action_status": { "enum": ["pending", "sent", "done"], "default": "pending", "description": "user_action의 진행 상태. 화면은 결정 → 실행 → 완료 3단계로 보여준다" },
+        "action_reply": { "type": ["string", "null"], "description": "사용자가 남긴 결과 메모" },
+        "resolved_title": { "type": ["string", "null"], "description": "선택지를 적용해 재분석한 뒤 판정이 바뀌었을 때의 결론 한 줄. 안 바뀌면 null" },
+        "verdict_before": { "type": ["string", "null"], "description": "선택 적용 전 판정. 선택 전이거나 안 바뀌면 null" },
+        "linked_task_ids": { "type": "array", "items": { "type": "string" }, "description": "이 카드와 같은 일인 체크리스트 항목 id. 연결된 카드가 모두 완료되면 해당 항목이 자동으로 체크된다" },
+        "applied_changes": {
+          "type": "array",
+          "description": "선택을 적용했을 때 바뀐 내용 (가게 정보 before→after, 체크리스트 추가·변경, 판정 변화). 선택 전이면 빈 배열",
+          "items": { "type": "string" }
+        },
         "evidence": {
           "type": "array",
           "description": "근거가 비어 있으면 verdict는 반드시 \"판단 불가\"",
