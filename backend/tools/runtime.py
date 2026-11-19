@@ -15,6 +15,17 @@ from .building import BuildingTool
 from .cache import ToolCache
 
 
+def load_tool_environment(*, env_files: Sequence[Path] = (),
+                          environ: Mapping[str, str] | None = None) -> dict[str, str | None]:
+    """뒤 파일·실행 환경 순으로 우선하며 전역 환경·문자열 참조를 확장하지 않는다."""
+    config: dict[str, str | None] = {}
+    for path in env_files:
+        with Path(path).open(encoding="utf-8") as stream:
+            config.update(dotenv_values(stream=stream, interpolate=False))
+    config.update(os.environ if environ is None else environ)
+    return config
+
+
 @dataclass(frozen=True)
 class AddressBuildingSettings:
     kakao_key: str = field(default="", repr=False)
@@ -29,11 +40,7 @@ class AddressBuildingSettings:
         전역 환경은 변경하지 않으며 dotenv의 암묵적 환경 참조 확장도 하지 않는다.
         기본값은 파일을 읽지 않는다. 서버가 원하는 설정 경로를 직접 지정한다.
         """
-        config: dict[str, str | None] = {}
-        for path in env_files:
-            with Path(path).open(encoding="utf-8") as stream:
-                config.update(dotenv_values(stream=stream, interpolate=False))
-        config.update(os.environ if environ is None else environ)
+        config = load_tool_environment(env_files=env_files, environ=environ)
         raw_mock = (config.get("USE_MOCK") or "false").strip().lower()
         if raw_mock not in ("true", "false", "1", "0"):
             raise ValueError("INVALID_USE_MOCK: true/false 또는 1/0을 사용하세요")
