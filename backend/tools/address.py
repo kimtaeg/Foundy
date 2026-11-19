@@ -53,24 +53,24 @@ def parse_address(payload: dict) -> dict:
     doc = documents[0]
     addr = doc.get("address")
     if not isinstance(addr, dict):
-        raise ToolError("ADDRESS_CODES_UNAVAILABLE")
+        raise ToolError("ADDRESS_CODES_UNAVAILABLE", fallback=True)
     b_code = addr.get("b_code")
     if not isinstance(b_code, str) or not re.fullmatch(r"[0-9]{10}", b_code):
-        raise ToolError("ADDRESS_CODES_UNAVAILABLE")
+        raise ToolError("ADDRESS_CODES_UNAVAILABLE", fallback=True)
     numbers = []
     for value in (addr.get("main_address_no"), addr.get("sub_address_no")):
         value = "0" if value == "" else value
         if not isinstance(value, str) or not re.fullmatch(r"[0-9]{1,4}", value):
-            raise ToolError("ADDRESS_CODES_UNAVAILABLE")
+            raise ToolError("ADDRESS_CODES_UNAVAILABLE", fallback=True)
         numbers.append(value.zfill(4))
     if addr.get("mountain_yn") not in ("Y", "N"):
-        raise ToolError("ADDRESS_CODES_UNAVAILABLE")
+        raise ToolError("ADDRESS_CODES_UNAVAILABLE", fallback=True)
     try:
         lng, lat = float(doc["x"]), float(doc["y"])
         if not math.isfinite(lng) or not math.isfinite(lat) or not (-180 <= lng <= 180 and -90 <= lat <= 90):
             raise ValueError
     except (KeyError, TypeError, ValueError):
-        raise ToolError("COORDINATES_UNAVAILABLE") from None
+        raise ToolError("COORDINATES_UNAVAILABLE", fallback=True) from None
     road = doc.get("road_address") or {}
     if not isinstance(road, dict):
         raise ToolError("INVALID_RESPONSE", fallback=True)

@@ -175,3 +175,61 @@ def test_existing_ai_consumes_building_contract_without_modification():
     violation = next(item for item in result.items if item.check_id == "building_violation")
     assert building.verdict == violation.verdict == "unknown"
     assert any(e.from_mock for e in violation.evidence)
+
+
+@pytest.mark.parametrize("detail,expected", [("지1층", ("10", 1)), ("지 2층", ("10", 2)),
+                                             ("지1층 101호", ("10", 1))])
+def test_basement_shorthand_is_not_ground_floor(detail, expected):
+    assert parse_floor(detail) == expected
+
+
+def test_basement_shorthand_selects_only_underground_records(payloads):
+    with building_client(payloads["building_title"], payloads["building_floor"]) as client:
+        result = BuildingTool(client, api_key="test", allow_fallback=False).building(
+            store(address_codes=CODES, address_detail="지1층"))
+    assert result.ok
+    assert {r["use"] for r in result.data["floor_candidates"]} == {"체력단련장"}
+
+
+@pytest.mark.parametrize("use,detail,expected", [
+    ("의원", "제1종근린생활시설(의원)", "high"),
+    ("일반음식점", "제2종근린생활시설(일반음식점)", "ok"),
+    ("제2종근린생활시설", "일반음식점", "ok"),
+])
+def test_explicit_floor_classification_reaches_existing_ai(use, detail, expected):
+    row = {**floor_row(use=use), "etcPurps": detail}
+    with building_client(page([title_row()]), page([row])) as client:
+        tool = BuildingTool(client, api_key="test", allow_fallback=False)
+        raw = tool.building(store(address_codes=CODES))
+        bridge = FakeTools()
+        bridge.building = tool.building
+        report = run_analysis(store(address_codes=CODES), tools=bridge, calc=FakeCalc(),
+                              llm=FakeLLM({"advise_building_use": BUILDING_ADVICE,
+                                           "advise_building_violation": VIOLATION_ADVICE}))
+    assert not raw.data["needs_confirmation"]
+    assert raw.data["floor_candidates"][0]["use"] == use
+    assert raw.data["floor_candidates"][0]["detail_use"] == detail
+    assert any(detail in value for value in raw.data["floor_uses"])
+    assert next(i for i in report.items if i.check_id == "building_use").verdict == expected
+
+
+def test_distinct_compartments_with_same_broad_use_still_need_confirmation():
+    rows = [{**floor_row(use="제1종근린생활시설"), "etcPurps": detail} for detail in ("의원", "소매점")]
+    with building_client(page([title_row()]), page(rows)) as client:
+        result = BuildingTool(client, api_key="test", allow_fallback=False).building(store(address_codes=CODES))
+    assert result.ok and result.data["needs_confirmation"] and result.data["floor_uses"] == []
+
+
+def test_conflicting_explicit_classes_are_not_silently_selected():
+    row = {**floor_row(use="제1종근린생활시설"), "etcPurps": "제2종근린생활시설(일반음식점)"}
+    with building_client(page([title_row()]), page([row])) as client:
+        result = BuildingTool(client, api_key="test", allow_fallback=False).building(store(address_codes=CODES))
+    assert result.ok and result.data["needs_confirmation"] and result.data["floor_uses"] == []
+
+
+def test_recorded_sixth_floor_keeps_mixed_compartments_unconfirmed(payloads):
+    with building_client(payloads["building_title"], payloads["building_floor"]) as client:
+        result = BuildingTool(client, api_key="test", allow_fallback=False).building(
+            store(address_codes=CODES, address_detail="6층"))
+    assert result.ok and result.data["needs_confirmation"] and result.data["floor_uses"] == []
+    assert {row["use"] for row in result.data["floor_candidates"]} == {"의원", "사무소"}

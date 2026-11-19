@@ -24,6 +24,8 @@ def test_settings_precedence_and_no_global_mutation(tmp_path, monkeypatch):
     first.write_text("KAKAO_REST_KEY=file-first\nDATA_GO_KR_KEY=building-first\nUSE_MOCK=true\n")
     second.write_text("KAKAO_REST_KEY=file-second\nDATA_GO_KR_KEY=building-second\n")
     monkeypatch.setenv("KAKAO_REST_KEY", "environment-key")
+    monkeypatch.delenv("DATA_GO_KR_KEY", raising=False)
+    monkeypatch.delenv("USE_MOCK", raising=False)
     before = dict(os.environ)
     settings = AddressBuildingSettings.load(env_files=[first, second])
     assert settings.kakao_key == "environment-key"

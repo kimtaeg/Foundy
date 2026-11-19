@@ -14,12 +14,13 @@ from .address import AddressTool, MOCKS, normalize_codes, parse_address
 from .cache import ToolCache
 
 BUILDING_BASE = "https://apis.data.go.kr/1613000/BldRgstHubService"
+_USE_CLASS_RE = re.compile(r"제\s*([0-9]+)\s*종\s*근린\s*생활\s*시설")
 
 
 def parse_floor(detail: str | None) -> tuple[str, int]:
     if not isinstance(detail, str):
         raise ToolError("FLOOR_REQUIRED")
-    matches = list(re.finditer(r"(?<![0-9A-Za-z])(?:(지하|지상|B)\s*)?([0-9]{1,3})\s*층", detail, re.I))
+    matches = list(re.finditer(r"(?<![0-9A-Za-z])(?:(지하|지상|지|B)\s*)?([0-9]{1,3})\s*층", detail, re.I))
     if not matches:
         match = re.fullmatch(r"\s*[Bb]([0-9]{1,3})\s*", detail)
         if match and int(match[1]) > 0:
@@ -36,7 +37,7 @@ def parse_floor(detail: str | None) -> tuple[str, int]:
     number = int(match[2])
     if number == 0:
         raise ToolError("INVALID_FLOOR")
-    return ("10" if (match[1] or "").upper() in ("지하", "B") else "20"), number
+    return ("10" if (match[1] or "").upper() in ("지하", "지", "B") else "20"), number
 
 
 def _integer(value) -> int:
@@ -104,9 +105,12 @@ def normalize_building(titles: list[dict], floors: list[dict], floor: tuple[str,
                            "area_m2": row.get("area")})
     if not candidates:
         raise ToolError("FLOOR_NOT_FOUND")
-    uses = sorted({row["use"] for row in candidates if row["use"]})
+    # 두 필드 모두 공급자 원문이다. 상세 용도에만 있는 명시적 분류도 소비자에 전달한다.
+    uses = sorted({" / ".join(dict.fromkeys(value for value in (row["use"], row["detail_use"]) if value))
+                   for row in candidates})
     # 여러 주건축물 또는 서로 다른 구획이면 가게 용도를 단정하지 않는다.
-    ambiguous = len(main) != 1 or len(uses) != 1 or any(not row["use"] for row in candidates)
+    ambiguous = (len(main) != 1 or len(uses) != 1 or any(not row["use"] for row in candidates)
+                 or any(len(set(_USE_CLASS_RE.findall(use))) > 1 for use in uses))
     ids = {row["building_id"] for row in candidates if row["building_id"]}
     title_id = str(main[0].get("mgmBldrgstPk", "")).strip()
     if len(ids) > 1 or (ids and title_id and ids != {title_id}):
