@@ -386,6 +386,8 @@
 
 수정할 수 있는 필드: `name`, `business_type_input`, `address`, `address_detail`, `opening_date`, `owner_birth_year`, `answers.sells_alcohol`, `answers.uses_terrace`, `answers.has_employees`, `answers.funds_krw`.
 
+- `business_type_input`은 가게 등록과 같은 규칙(규칙 묶음 `business_type_inputs`, 지금은 `카페`·`음식점`)으로 검증한다. 지원하지 않는 업종은 미리보기(`?dry_run=true`)와 저장 모두 `400 INVALID_INPUT`이고 아무것도 저장하지 않는다. 입력 검증은 분석 중 확인(`409`)보다 먼저 한다.
+
 응답 `200`
 
 ```json

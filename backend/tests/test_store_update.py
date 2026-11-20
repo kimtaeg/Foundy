@@ -320,3 +320,100 @@ def test_needs_reanalyze_matches_created_run(context):
     # 선택지에 AI가 붙인 apply.needs_reanalyze(안내)는 그대로 두고, 최종 값과 섞지 않는다
     option = next(o for o in cards(client, base, headers)["r-02"]["options"] if o["option_id"] == "o-1")
     assert option["apply"]["needs_reanalyze"] is True and responses[1]["needs_reanalyze"] is False
+
+
+# ---------- 업종 검증 (#105): 등록과 같은 규칙, 미리보기·저장 모두 400 ----------
+
+def store_snapshot(client, base, headers):
+    """가게 정보·변경 기록·change 알림·분석 run 수."""
+    from db.models import Alert
+    sid = sid_of(base)
+    with transaction() as session:
+        logs = session.scalar(select(func.count()).select_from(ChangeLog).where(ChangeLog.store_id == sid))
+        alerts = session.scalar(select(func.count()).select_from(Alert).where(Alert.store_id == sid,
+                                                                           Alert.type == "change"))
+    return client.get(base, headers=headers).json(), logs, alerts, run_count(base)
+
+
+@pytest.mark.parametrize("payload", [
+    {"business_type_input": "술집"},
+    {"business_type_input": "카페 프랜차이즈"},
+    {"business_type_input": "술집", "name": "같이 바꾸려던 이름"},  # 다른 필드와 함께 보내도 아무것도 저장하지 않는다
+])
+def test_unsupported_business_type_is_400_for_preview_and_save(context, payload):
+    client, base, headers, *_ = context
+    before = store_snapshot(client, base, headers)
+    for query in ("?dry_run=true", ""):
+        res = client.patch(base + query, headers=headers, json=payload)
+        assert res.status_code == 400, (query, res.text)
+        assert res.json()["error"]["code"] == "INVALID_INPUT" and "카페" in res.json()["error"]["message"]
+    assert store_snapshot(client, base, headers) == before  # 가게 정보·변경 기록·알림·run 그대로
+
+
+def test_business_type_is_validated_before_run_in_progress_check(context, monkeypatch):
+    from tests.test_runs_api import blocked, start
+    client, base, headers, _, manager, _ = context
+    with blocked(manager, monkeypatch) as (entered, release):
+        rid = start(context)
+        assert entered.wait(2)
+        bad = client.patch(base, headers=headers, json={"business_type_input": "술집"})
+        assert bad.status_code == 400  # 입력 오류는 분석 중이어도 400
+        good = client.patch(base, headers=headers, json={"business_type_input": "음식점"})
+        assert good.status_code == 409  # 올바른 값은 분석 중이면 409 (저장 안 함)
+        release.set()
+        assert wait(client, rid, headers)["status"] == "done"
+    assert client.get(base, headers=headers).json()["business_type_input"] == "카페"
+
+
+def test_supported_business_type_change_computes_impacts(context):
+    client, base, headers, *_ = context
+    assert client.get(base, headers=headers).json()["business_type_input"] == "카페"
+    preview = client.patch(base + "?dry_run=true", headers=headers, json={"business_type_input": "음식점"})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["impacts"] == ["building", "law", "checklist"]
+    assert preview.json()["changed"] == [{"field": "business_type_input", "from": "카페", "to": "음식점"}]
+
+    res = client.patch(base, headers=headers, json={"business_type_input": "음식점"})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    for key in ("changed", "impacts", "reset_items", "recomputed"):
+        assert body[key] == preview.json()[key]
+    assert body["needs_reanalyze"] is True and body["run_id"]
+    assert run_scope(client, body["run_id"], headers) == ["building", "law", "checklist"]
+    assert wait(client, body["run_id"], headers)["status"] == "done"
+    assert client.get(base, headers=headers).json()["business_type_input"] == "음식점"
+    lines = client.get(base + "/changes", headers=headers).json()["items"][0]["lines"]
+    assert lines[0] == "업종: 카페 → 음식점"
+
+
+def test_register_and_update_reject_with_same_rule(context, monkeypatch):
+    """등록(POST /stores)과 수정(PATCH /stores)이 같은 업종 목록·메시지로 거절한다."""
+    import uuid as _uuid
+    from db.models import User
+    from services import store_register
+    from services.auth import issue_token
+    from services.pack import get_pack
+
+    client, base, headers, *_ = context
+    allowed = store_register.supported_business_types(get_pack())
+    assert allowed == ["카페", "음식점"]
+    patch_error = client.patch(base, headers=headers, json={"business_type_input": "술집"}).json()["error"]
+
+    monkeypatch.setattr(store_register, "question_llm", lambda: None)
+    with transaction() as session:
+        user = User(provider="kakao", provider_user_id=str(_uuid.uuid4()), name="t")
+        session.add(user)
+        session.flush()
+        uid = user.id
+    try:
+        new_headers = {"Authorization": f"Bearer {issue_token(str(uid))}"}
+        body = {"name": "새가게", "address": "서울 성동구 성수이로 1", "opening_date": "2027-06-01"}
+        post_error = client.post("/api/stores", headers=new_headers,
+                                 json={**body, "business_type_input": "술집"}).json()["error"]
+        assert post_error == patch_error
+        for value in allowed:  # 지원 업종은 등록에서도 통과
+            res = client.post("/api/stores", headers=new_headers, json={**body, "business_type_input": value})
+            assert res.status_code in (201, 409)
+    finally:
+        with transaction() as session:
+            session.execute(delete(User).where(User.id == uid))
