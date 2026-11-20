@@ -1,6 +1,6 @@
 from agent.guardrails import enforce
 from agent.schemas import (
-    Estimate, Evidence, Option, Prepared, Recommendation, ReportItem, UserAction,
+    Estimate, Evidence, Option, Recommendation, ReportItem,
 )
 
 EV = Evidence(type="data", source="건축물대장 층별개요", value="1층 제1종근린생활시설")
@@ -49,10 +49,9 @@ def test_allowed_none_means_no_remedy_filter():
     assert len(out.options) == 1
 
 
-def test_dangling_user_action_prepared_id_cleared():
-    out, _ = enforce(item(user_action=UserAction(type="send", text="t", prepared_id="p-9"),
-                          prepared=[Prepared(prepared_id="p-1", kind="inquiry_message", title="x")]))
-    assert out.user_action.prepared_id is None
+def test_allow_empty_evidence_keeps_ok_for_guidance_items():
+    out, changes = enforce(item(evidence=[], verdict="ok"), allow_empty_evidence=True)
+    assert out.verdict == "ok" and changes == []
 
 
 def test_estimate_without_basis_has_no_number():

@@ -17,7 +17,8 @@ load_dotenv(ROOT / ".env")
 from agent.cost import CostTracker  # noqa: E402
 from agent.llm import make_llm  # noqa: E402
 from agent.loop import run_analysis  # noqa: E402
-from tests.fakes import MAIN_SITE, SIMILAR, FakeCalc, FakeTools, site_b, store  # noqa: E402
+from calc.dates import Dates  # noqa: E402
+from tests.fakes import SIMILAR, FakeTools, store  # noqa: E402
 
 
 def main() -> None:
@@ -25,7 +26,7 @@ def main() -> None:
     llm = make_llm(cost)
     start = time.time()
     res = run_analysis(
-        store(sites=[MAIN_SITE, site_b()]), tools=FakeTools(similar=SIMILAR), calc=FakeCalc(), llm=llm,
+        store(), tools=FakeTools(similar=SIMILAR), calc=Dates(), llm=llm,
         emit=lambda e, d: print(f"[{e}] {json.dumps(d, ensure_ascii=False)}") if e != "item" else None,
     )
     print(f"\n== 결과 ({time.time() - start:.1f}초) 요약: {res.summary}")
@@ -38,8 +39,8 @@ def main() -> None:
             print(f"  - {o.option_id} {o.label}{rec}: {o.summary} (기간 {o.time.text} / 비용 {o.cost.text})")
         if it.recommendation:
             print(f"  추천 이유: {it.recommendation.reason}")
-        for p in it.prepared:
-            print(f"  [초안:{p.kind}] {p.title}\n    {p.body}")
+        if it.contact:
+            print(f"  연락처: {it.contact.agency} {it.contact.phone or '확인 필요'}{' (예시)' if it.contact.is_example else ''}")
         if it.user_action:
             print(f"  할 일: {it.user_action.text} ({it.user_action.est_minutes}분)")
     print(f"\n가드레일 조정: {res.guardrail_changes}")

@@ -127,7 +127,7 @@ def test_deadline_goes_to_checklist_only_for_possible_grants():
     llm = FakeLLM({"grants_extract": ex(AGE)})
     r = judge_grants(llm, S, res(grant("g1"), grant("g2", text="조건 없음")), TODAY)
     items = grant_checklist_items(r, FakeCalc(), S.opening_date, 8, TODAY)
-    assert len(items) == 1 and items[0].item_id == "c-08" and items[0].category == "정책"
+    assert len(items) == 1 and items[0].item_id == "g-g1" and items[0].category == "정책"
     assert items[0].source == "grant" and str(items[0].due_date) == "2027-01-31"
     assert items[0].dday == -30 and items[0].documents == []
     assert [m.added_to_checklist for m in r.items] == [True, False]

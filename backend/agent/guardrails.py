@@ -9,19 +9,20 @@ from __future__ import annotations
 from .schemas import ReportItem
 
 
-def enforce(item: ReportItem, allowed_remedies: list[str] | None = None) -> tuple[ReportItem, list[str]]:
+def enforce(
+    item: ReportItem, allowed_remedies: list[str] | None = None, allow_empty_evidence: bool = False,
+) -> tuple[ReportItem, list[str]]:
     """불변 규칙을 적용한 항목과 바꾼 내용 목록을 돌려준다.
 
-    1. 근거가 없으면 verdict는 unknown (ok 포함)
+    1. 근거가 없으면 verdict는 unknown (ok 포함). 규칙 묶음이 allow_empty_evidence로 허용한 안내 항목만 예외
     2. AI가 판정한 항목은 high가 될 수 없다 → low
     3. allowed_remedies가 주어지면 그 밖의 대응 유형 선택지는 제거 (remedy가 비어 있는 선택지도 제거)
     4. 추천은 실제로 남아 있는 선택지를 가리켜야 한다
-    5. 사용자가 할 일의 prepared_id는 실제로 있는 결과물을 가리켜야 한다
     """
     changes: list[str] = []
     update: dict = {}
 
-    if not item.evidence and item.verdict != "unknown":
+    if not item.evidence and item.verdict != "unknown" and not allow_empty_evidence:
         update["verdict"] = "unknown"
         changes.append(f"근거 없음: {item.verdict} → unknown")
     verdict = update.get("verdict", item.verdict)
@@ -41,10 +42,5 @@ def enforce(item: ReportItem, allowed_remedies: list[str] | None = None) -> tupl
     if item.recommendation and item.recommendation.option_id not in {o.option_id for o in options}:
         update["recommendation"] = None
         changes.append("추천이 없는 선택지를 가리켜 제거")
-
-    if item.user_action and item.user_action.prepared_id:
-        if item.user_action.prepared_id not in {p.prepared_id for p in item.prepared}:
-            update["user_action"] = item.user_action.model_copy(update={"prepared_id": None})
-            changes.append("user_action이 없는 결과물을 가리켜 연결 해제")
 
     return (item.model_copy(update=update) if update else item), changes

@@ -129,3 +129,103 @@ def test_malformed_history_entries_are_ignored():
     assert r.answer == "네"
     sent = fake.calls[0]["user"].split("대화 기록: ")[1].split("\n")[0]
     assert json.loads(sent) == [{"role": "user", "content": ""}, {"role": "assistant", "content": "ok"}]
+
+
+# ---- foundy 확정 상담 기능: 통화 준비·오늘 뭐부터·서류·연락처·추천 질문 ----
+def full_ctx(**kw) -> ChatContext:
+    from agent.loop import run_analysis
+    from calc.dates import Dates
+
+    from .fakes import SIMILAR, FakeTools
+    from .test_loop import llm as analysis_llm
+
+    res = run_analysis(store(), tools=FakeTools(similar=SIMILAR), calc=Dates(), llm=analysis_llm())
+    base = dict(store=store(), report_items=res.items, checklist=res.checklist, today=date(2026, 11, 20))
+    base.update(kw)
+    return ChatContext(**base)
+
+
+def no_llm() -> FakeLLM:
+    return FakeLLM({})  # 호출되면 KeyError → 이 질문들은 AI를 부르지 않는다
+
+
+def test_call_prep_is_code_built_with_rule_questions_and_contact():
+    fake = no_llm()
+    r = chat(fake, full_ctx(), "구청에 전화하기 전에 뭘 준비하죠?", focus={"type": "report_item", "id": "r-01"})
+    assert fake.calls == []
+    assert r.kind == "grounded" and r.call_prep.item_id == "r-01"
+    assert r.call_prep.contact.agency == "성동구청 건축과" and r.call_prep.contact.is_example
+    assert r.call_prep.questions[0] == "이 건물 해당 층의 용도가 일반음식점 영업신고에 적합한가요?"
+    assert len(r.call_prep.steps) == 4 and "예시 번호" in r.answer
+    assert r.actions[0].payload == {"page": "report", "item_id": "r-01"} and not r.actions[0].requires_confirm
+
+
+def test_call_prep_without_focus_picks_pending_phone_card():
+    r = chat(no_llm(), full_ctx(), "통화 준비해줘")
+    assert r.call_prep.item_id in {"r-01", "r-03", "r-04"}
+
+
+def test_today_summarizes_decision_and_suggests_recommended_option():
+    r = chat(no_llm(), full_ctx(), "오늘 뭐부터 하죠?")
+    assert r.answer.startswith("오늘은 이 순서로 하세요") and "1) 결정" in r.answer
+    assert r.kind == "change" and r.actions[0].type == "choose_option" and r.actions[0].requires_confirm
+    assert r.actions[0].payload == {"item_id": "r-01", "option_id": "o-2"}
+    assert any("체크리스트에 추가" in x for x in r.actions[0].summary)
+
+
+def test_today_when_everything_done():
+    c = full_ctx()
+    c.report_items = [i.model_copy(update={"action_status": "done", "chosen_option": i.options[0].option_id if i.options else None})
+                      for i in c.report_items]
+    c.checklist = [x.model_copy(update={"done": True}) for x in c.checklist]
+    assert "모든 항목을 마쳤어요" in chat(no_llm(), c, "오늘 뭐부터 해요?").answer
+
+
+def test_document_question_uses_rule_documents_and_never_claims_to_submit():
+    r = chat(no_llm(), full_ctx(), "영업신고에 필요한 서류가 뭐예요?")
+    assert r.kind == "grounded" and "영업신고 접수" in r.answer and "정부24" in r.answer
+    assert "대신 작성하거나 제출하지는 않아요" in r.answer
+    assert r.contacts[0].agency == "성동구청 위생과" and r.actions[0].payload["page"] == "docs"
+    assert "근로계약" in chat(no_llm(), full_ctx(), "근로계약서 양식 어디서 받아요?").answer
+
+
+def test_out_of_scope_returns_contacts_from_rules():
+    r = chat(llm(kind="out_of_scope", answer="x"), ctx(), "부가세는 언제 신고하나요?")
+    assert r.kind == "oos" and [c.agency for c in r.contacts] == ["국세상담센터"] and r.contacts[0].phone == "126"
+    assert not r.contacts[0].is_example
+    r2 = chat(llm(kind="out_of_scope", answer="x"), ctx(), "프랜차이즈 계약은 어때요?")
+    assert r2.contacts[0].phone == "110"  # 주제를 모르면 정부민원안내콜센터
+
+
+def test_kind_mapping_and_follow_up_with_focus():
+    r = chat(llm(kind="grounded", answer="a", cited_ids=["r-01"]), ctx(), "왜요?", focus={"type": "report_item", "id": "r-01"})
+    assert r.kind == "grounded" and r.follow_up[0] == "왜 이런가요?"
+    c = chat(llm(kind="change_request", answer="a", actions=[LLMAction(type="navigate", label="이동", target="docs")]), ctx(), "체크리스트 보여줘")
+    assert c.kind == "change" and c.actions[0].payload == {"page": "docs"}
+    assert chat(llm(kind="chitchat", answer="네"), ctx(), "고마워요").kind == "chitchat"
+
+
+def test_change_summary_previews_before_after():
+    a = LLMAction(type="update_store", label="개업일 변경", opening_date="2027-04-01")
+    r = chat(llm(kind="change_request", answer="바꿀까요?", actions=[a]), full_ctx(), "4월 1일로 미뤄줘")
+    s = r.actions[0].summary
+    assert s[0] == "개업일 2027-03-02 → 2027-04-01" and "건축물대장 확인" in s[1] and "01.05 → 02.04" in s[1]
+    b = LLMAction(type="update_store", label="술", sells_alcohol=False)
+    assert chat(llm(kind="change_request", answer="a", actions=[b]), full_ctx(), "q").actions[0].summary == ["술 판매: 예 → 아니오"]
+
+
+def test_suggestions_follow_state():
+    from agent.chat import suggestions
+
+    s = suggestions(full_ctx())
+    assert s[0] == "오늘 뭐부터 하죠?" and "구청에 전화하기 전에 뭘 준비하죠?" in s and len(s) == 5
+    assert suggestions(full_ctx(), {"type": "report_item", "id": "r-01"})[0] == "왜 이런가요?"
+
+
+def test_call_prep_in_unlisted_region_uses_national_number_with_tip():
+    c = full_ctx(store=store(address_codes={"sigungu_cd": "26110"}))
+    c.report_items = [i.model_copy(update={"contact": __import__("agent.schemas", fromlist=["Contact"]).Contact(
+        agency="정부민원안내콜센터", phone="110", tip="관할 구청 건축과로 연결해 달라고 말씀하세요")}) if i.contact else i
+        for i in c.report_items]
+    r = chat(no_llm(), c, "통화 준비해줘", focus={"type": "report_item", "id": "r-01"})
+    assert "110" in r.answer and "연결해 달라고" in r.answer and "예시 번호" not in r.answer

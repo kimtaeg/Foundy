@@ -48,15 +48,15 @@ def test_models_parse(demo):
 def test_guardrails_find_nothing_to_fix(items, demo):
     assert demo["guardrail_changes"] == []
     for item in items:
-        _, changes = enforce(item, allowed_remedies=check_spec(PACK, item.check_id)["remedies"])
+        spec = check_spec(PACK, item.check_id)
+        _, changes = enforce(item, allowed_remedies=spec["remedies"],
+                             allow_empty_evidence=bool(spec.get("allow_empty_evidence")))
         assert changes == [], item.check_id
 
 
 def test_ids_unique(items, demo):
     assert len({i.item_id for i in items}) == len(items)
     assert len({c["item_id"] for c in demo["checklist"]}) == len(demo["checklist"])
-    prepared = [p.prepared_id for i in items for p in i.prepared]
-    assert len(prepared) == len(set(prepared))
     for i in items:
         assert len({o.option_id for o in i.options}) == len(i.options)
 
@@ -66,6 +66,7 @@ def test_every_problem_has_a_card(items):
         if i.verdict == "ok":
             assert not i.options and i.user_action is None
             continue
+        assert i.contact is None or i.contact.agency
         assert i.reason and i.consequence, i.check_id
         assert i.user_action and i.user_action.text, i.check_id
         if i.options:
@@ -77,18 +78,35 @@ def test_every_problem_has_a_card(items):
 
 def test_evidence_present_and_marked_mock(items):
     for i in items:
-        assert i.evidence or i.verdict == "unknown", i.check_id
+        assert i.evidence or i.verdict == "unknown" or i.check_id == "labeling", i.check_id  # labeling은 안내 항목
         for e in i.evidence:
             if e.type == "data" and e.source and "예시" in e.source:
                 assert e.from_mock is True
 
 
-def test_story_includes_site_change_card(items):
+def test_story_building_card_has_find_other_site_and_contact(items):
     bu = next(i for i in items if i.check_id == "building_use")
     assert bu.verdict == "high" and bu.decided_by == "rule"
-    site = next(o for o in bu.options if o.remedy == "change_site")
-    assert site.site_id == "st-02" and site.cost.basis == "calc" and site.cost.delta_krw == 4_000_000
-    assert bu.added_to_checklist
+    assert [o.remedy for o in bu.options] == ["change_business_type", "request_use_change", "find_other_site"]
+    other = next(o for o in bu.options if o.remedy == "find_other_site")
+    assert other.apply.type == "none" and other.apply.adds_checklist == ["x-0"]
+    assert bu.recommendation.option_id == "o-3"
+    assert bu.contact.agency == "성동구청 건축과" and bu.contact.phone and bu.contact.is_example
+    assert bu.added_to_checklist == ["c-01"]
+
+
+def test_foundy_card_set_and_numbers(items):
+    assert [(i.item_id, i.check_id) for i in items] == [
+        ("r-01", "building_use"), ("r-02", "trademark_similar"), ("r-03", "building_violation"),
+        ("r-04", "permit_docs"), ("r-05", "labeling")]
+
+
+def test_checklist_is_foundy_set_with_documents_and_links(demo):
+    cl = {c["item_id"]: ChecklistItem(**c) for c in demo["checklist"]}
+    assert [k for k in cl if k.startswith("c-")] == [f"c-0{n}" for n in range(1, 10)]
+    assert cl["c-04"].report_item_ids == ["r-04"] and cl["c-01"].report_item_ids == ["r-01", "r-03"]
+    assert cl["c-04"].documents[0].links[0]["url"] == "https://www.gov.kr/"
+    assert cl["c-04"].contact.agency == "성동구청 위생과"
 
 
 def test_events_replayable(demo, items):
@@ -119,18 +137,3 @@ def test_grant_deadlines_in_checklist(demo):
     assert {c["category"] for c in grant_items} == {"정책"} and len(grant_items) == 2
     assert all(m["added_to_checklist"] for m in demo["grants"]["items"])
     assert any(e["data"].get("step") == "grants" for e in demo["events"] if e["event"] == "step")
-
-
-def test_site_compare(demo):
-    from agent.schemas import CompareResult
-
-    cmp = CompareResult(**demo["site_compare"])
-    a, b = cmp.sites
-    assert (a.site_id, b.site_id) == ("st-01", "st-02")
-    assert a.building_check["verdict"] == "high" and b.building_check["verdict"] == "ok"
-    assert a.listing_result.initial_cost_krw == 40_000_000 and b.listing_result.monthly_fixed_krw == 3_000_000
-    assert a.listing_result.runway_months["available"] and a.listing_result.vs_area_average["available"]
-    assert a.area_metrics["open_close_trend"] == {"available": False}  # 없는 지표는 지어내지 않는다
-    assert cmp.summary_by == "ai" and cmp.summary
-    for s in cmp.sites:
-        assert 1 <= len(s.listing_result.site_questions) <= 4

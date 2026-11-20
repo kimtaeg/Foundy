@@ -1,5 +1,5 @@
 {
-  "_note": "이서연 씨 사례(예시로 해보기)의 입력과 조회 결과. 실제 조회 결과가 아닌 예시 데이터이며, 백엔드 mock 도구(USE_MOCK=true)도 이 형태를 쓸 수 있다. 법령 조문 번호는 규칙 담당 확인 전 임시값이다. 후보 자리의 상권 지표(같은 업종 수)와 지역 평균 임대료도 예시 값이다.",
+  "_note": "이서연 씨 사례(예시로 해보기)의 입력과 조회 결과. 실제 조회 결과가 아닌 예시 데이터이며, 백엔드 mock 도구(USE_MOCK=true)도 이 형태를 쓸 수 있다. 법령 조문 번호는 규칙 담당 확인 전 임시값이다. ",
   "store": {
     "store_id": "demo-seoyeon",
     "name": "모노커피",
@@ -23,61 +23,7 @@
       "has_employees": true,
       "funds_krw": 40000000
     },
-    "owner_birth_year": 1998,
-    "sites": [
-      {
-        "site_id": "st-01",
-        "label": "A",
-        "address": "서울특별시 성동구 성수이로 00",
-        "floor_uses": [
-          "제1종근린생활시설"
-        ],
-        "is_main": true,
-        "listing": {
-          "deposit_krw": 30000000,
-          "monthly_rent_krw": 2500000,
-          "maintenance_krw": 200000,
-          "area_m2": 33,
-          "premium_krw": 10000000
-        },
-        "area_metrics": {
-          "same_type_count": 14,
-          "open_close_trend": {
-            "available": false
-          },
-          "foot_traffic": {
-            "available": false
-          }
-        },
-        "area_avg_rent_per_m2": 70000
-      },
-      {
-        "site_id": "st-02",
-        "label": "B",
-        "address": "서울특별시 성동구 아차산로 00",
-        "floor_uses": [
-          "제2종근린생활시설"
-        ],
-        "is_main": false,
-        "listing": {
-          "deposit_krw": 34000000,
-          "monthly_rent_krw": 2800000,
-          "maintenance_krw": 200000,
-          "area_m2": 33,
-          "premium_krw": 10000000
-        },
-        "area_metrics": {
-          "same_type_count": 6,
-          "open_close_trend": {
-            "available": false
-          },
-          "foot_traffic": {
-            "available": false
-          }
-        },
-        "area_avg_rent_per_m2": 70000
-      }
-    ]
+    "owner_birth_year": 1998
   },
   "tools": {
     "building": {
@@ -132,7 +78,7 @@
           ]
         }
       },
-      "alcohol_vs_type": {
+      "permit_docs": {
         "ok": true,
         "source": "국가법령정보 (예시)",
         "from_mock": true,
@@ -140,9 +86,10 @@
         "data": {
           "articles": [
             {
-              "law_name": "식품위생법 시행령",
-              "article": "제21조",
-              "url": "https://www.law.go.kr/법령/식품위생법시행령"
+              "law_name": "식품위생법",
+              "article": "제37조",
+              "text": "영업 신고에 관한 규정 (조문 번호와 원문은 규칙 담당 확인 전 임시값)",
+              "url": "https://www.law.go.kr/법령/식품위생법"
             }
           ]
         }

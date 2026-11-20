@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from agent.advise import AdviceDraft, DraftText, OptionSummary
+from agent.advise import AdviceDraft, OptionSummary
 from agent.judge import AdJudgment, TrademarkJudgment
-from agent.ports import Site, StoreInput, ToolResult
+from agent.ports import StoreInput, ToolResult
 from agent.questions import QuestionPick
 
 
 def store(**kw) -> StoreInput:
     base = dict(store_id="s1", name="모노커피", address="서울 성동구 성수이로 00", address_detail="1층",
+                address_codes={"sigungu_cd": "11200"},
                 opening_date=date(2027, 3, 2),
                 answers={"sells_alcohol": True, "uses_terrace": False, "has_employees": True})
     base.update(kw)
@@ -45,27 +46,18 @@ class FakeTools:
 
 
 class FakeCalc:
-    def checklist_dates(self, opening_date, week):
-        label = "계약 전" if week <= -8 else "개업 4주 전" if week <= -4 else "개업 직전" if week < 0 else "개업 후"
-        return {"due_date": opening_date + timedelta(weeks=week), "dday": week * 7, "group_label": label}
+    """실제 calc/dates.py와 같은 계산을 쓰는 가짜 계산 도구."""
 
-    def site_cost_delta(self, base, other):
-        try:
-            return {"initial_delta_krw": other["deposit_krw"] - base["deposit_krw"],
-                    "monthly_delta_krw": other["monthly_rent_krw"] - base["monthly_rent_krw"]}
-        except KeyError:
-            return None
+    def checklist_dates(self, opening_date, offset_days):
+        from calc.dates import checklist_dates
 
+        return checklist_dates(opening_date, offset_days)
 
-def site_b(**kw) -> Site:
-    base = dict(site_id="st-02", label="B", floor_uses=["제2종근린생활시설"],
-                listing={"deposit_krw": 34_000_000, "monthly_rent_krw": 2_800_000})
-    base.update(kw)
-    return Site(**base)
+    def date_info(self, opening_date, due_date):
+        from calc.dates import date_info
 
+        return date_info(opening_date, due_date)
 
-MAIN_SITE = Site(site_id="st-01", label="A", floor_uses=["제1종근린생활시설"], is_main=True,
-                 listing={"deposit_krw": 30_000_000, "monthly_rent_krw": 2_500_000})
 
 SIMILAR = [{"reg_no": "4000000000001", "name": "모노 커피", "class_code": "43", "status": "등록",
             "url": "https://kipris/x"}]
@@ -74,15 +66,7 @@ BUILDING_ADVICE = AdviceDraft(
     consequence="이대로 계약하면 영업신고가 반려돼 보증금이 묶일 수 있어요.",
     option_summaries=[OptionSummary(option_id="o-1", summary="술 없이 카페로 시작해요.")],
     recommended_option_id="o-2", recommendation_reason="술 매출을 포기하지 않아도 돼요.",
-    drafts=[DraftText(kind="inquiry_message", title="구청 건축과 문의 문자", body="성수이로 00 1층의 용도를 확인하고 싶어요."),
-            DraftText(kind="contract_clause", title="임대차 특약 문구", body="일반음식점 신고가 불가능하면 계약을 해지할 수 있다.")],
-    user_action_text="구청에 문의 문자 보내기", user_action_type="send", user_action_est_minutes=1,
-    user_action_draft_kind="inquiry_message")
-
-VIOLATION_ADVICE = AdviceDraft(
-    consequence="위반건축물이면 영업신고가 반려될 수 있어요.",
-    drafts=[DraftText(kind="inquiry_message", title="위반건축물 문의", body="위반건축물 여부를 확인하고 싶어요.")],
-    user_action_text="구청에 문의 문자 보내기", user_action_type="send", user_action_draft_kind="inquiry_message")
+    user_action_text="구청 건축과에 전화로 문의하기", user_action_type="send", user_action_est_minutes=3)
 
 TM_JUDGMENT = TrademarkJudgment(verdict="low", title="'모노커피'와 비슷한 상표가 있어요",
                                 reason="발음이 비슷한 등록 상표가 있어요.", cited_reg_nos=["4000000000001"],
@@ -121,12 +105,3 @@ class JsonTools:
     def law(self, check_id):
         r = self.spec.get("law", {}).get(check_id)
         return ToolResult(**r) if r else ToolResult(ok=False, source="국가법령정보", error="mock 없음")
-
-
-def _date_info(self, opening_date, due_date):
-    dday = (due_date - opening_date).days
-    label = "계약 전" if dday <= -56 else "개업 4주 전" if dday <= -28 else "개업 직전" if dday < 0 else "개업 후"
-    return {"due_date": due_date, "dday": dday, "group_label": label}
-
-
-FakeCalc.date_info = _date_info
