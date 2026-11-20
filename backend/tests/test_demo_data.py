@@ -49,7 +49,7 @@ def test_guardrails_find_nothing_to_fix(items, demo):
     assert demo["guardrail_changes"] == []
     for item in items:
         spec = check_spec(PACK, item.check_id)
-        _, changes = enforce(item, allowed_remedies=spec["remedies"])
+        _, changes = enforce(item, allowed_remedies=spec["remedies"], ai_high_allowed=bool(spec.get("ai_high_allowed")))
         assert changes == [], item.check_id
 
 
@@ -85,7 +85,8 @@ def test_evidence_present_and_marked_mock(items):
 
 def test_story_building_card_has_find_other_site_and_contact(items):
     bu = next(i for i in items if i.check_id == "building_use")
-    assert bu.verdict == "high" and bu.decided_by == "rule"
+    assert bu.verdict == "high" and bu.decided_by == "ai"  # AI가 대장 용도와 조문을 읽고 판정
+    assert any(e.type == "law" and e.text for e in bu.evidence)
     assert [o.remedy for o in bu.options] == ["change_business_type", "request_use_change", "find_other_site"]
     other = next(o for o in bu.options if o.remedy == "find_other_site")
     assert other.apply.type == "none" and other.apply.adds_checklist == ["x-0"]

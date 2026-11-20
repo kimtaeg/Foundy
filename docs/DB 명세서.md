@@ -185,7 +185,8 @@ CREATE TABLE report_items (
   stage           text NOT NULL CHECK (stage IN ('계약 전','개업 전','운영 중')),
   -- 내용 (분석이 만든다)
   verdict         text NOT NULL CHECK (verdict IN ('high','low','unknown','ok')),
-  decided_by      text NOT NULL CHECK (decided_by IN ('rule','ai')),
+  decided_by      text NOT NULL CHECK (decided_by IN ('rule','ai')),   -- 판정 주체. 건물 용도·위반건축물·영업신고 서류·상표 유사는 ai(AI가 실패해 규칙표 카드로 대체하면 rule + ai_fallback)
+  ai_fallback     boolean NOT NULL DEFAULT false,   -- AI 판정이 실패해 규칙 안내 카드로 대체했는지
   title           text NOT NULL,           -- 결론 한 줄 (쉬운 말)
   reason          text,
   consequence     text,                    -- 안 하면 생기는 일
@@ -216,12 +217,13 @@ CREATE INDEX report_items_store_stage ON report_items (store_id, stage);
 
 | `item_key` | `check_id` | `stage` | 기본 판정 | 결정 방식 | 선택지 | 연락처 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `r-01` | `building_use` | 계약 전 | 술 판매 → `high`, 아니면 `ok` | `rule` | 술 빼고 카페로 시작(`o-1`) / 용도변경 신청(`o-2`) / 다른 자리를 알아보기(`o-3`) | `build` |
+| `r-01` | `building_use` | 계약 전 | 술 판매 → `high`, 아니면 `ok` | `ai` (규칙표 대조) | 술 빼고 카페로 시작(`o-1`) / 용도변경 신청(`o-2`) / 다른 자리를 알아보기(`o-3`) | `build` |
 | `r-02` | `trademark_similar` | 계약 전 | `low` | `ai` | 이름 바꾸기(`o-1`) / 그대로 진행(`o-2`) | — |
-| `r-03` | `building_violation` | 계약 전 | `unknown` (대장 응답에 위반건축물 표기 없음) | `rule` | 없음 | `build` |
+| `r-03` | `building_violation` | 계약 전 | `unknown` (대장 응답에 위반건축물 표기 없음) | `ai` (표기가 없으면 AI를 부르지 않음) | 없음 | `build` |
 | `r-04` | `permit_docs` | 개업 전 | `low` | `ai` | 없음 | `hyg` |
 | `r-05` | `labeling` | 운영 중 | `unknown` (근거 없는 안내도 예외 없음) | `rule` | 없음 | — |
 
+- **AI 판정과 DB**: AI가 읽은 조문 **원문은 저장하지 않는다** (`api_cache` 1일 캐시). 카드에는 AI가 인용한 문장 중 **원문에서 검증된 것**만 `evidence`에 남는다. AI의 토큰·비용은 `cost_logs`, 단계별 성공·`fallback`은 `runs.events`에 남고, 카드 단위 대체 여부는 `ai_fallback`에 남긴다.
 - 술을 안 파는 가게의 `r-01`은 `ok`이고 `options`가 빈 배열이며 `user_action`이 `NULL`이다 (결과 카드가 아니다).
 - `verdict`: `high`는 규칙이 데이터로 확인한 경우만, AI 판정(`decided_by='ai'`)의 상한은 `low`. 근거(`evidence`)가 없으면 `unknown`.
 

@@ -15,7 +15,7 @@ def high_item() -> ReportItem:
 
 
 def options(s, extras=None):
-    return build_options(PACK, s, high_item(), SPEC, extras or {"floor_uses": ["제1종근린생활시설"]}, "일반음식점")
+    return build_options(PACK, s, high_item(), SPEC, extras or {"floor_uses": ["제1종근린생활시설"], "ok_business_types": ["휴게음식점"]}, "일반음식점")
 
 
 def test_options_for_alcohol_on_type1_floor():
@@ -49,13 +49,13 @@ def test_unknown_region_falls_back_to_verified_national_number():
 def test_card_contact_follows_store_region():
     other = store(address_codes={"sigungu_cd": "26110"})
     out = advise_item(FakeLLM({"advise_building_use": BUILDING_ADVICE}), PACK, other, high_item(), SPEC,
-                      {"floor_uses": ["제1종근린생활시설"]}, "일반음식점")
+                      {"floor_uses": ["제1종근린생활시설"], "ok_business_types": ["휴게음식점"]}, "일반음식점")
     assert out.contact.phone == "110"
 
 
 def test_advise_fills_card():
     out = advise_item(FakeLLM({"advise_building_use": BUILDING_ADVICE}), PACK, store(), high_item(), SPEC,
-                      {"floor_uses": ["제1종근린생활시설"]}, "일반음식점")
+                      {"floor_uses": ["제1종근린생활시설"], "ok_business_types": ["휴게음식점"]}, "일반음식점")
     assert out.consequence.startswith("이대로 계약하면")
     assert out.options[0].summary == "술 없이 카페로 시작해요."  # AI가 쓴 설명으로 교체
     assert out.options[1].summary.startswith("구청 승인")  # AI가 안 쓴 것은 기본 설명 유지
@@ -68,7 +68,7 @@ def test_bad_recommendation_dropped():
     d = AdviceDraft(consequence="c", recommended_option_id="o-9", recommendation_reason="x",
                     user_action_text="a", user_action_type="send")
     out = advise_item(FakeLLM({"advise_building_use": d}), PACK, store(), high_item(), SPEC,
-                      {"floor_uses": ["제1종근린생활시설"]}, "일반음식점")
+                      {"floor_uses": ["제1종근린생활시설"], "ok_business_types": ["휴게음식점"]}, "일반음식점")
     assert out.recommendation is None
 
 
@@ -84,14 +84,14 @@ def test_card_without_options_uses_rule_text_and_no_llm():
 
 def test_llm_failure_keeps_options_and_contact():
     out = advise_item(FakeLLM({"advise_building_use": LLMError("x")}), PACK, store(), high_item(), SPEC,
-                      {"floor_uses": ["제1종근린생활시설"]}, "일반음식점")
+                      {"floor_uses": ["제1종근린생활시설"], "ok_business_types": ["휴게음식점"]}, "일반음식점")
     assert len(out.options) == 3 and out.recommendation is None and out.user_action.type == "decide"
     assert out.contact is not None
 
 
 def test_prompt_marks_verified_options():
     llm = FakeLLM({"advise_building_use": BUILDING_ADVICE})
-    advise_item(llm, PACK, store(), high_item(), SPEC, {"floor_uses": ["제1종근린생활시설"]}, "일반음식점")
+    advise_item(llm, PACK, store(), high_item(), SPEC, {"floor_uses": ["제1종근린생활시설"], "ok_business_types": ["휴게음식점"]}, "일반음식점")
     user = llm.calls[0]["user"]
     assert '"label": "용도변경 신청", "verified": false' in user
     assert '"label": "술 빼고 휴게음식점으로 시작", "verified": true' in user

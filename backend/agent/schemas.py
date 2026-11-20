@@ -114,6 +114,7 @@ class ReportItem(BaseModel):
     recommendation: Recommendation | None = None
     contact: Contact | None = None
     user_action: UserAction | None = None
+    ai_fallback: bool = False  # AI 판정이 실패해 규칙 안내 카드로 대체했는지
     chosen_option: str | None = None
     # 사용자 진행 상태 (결정 → 실행 → 완료). 백엔드가 DB에서 읽어 채운다 (DB 명세서 2-4)
     action_status: Literal["pending", "sent", "done"] = "pending"

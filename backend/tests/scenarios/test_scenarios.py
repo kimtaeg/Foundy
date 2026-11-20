@@ -47,7 +47,7 @@ def check(sc: dict, res) -> None:
         if "contact" in e:
             assert item.contact and item.contact.agency == e["contact"], cid
         if "evidence_contains" in e:
-            assert any(e["evidence_contains"] in (ev.value or "") for ev in item.evidence), cid
+            assert any(e["evidence_contains"] in ((ev.value or "") + (ev.text or "")) for ev in item.evidence), cid
         if item.verdict != "ok":
             assert item.evidence or item.verdict == "unknown", f"{cid}: 근거 없는 판정"
     if exp.get("no_cards"):
