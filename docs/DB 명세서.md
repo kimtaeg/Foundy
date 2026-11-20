@@ -369,7 +369,7 @@ CREATE INDEX alerts_store_type ON alerts (store_id, type, created_at DESC);
 - `next` 알림 문구: 완료면 `“{카드 짧은 이름}” 완료 · 다음 할 일 N개`, 실행(sent)이면 `“…” 문의함 · 먼저 할 일 N개`. 본문은 다음 할 일 제목 상위 3개를 `→`로 이은 것이고 없으면 "모든 점검을 마쳤어요". `cta`는 `{label:'카드 열기', page:'report', item_id}`.
 - `change` 알림: 제목 "가게 정보를 바꿔 다시 반영했어요", 본문은 바뀐 줄 상위 3개를 `·`로 이은 것, `cta`는 마이페이지.
 - 읽음: `PATCH /alerts/{id}` → `read = true`. `foundy`의 `alertread`다.
-- **시점 이동(`as_of`) 알림은 저장하지 않는다.** `as_of`가 오면 서버가 `checklist_items`와 `mocks/`로 응답을 만들고 예시는 `is_example: true`. (개업 D-7: 기한 지난 항목·곧 해야 하는 항목, 개업 6개월 후: 부가세·위생교육 갱신 확인 등.)
+- **시점 이동(`as_of`) 알림은 저장하지 않는다.** `as_of`가 오면 서버가 `checklist_items`(미완료 + 기한 지남 또는 `as_of`+14일 이내)와 `mocks/alerts_as_of.json`(개업일 + 달력상 6개월 이후)으로 응답을 만들고 예시는 `is_example: true`, `alert_id`는 `ex-` 접두사다. (개업 D-7: 기한 지난 항목·곧 해야 하는 항목, 개업 6개월 후: 부가세·위생교육 갱신 확인.)
 
 ### 2-7. `change_logs`
 
