@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "report-schema.json",
   "title": "PrecheckReport",
-  "description": "창업 전 사전 점검 리포트. 프론트·백엔드 공용 약속 — 바꾸면 같은 PR에서 백엔드 생성 코드와 프론트 표시 코드를 함께 수정한다. (초안) 문제 항목은 결과 카드(결론·선택지·추천·대신 만든 결과물·사용자가 할 일 1개) 형태로 내려간다.",
+  "description": "창업 전 사전 점검 리포트. 프론트·백엔드 공용 약속 — 바꾸면 같은 PR에서 백엔드 생성 코드와 프론트 표시 코드를 함께 수정한다. (초안) 문제 항목은 결과 카드(결론·선택지·추천·기관 전화번호·사용자가 할 일 1개) 형태로 내려간다.",
   "type": "object",
   "required": ["input", "items", "schedule", "disclaimer"],
   "properties": {
@@ -16,7 +16,7 @@
         "floor": { "type": "string" },
         "store_name": { "type": "string" },
         "open_date": { "type": "string", "format": "date" },
-        "menu_text": { "type": "string" }
+        "menu_text": { "type": "string", "description": "메뉴·광고 문구 점검은 마지막에 구현. 그 전에는 받지 않는다" }
       }
     },
     "items": {
@@ -65,10 +65,9 @@
             "reason": { "type": "string" }
           }
         },
-        "prepared": {
-          "type": "array",
-          "description": "대신 만들어 둔 결과물 (문의 문자, 특약 문구, 서류 초안, 링크)",
-          "items": { "$ref": "#/$defs/prepared" }
+        "contact": {
+          "$ref": "#/$defs/contact",
+          "description": "이 카드와 관련된 담당 기관 연락처. 없으면 null"
         },
         "user_action": { "$ref": "#/$defs/userAction" },
         "chosen_option": { "type": ["string", "null"], "description": "사용자가 고른 option_id. 아직이면 null" },
@@ -117,25 +116,22 @@
           "type": "object",
           "required": ["type"],
           "properties": {
-            "type": { "enum": ["update_store", "set_main_site", "none"] },
+            "type": { "enum": ["update_store", "none"] },
             "payload": { "type": "object" },
+            "adds_checklist": { "type": "array", "items": { "type": "string" }, "description": "선택으로 체크리스트에 새로 생기는 할 일 id (예: x-1)" },
             "needs_reanalyze": { "type": "boolean" }
           }
         },
-        "site_id": { "type": ["string", "null"], "description": "후보 자리 변경 선택지일 때 해당 자리" },
         "remedy": { "type": ["string", "null"], "description": "규칙 묶음의 remedies 값. 허용된 대응 유형 검증용이며 화면에는 보여주지 않는다" }
       }
     },
-    "prepared": {
-      "type": "object",
-      "required": ["prepared_id", "kind", "title"],
+    "contact": {
+      "type": ["object", "null"],
+      "description": "담당 기관 연락처. 규칙 묶음 contacts에서 가져오며, 확인하지 못한 번호는 is_example: true",
       "properties": {
-        "prepared_id": { "type": "string" },
-        "kind": { "enum": ["inquiry_message", "contract_clause", "document_draft", "link"] },
-        "title": { "type": "string" },
-        "body": { "type": "string", "description": "가게 정보·조회 데이터로 채운 초안. 모르는 칸은 [확인 필요]" },
-        "url": { "type": "string" },
-        "editable": { "type": "boolean" }
+        "agency": { "type": "string" },
+        "phone": { "type": "string" },
+        "is_example": { "type": "boolean" }
       }
     },
     "userAction": {
@@ -144,8 +140,7 @@
       "properties": {
         "type": { "enum": ["send", "sign", "visit", "decide"] },
         "text": { "type": "string" },
-        "est_minutes": { "type": "integer" },
-        "prepared_id": { "type": ["string", "null"] }
+        "est_minutes": { "type": "integer" }
       }
     },
     "evidence": {
@@ -158,6 +153,29 @@
         "url": { "type": "string", "format": "uri", "description": "law.go.kr 링크 등" }
       }
     },
+    "document": {
+      "type": "object",
+      "required": ["doc_id", "name", "links"],
+      "description": "체크리스트 항목에 필요한 서류와 받는 곳. 서류를 만들어 주지 않고 어디서 받는지만 안내한다. 링크는 규칙 묶음 sites의 검증된 공식 사이트 첫 화면만 담는다",
+      "properties": {
+        "doc_id": { "type": "string" },
+        "name": { "type": "string" },
+        "agency": { "type": "string", "description": "받는 곳 (예: 정부24 · 세움터)" },
+        "guide": { "type": "string", "description": "찾는 방법 한두 문장" },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "url"],
+            "properties": {
+              "label": { "type": "string" },
+              "url": { "type": "string", "format": "uri" }
+            }
+          }
+        },
+        "contact": { "$ref": "#/$defs/contact" }
+      }
+    },
     "scheduleEntry": {
       "type": "object",
       "required": ["d_day", "task"],
@@ -165,7 +183,8 @@
         "d_day": { "type": "string", "pattern": "^D-[0-9]+$" },
         "date": { "type": "string", "format": "date" },
         "task": { "type": "string" },
-        "related_item_id": { "type": "string" }
+        "related_item_id": { "type": "string" },
+        "documents": { "type": "array", "items": { "$ref": "#/$defs/document" }, "description": "이 일정에 필요한 서류. 받는 곳 안내" }
       }
     }
   }
