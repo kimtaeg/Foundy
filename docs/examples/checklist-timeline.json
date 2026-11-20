@@ -1,0 +1,36 @@
+{
+  "opening_date": "2027-03-02",
+  "progress": {
+    "done": 0,
+    "total": 1
+  },
+  "groups": [
+    {
+      "group_label": "개업 4주 전",
+      "items": [
+        {
+          "item_id": "c-01",
+          "task": "가게 정보와 서류 확인",
+          "category": "영업 인허가",
+          "group_label": "개업 4주 전",
+          "dday": -28,
+          "due_date": "2027-02-02",
+          "documents": [],
+          "agency": "관할 기관 확인 필요",
+          "source": "report",
+          "report_item_id": "r-01",
+          "report_item_ids": [
+            "r-01"
+          ],
+          "prepared": [],
+          "evidence": [],
+          "done": false,
+          "auto_checked": false
+        }
+      ]
+    }
+  ],
+  "hidden_categories": [],
+  "is_example": true,
+  "example_notice": "형식 검증용 합성 데이터입니다. 실제 API·기관 확인 결과가 아닙니다."
+}
