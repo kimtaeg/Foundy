@@ -225,7 +225,7 @@ CREATE INDEX report_items_store_stage ON report_items (store_id, stage);
 
 - **AI 판정과 DB**: AI가 읽은 조문 **원문은 저장하지 않는다** (`api_cache` 1일 캐시). 카드에는 AI가 인용한 문장 중 **원문에서 검증된 것**만 `evidence`에 남는다. AI의 토큰·비용은 `cost_logs`, 단계별 성공·`fallback`은 `runs.events`에 남고, 카드 단위 대체 여부는 `ai_fallback`에 남긴다.
 - 술을 안 파는 가게의 `r-01`은 `ok`이고 `options`가 빈 배열이며 `user_action`이 `NULL`이다 (결과 카드가 아니다).
-- `verdict`: `high`는 규칙이 데이터로 확인한 경우만, AI 판정(`decided_by='ai'`)의 상한은 `low`. 근거(`evidence`)가 없으면 `unknown`.
+- `verdict`: AI 판정(`decided_by='ai'`)의 상한은 `low`이고, **건물 용도·위반건축물만** AI와 규칙표가 일치하고 근거(대장 값·조문 문장)가 코드로 검증됐을 때 `high`를 허용한다. 근거(`evidence`)가 없으면 `unknown`.
 
 **`options` jsonb** (API 명세서 Option과 같다)
 

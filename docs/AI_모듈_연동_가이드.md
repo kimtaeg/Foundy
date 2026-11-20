@@ -32,7 +32,7 @@ POST /demo          ──────────────▶    (함수 호
 
 | 백엔드가 구현 | AI 모듈이 제공 |
 | --- | --- |
-| `tools`: 주소·건축물대장·상표·법령·지원사업 조회 (`building`, `trademark`, `law`, `grants`) | 규칙 묶음(`rules/`): 업종 구분, 건물 용도 판정, 체크리스트 기본 항목 |
+| `tools`: 주소·건축물대장·상표·법령·지원사업 조회 (`building`, `trademark`, `law`, `grants`) | 규칙 묶음(`rules/`): 업종 구분, 건물 용도 규칙표(AI 판정 대조), 체크리스트 기본 항목 |
 | `calc`: 날짜 계산 (`checklist_dates`, `date_info`) | 판정·선택지·추천·챗봇·요약 (LLM 호출 포함) |
 | DB 저장, SSE, 라우터, 캐시 | 근거 검증·가드레일, 비용 기록(`CostTracker`) |
 
@@ -382,7 +382,7 @@ extra = grant_checklist_items(result, calc, store.opening_date, start_index=len(
 - **동시 실행**: LLM 객체와 `CostTracker`는 **분석(요청) 1회마다 새로 만든다.** 비용 기록이 섞이지 않는다.
 - **캐시**: 같은 공고·조문의 AI 판정 결과 캐시는 아직 없다. 필요하면 `judge_grants`의 공고별 호출 앞에서 `grant_id` + 본문 해시로 캐시하면 된다.
 - **응답 직렬화**: AI 모듈의 결과는 pydantic 모델이다. `model_dump(mode="json")`으로 내보내면 날짜·시각이 문자열로 바뀐다.
-- **판정 값**: `verdict`는 `high | low | unknown | ok` 4가지다 (`CLAUDE.md`의 3단계와 다르다. API 명세서 기준).
+- **판정 값**: `verdict`는 `high | low | unknown | ok` 4가지다 (API 명세서 기준, `CLAUDE.md`와 같다).
 
 ---
 

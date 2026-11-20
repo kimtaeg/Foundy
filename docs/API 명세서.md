@@ -409,7 +409,7 @@ event: step
 data: {"step":"law","status":"fallback","message":"법령 API 응답 지연 → 저장된 조문 사용"}
 
 event: item
-data: {"check_id":"building_use","verdict":"high","decided_by":"rule","title":"이 자리에서는 술을 팔 수 없어요","has_options":true}
+data: {"check_id":"building_use","verdict":"high","decided_by":"ai","title":"이 자리에서는 술을 팔 수 없어요","has_options":true}
 
 event: done
 data: {"run_id":"a91d...","summary":{"high":1,"low":3,"unknown":1,"ok":7},"cost_krw":0}
@@ -424,7 +424,7 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 | `building` | 건축물대장 |
 | `trademark` | 상표 검색 |
 | `law` | 조문 조회 |
-| `rules` | 규칙 묶음 판정 (업종 구분, 건물 용도) |
+| `rules` | 규칙 묶음 판정 (업종 구분, 건물 용도 규칙표 준비) |
 | `interpret` | AI 판정·요약 (해당 신고·인허가, 위험) |
 | `advise` | 선택지·추천 생성 (판정이 `ok`가 아닌 항목) |
 | `checklist` | 개업일 역산 체크리스트 생성 (계산 도구) |
@@ -516,7 +516,7 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
           "check_id": "building_use",
           "title": "이 자리에서는 술을 팔 수 없어요",
           "verdict": "high",
-          "decided_by": "rule",
+          "decided_by": "ai",
           "reason": "술을 팔려면 일반음식점으로 신고해야 하는데, 이 건물 1층은 휴게음식점(카페)까지만 가능한 제1종 근린생활시설이에요.",
           "consequence": "이대로 계약하면 영업신고가 반려돼 보증금이 묶일 수 있어요.",
           "options": [
@@ -570,7 +570,7 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
           "check_id": "building_violation",
           "title": "위반건축물인지 확인할 수 없어요",
           "verdict": "unknown",
-          "decided_by": "rule",
+          "decided_by": "ai",
           "reason": "건축물대장 응답에 위반건축물 표기 정보가 없어요.",
           "consequence": "위반건축물이면 영업신고가 반려될 수 있어요.",
           "options": [],
