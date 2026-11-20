@@ -34,7 +34,7 @@ DEMO = ROOT / "mocks" / "demo"
 DEMO_TODAY = date(2026, 11, 20)  # 예시 공고의 마감 판단 기준일 (저장 결과를 만든 날과 무관하게 고정)
 # 이서연 씨 사례가 보여줘야 하는 판정. LLM이 일시적으로 실패해 unknown이 되면 다시 돌린다.
 EXPECTED = {"building_use": "high", "trademark_similar": "low", "building_violation": "unknown",
-            "permit_docs": "low", "labeling": "ok"}
+            "permit_docs": "low", "labeling": "unknown"}
 
 
 def main() -> None:

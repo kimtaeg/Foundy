@@ -26,8 +26,8 @@
     "summary": {
       "high": 0,
       "low": 1,
-      "unknown": 0,
-      "ok": 4
+      "unknown": 1,
+      "ok": 3
     },
     "items": {
       "building_use": {
@@ -41,6 +41,9 @@
       },
       "permit_docs": {
         "verdict": "low"
+      },
+      "labeling": {
+        "verdict": "unknown"
       }
     },
     "no_cards": true,

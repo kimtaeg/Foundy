@@ -49,8 +49,7 @@ def test_guardrails_find_nothing_to_fix(items, demo):
     assert demo["guardrail_changes"] == []
     for item in items:
         spec = check_spec(PACK, item.check_id)
-        _, changes = enforce(item, allowed_remedies=spec["remedies"],
-                             allow_empty_evidence=bool(spec.get("allow_empty_evidence")))
+        _, changes = enforce(item, allowed_remedies=spec["remedies"])
         assert changes == [], item.check_id
 
 
@@ -78,7 +77,7 @@ def test_every_problem_has_a_card(items):
 
 def test_evidence_present_and_marked_mock(items):
     for i in items:
-        assert i.evidence or i.verdict == "unknown" or i.check_id == "labeling", i.check_id  # labeling은 안내 항목
+        assert i.evidence or i.verdict == "unknown", i.check_id
         for e in i.evidence:
             if e.type == "data" and e.source and "예시" in e.source:
                 assert e.from_mock is True

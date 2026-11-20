@@ -1,6 +1,6 @@
 # 공용 API 예시 JSON
 
-기준: dev `af4b151`의 `API 명세서.md` §2·§6·§7. 이 폴더는 프론트·서버가 독립 개발할 때 쓰는 **합성 데이터**다. 실제 주소·API 조회·법률 판정·기관 확인의 증거가 아니다.
+기준: dev `0119e8c`의 `API 명세서.md` §2·§6·§7과 확정된 Contact·서류 객체 형식. 이 폴더는 프론트·서버가 독립 개발할 때 쓰는 **합성 데이터**다. 실제 주소·API 조회·법률 판정·기관 확인의 증거가 아니다.
 
 | 파일 | 표현하는 경로 | 스키마 |
 | --- | --- | --- |
@@ -10,7 +10,7 @@
 | checklist-timeline.json | 시기별 체크리스트 | ../checklist-schema.json |
 | checklist-category.json | 같은 항목을 카테고리로 묶은 체크리스트 | ../checklist-schema.json |
 
-모든 예시는 is_example=true다. normal의 from_mock=false도 정상 경로의 직렬화 형태를 테스트하기 위한 값이며, 실제 공급자 응답이라는 뜻이 아니다. 모르는 기관 번호는 null·verified=false로 두었다. 날짜 구간은 예시이며 group_label 경계를 확정하지 않는다.
+모든 예시는 is_example=true다. normal의 from_mock=false도 정상 경로의 직렬화 형태를 테스트하기 위한 값이며, 실제 공급자 응답이라는 뜻이 아니다. 모르는 기관 번호는 phone=null로 두고, 예시 연락처에는 is_example=true를 표시한다. 날짜 구간은 예시다.
 
 ## 기존 형식에서 바뀐 점
 
@@ -19,15 +19,17 @@
 - 근거는 type=data/law/notice와 source, 원문·링크·조회 시각·캐시/mock 플래그를 쓴다.
 - options.apply는 update_store/none과 adds_checklist다. site_id/set_main_site는 외부 계약에서 제외했다.
 - 연락처, 카드 실행 상태·메모·변경 요약, 체크리스트 연결·auto_checked를 표현한다.
+- 카드의 contact는 agency/phone/is_example/tip이다. verified와 prepared(서류·문의 초안)는 응답에 쓰지 않는다.
+- documents는 서류 이름 문자열이 아닌 doc_id/name/agency/guide/links/contact 객체 목록이다. 사이트 링크는 규칙 묶음의 공식 사이트에서 가져온다.
 - 체크리스트는 별도 응답이다. timeline/category가 같은 항목 스키마를 공유한다. 문서의 report_item_id 예시와 report_item_ids 설명은 함께 표현하되, 둘을 동시에 보낼 때의 일관성 검사는 서버 연결 시 확인한다.
 
 스키마는 문서에 나타난 필드의 허용 구조를 고정하는 **리뷰용 계약 정리안**이다. required/additionalProperties 정책은 프론트·백엔드 담당의 PR 확인이 필요하다. 예시의 is_example/example_notice는 기존 예시 표시 원칙을 적용했다. 알 수 없는 필드를 조용히 받아 이름 오타를 놓치지 않도록 명시하지 않은 필드는 검사에서 거부한다.
 
 ## 생성·소비 경계와 남은 작업
 
-현재 REST 라우터와 프론트 앱은 아직 없다. AI의 ReportItem/ChecklistItem과 저장된 mocks/demo/seoyeon.json은 **내부 형식**이며 이 REST 응답으로 그대로 노출하면 안 된다. 기존 데모를 조용히 새 형식으로 바꾸거나 후보 자리 선택을 임의 변환하지 않았다.
+REST 라우터는 backend/api에 있고 응답은 backend/services/serializers.py가 조립한다. 프론트 앱은 아직 없다. AI의 ReportItem/ChecklistItem과 저장된 mocks/demo/seoyeon.json은 **내부 형식**이며 이 REST 응답으로 그대로 노출하면 안 된다. 예시 계정 API는 DB 명세서 9장대로 기본 9개 체크리스트 중 사업자등록·식품위생교육 2개를 완료 상태로 복사한다. 생성용 데모 파일의 선택 기능인 지원사업 일정은 이 API에서 제외한다.
 
-서버 생성 측(#64/#65/#67/#69)은 stage/group_label/category로 묶고, 서버의 실행 상태·기관 연락처·연결 정보를 합친 뒤 이 스키마로 응답을 검사한다. 프론트 소비 측은 이 폴더의 JSON으로 화면을 만들고 새 필드를 읽는다. #80은 JSON 계약·공용 fixture 단계까지만 반영한 상태이며 AI 모델 전환·실제 응답 생성·프론트 소비 검증은 남아 있다.
+서버 생성 측은 stage/group_label/category로 묶고, 서버의 실행 상태·기관 연락처·연결 정보를 합친 뒤 이 스키마로 응답을 검사한다. 프론트 소비 측은 이 폴더의 JSON으로 화면을 만들고 새 필드를 읽는다. 이 연동 보완은 #95에서 추적하며, 분석 실행 연결(#61/#67/#69)과 실제 프론트 소비 검증은 별도다.
 
 검증에 포함된 규칙: AI의 high 금지, unknown 이외 판정의 빈 근거 금지, 근거 없는 기간·금액 금지, 날짜/시각 형식, 옛 이름과 후보 자리 필드 거부. 추천 option_id 존재·summary 집계·자동 체크 관계·판정과 근거의 사실적 연결은 JSON Schema만으로 보장하지 않으며 서버·AI 검증이 필요하다.
 

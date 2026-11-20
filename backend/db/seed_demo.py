@@ -15,14 +15,15 @@ import yaml
 from sqlalchemy.orm import Session
 
 from db.models import Alert, ChecklistItem, ReportItem, Run, Store, User
+from services.pack import extra_tasks_for_remedy
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 DEMO_PATH = BACKEND_DIR / "mocks" / "demo" / "seoyeon.json"
 RULES_PATH = BACKEND_DIR / "rules" / "packs" / "cafe_restaurant.yaml"
 
 DEMO_USER_NAME = "이서연"
-# 시작 상태에서 완료된 체크리스트 (명세서 9장: 사업자등록·식품위생교육). 시드 파일의 task 이름으로 찾는다
-DEMO_DONE_TASKS = ("사업자등록", "위생교육 신청")
+# DB 명세서 9장: 기본 9개 중 사업자등록·식품위생교육을 완료 상태로 시작한다.
+DEMO_DONE_KEYS = {"c-03", "c-05"}
 ANSWER_COLUMNS = ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw")
 # 공용 응답 계약(docs/report-schema.json)이 허용하는 선택지 적용 유형. 후보 자리(set_main_site)는 제외됐다
 ALLOWED_APPLY_TYPES = ("update_store", "none")
@@ -51,7 +52,7 @@ def load_rules(path: Path = RULES_PATH) -> dict[str, Any]:
 def _rule_lookup(entries: list[dict[str, Any]] | None, item_key: str, field: str) -> Any:
     """규칙 묶음에서 item_key가 같은 항목의 값을 찾는다. 없으면 None."""
     for entry in entries or []:
-        if isinstance(entry, dict) and entry.get("item_key") == item_key:
+        if isinstance(entry, dict) and entry.get("id") == item_key:
             return entry.get(field)
     return None
 
@@ -60,19 +61,19 @@ def _to_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
-def convert_options(options: list[dict[str, Any]], rules: dict[str, Any]) -> list[dict[str, Any]]:
+def convert_options(options: list[dict[str, Any]], rules: dict[str, Any], check_id: str) -> list[dict[str, Any]]:
     """시드 선택지 → 공용 계약 형태.
 
     - 허용되지 않은 적용 유형(set_main_site)의 선택지는 뺀다.
     - site_id 는 계약에 없어 지운다.
-    - 규칙 묶음 extra_tasks 에서 remedy 가 같은 항목을 apply.adds_checklist 로 붙인다.
+    - 규칙 묶음 extra_tasks 의 from=[check_id, remedy]로 추가 항목을 찾는다.
     """
     out = []
     for opt in options or []:
         apply = dict(opt.get("apply") or {"type": "none"})
         if apply.get("type") not in ALLOWED_APPLY_TYPES:
             continue
-        adds = [t["item_key"] for t in rules.get("extra_tasks") or [] if t.get("remedy") and t.get("remedy") == opt.get("remedy")]
+        adds = extra_tasks_for_remedy(rules, check_id, opt.get("remedy"))
         if adds and not apply.get("adds_checklist"):
             apply["adds_checklist"] = adds
         out.append({**{k: v for k, v in opt.items() if k != "site_id"}, "apply": apply})
@@ -113,14 +114,14 @@ def build_demo_rows(demo: dict[str, Any], rules: dict[str, Any] | None = None) -
                 "title": item["title"],
                 "reason": item.get("reason"),
                 "consequence": item.get("consequence"),
-                "options": (options := convert_options(item.get("options") or [], rules)),
+                "options": (options := convert_options(item.get("options") or [], rules, item["check_id"])),
                 # 추천 선택지가 빠졌으면 추천도 없앤다
                 "recommendation": rec
                 if (rec := item.get("recommendation")) and any(o["option_id"] == rec.get("option_id") for o in options)
                 else None,
                 "user_action": item.get("user_action"),
                 "contact_key": item.get("contact_key")
-                or _rule_lookup(rules.get("checks"), item["item_id"], "contact_key"),
+                or _rule_lookup(rules.get("checks"), item["check_id"], "contact"),
                 # from_mock·is_example 표시를 그대로 둔다
                 "evidence": item.get("evidence") or [],
                 # 시작 상태: 결정 대기·미실행
@@ -131,21 +132,23 @@ def build_demo_rows(demo: dict[str, Any], rules: dict[str, Any] | None = None) -
 
     checklist_items = []
     for item in demo.get("checklist", []):
+        if item["source"] != "rule":
+            continue  # 지원사업은 후속 범위. 기본 9개 데모를 만든다.
         key = item["item_id"]
         due = _to_date(item["due_date"])
-        done = item["task"] in DEMO_DONE_TASKS
+        done = key in DEMO_DONE_KEYS
         checklist_items.append(
             {
                 "item_key": key,
                 "source": item["source"],
-                "rule_key": item.get("rule_key") or _rule_lookup(rules.get("checklist"), key, "rule_key"),
+                "rule_key": item.get("rule_key") or key,
                 "task": item["task"],
                 "category": item["category"],
                 "group_label": item["group_label"],
                 "offset_days": item["offset_days"] if "offset_days" in item else (due - opening).days,
                 "due_date": due,
                 "agency": item.get("agency"),
-                "contact_key": item.get("contact_key") or _rule_lookup(rules.get("checklist"), key, "contact_key"),
+                "contact_key": item.get("contact_key") or _rule_lookup(rules.get("checklist"), key, "contact"),
                 "evidence": item.get("evidence") or [],
                 "done": done,
                 "auto_checked": False,

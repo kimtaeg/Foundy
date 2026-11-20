@@ -59,9 +59,10 @@ def test_permit_docs_card_is_rule_card_with_law_evidence_and_contact():
     assert pd.user_action.type == "sign" and pd.contact.agency == "성동구청 위생과"
 
 
-def test_labeling_is_guidance_ok_without_evidence():
+def test_labeling_is_unknown_without_evidence():
     lb = by_check(run()[0])["labeling"]
-    assert lb.verdict == "ok" and not lb.evidence and lb.stage == "운영 중"
+    assert lb.verdict == "unknown" and not lb.evidence and lb.stage == "운영 중"
+    assert lb.consequence and lb.user_action.text == "서류함에서 표시 의무 안내 확인하기"
 
 
 def test_trademark_ai_item_never_high_and_has_rename_options():
@@ -74,7 +75,7 @@ def test_trademark_ai_item_never_high_and_has_rename_options():
 def test_clean_case_has_no_cards():
     res, _ = run(store(answers={"sells_alcohol": True}), FakeTools(uses=("제2종근린생활시설",), violation=False, similar=[]))
     # 문제 카드(선택지)는 없다. 영업신고 서류 안내(규칙 카드)만 남는다
-    assert res.summary == {"high": 0, "low": 1, "unknown": 0, "ok": 4}
+    assert res.summary == {"high": 0, "low": 1, "unknown": 1, "ok": 3}
     assert all(not i.options for i in res.items)
 
 
@@ -142,7 +143,7 @@ def test_advise_llm_failure_still_completes():
 def test_guardrail_forces_unknown_without_evidence():
     # 근거 없는 AI 판정이 새어 나가지 않는다: 건물 조회가 실패한 상태에서도 모든 항목이 유효한 값이다
     res, _ = run(tools=FakeTools(building_ok=False, trademark_ok=False))
-    assert all(i.verdict == "unknown" or i.evidence for i in res.items if i.check_id != "labeling")  # labeling은 안내 항목
+    assert all(i.verdict == "unknown" or i.evidence for i in res.items)
 
 
 def test_grants_step_adds_checklist_items_and_result():

@@ -48,4 +48,5 @@ def patch_checklist(item_id: str, body: ChecklistPatch, store: Store = Depends(o
     db.commit()
     pack = get_pack(store)
     return serializers.checklist_item(pack, item, effective_store(pack, store, cards),
-                                      link_map(pack, cards, items), today_kst())
+                                      link_map(pack, cards, items), today_kst(),
+                                      (store.address_codes or {}).get("sigungu_cd"))

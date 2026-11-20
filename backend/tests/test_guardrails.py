@@ -49,9 +49,9 @@ def test_allowed_none_means_no_remedy_filter():
     assert len(out.options) == 1
 
 
-def test_allow_empty_evidence_keeps_ok_for_guidance_items():
-    out, changes = enforce(item(evidence=[], verdict="ok"), allow_empty_evidence=True)
-    assert out.verdict == "ok" and changes == []
+def test_guidance_without_evidence_is_unknown():
+    out, changes = enforce(item(check_id="labeling", evidence=[], verdict="ok"))
+    assert out.verdict == "unknown" and changes
 
 
 def test_estimate_without_basis_has_no_number():

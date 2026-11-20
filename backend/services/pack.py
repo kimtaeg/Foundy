@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from rules.engine import derive_business_type, load_pack
+from rules.engine import contact_of, derive_business_type, documents_of, load_pack
 
 # 지금 규칙 묶음은 하나다. 업종이 늘면 stores.business_type_input → 묶음 이름 대응을 규칙 쪽에 둔다.
 DEFAULT_PACK = "cafe_restaurant"
@@ -17,13 +17,13 @@ def business_type(pack: dict, sells_alcohol: bool | None) -> str | None:
 
 
 def extra_task(pack: dict, item_key: str) -> dict | None:
-    return next((t for t in pack.get("extra_tasks") or [] if t.get("item_key") == item_key), None)
+    return next((t for t in pack.get("extra_tasks") or [] if t.get("id") == item_key), None)
 
 
-def extra_tasks_for_remedy(pack: dict, remedy: str | None) -> list[str]:
+def extra_tasks_for_remedy(pack: dict, check_id: str, remedy: str | None) -> list[str]:
     if not remedy:
         return []
-    return [t["item_key"] for t in pack.get("extra_tasks") or [] if t.get("remedy") == remedy]
+    return [t["id"] for t in pack.get("extra_tasks") or [] if t.get("from") == [check_id, remedy]]
 
 
 def checklist_entry(pack: dict, task: str) -> dict | None:
@@ -31,24 +31,23 @@ def checklist_entry(pack: dict, task: str) -> dict | None:
 
 
 def linked_check_ids(pack: dict, item: Any) -> list[str]:
-    """체크리스트 항목과 연결된 점검 항목 check_id (DB 명세서 5-4 report_links).
-
-    기본 항목: checks[].checklist_task 가 이 항목의 task 와 같은 점검.
-    선택지 항목(source=report): extra_tasks[].checks.
-    """
+    """규칙 묶음 report_links의 check_id. 옛 항목 ID를 새 규칙에 임의로 연결하지 않는다."""
     if item.source == "report":
-        extra = extra_task(pack, item.item_key)
-        return list(extra.get("checks") or []) if extra else []
-    if item.source == "rule":
-        return [c["id"] for c in pack.get("checks") or [] if c.get("checklist_task") == item.task]
-    return []
+        key = item.rule_key or item.item_key
+    elif item.source == "rule":
+        spec = checklist_entry(pack, item.task)
+        key = item.rule_key or (spec["id"] if spec else None)
+    else:
+        return []
+    return list((pack.get("report_links") or {}).get(key) or [])
 
 
-def task_title(pack: dict, task: str, effective: dict) -> str:
-    template = (pack.get("checklist_titles") or {}).get(task)
-    if not template or not effective.get("business_type"):
+def task_title(pack: dict, task: str, effective: dict, rule_key: str | None = None) -> str:
+    spec = next((c for c in pack.get("checklist") or [] if c["id"] == rule_key), None)
+    spec = spec or checklist_entry(pack, task)
+    if not spec or not spec.get("title_prefix_business_type") or not effective.get("business_type"):
         return task
-    return template.format(business_type=effective["business_type"])
+    return f"{effective['business_type']} 영업신고에 필요한 서류 준비"
 
 
 def hidden_categories(pack: dict, effective: dict) -> list[dict]:
@@ -63,13 +62,13 @@ def hidden_categories(pack: dict, effective: dict) -> list[dict]:
     return [{"category": c, "hidden_reason": r} for c, r in hidden.items()]
 
 
-def documents_for(pack: dict, rule_key: str | None) -> list[dict]:
+def documents_for(pack: dict, rule_key: str | None, sigungu: str | None = None) -> list[dict]:
     if not rule_key:
         return []
-    return list((pack.get("documents") or {}).get(rule_key) or [])
+    return documents_of(pack, rule_key, sigungu)
 
 
-def contact_for(pack: dict, contact_key: str | None) -> dict | None:
+def contact_for(pack: dict, contact_key: str | None, sigungu: str | None = None) -> dict | None:
     if not contact_key:
         return None
-    return (pack.get("contacts") or {}).get(contact_key)
+    return contact_of(pack, contact_key, sigungu)

@@ -11,9 +11,9 @@ def link_map(pack: dict, cards: list[Any], items: list[Any]) -> dict[str, list[s
     by_check = {c.check_id: c.item_key for c in cards}
     links = {}
     for item in items:
-        keys = [by_check[cid] for cid in linked_check_ids(pack, item) if cid in by_check]
-        if keys:
-            links[item.item_key] = keys
+        check_ids = linked_check_ids(pack, item)
+        if check_ids and all(cid in by_check for cid in check_ids):
+            links[item.item_key] = [by_check[cid] for cid in check_ids]
     return links
 
 

@@ -77,8 +77,8 @@ def test_examples_preserve_provenance_and_unknown_contact():
     assert all(p["is_example"] and p["example_notice"] for p in (normal, mock, unknown))
     assert mock["groups"][0]["items"][0]["evidence"][0]["from_mock"]
     assert not unknown["groups"][0]["items"][0]["evidence"]
-    contact = normal["groups"][0]["items"][0]["prepared"][0]["contact"]
-    assert contact["phone"] is None and not contact["verified"]
+    contact = normal["groups"][0]["items"][0]["contact"]
+    assert contact["phone"] is None and contact["is_example"]
 
 
 def test_timeline_and_category_share_identical_checklist_items():
@@ -87,5 +87,20 @@ def test_timeline_and_category_share_identical_checklist_items():
     assert timeline["groups"][0]["items"] == category["groups"][0]["items"]
     payload = deepcopy(timeline)
     payload["groups"][0]["items"][0]["auto_checked"] = "true"
+    with pytest.raises(ValidationError):
+        validator("checklist").validate(payload)
+
+
+@pytest.mark.parametrize("field,value", [("prepared", []), ("contact", {"agency": "기관", "phone": None, "verified": False})])
+def test_obsolete_prepared_and_verified_contracts_are_rejected(field, value):
+    payload = example("report-normal")
+    payload["groups"][0]["items"][0][field] = value
+    with pytest.raises(ValidationError):
+        validator("report").validate(payload)
+
+
+def test_checklist_documents_require_objects_with_links():
+    payload = example("checklist-timeline")
+    payload["groups"][0]["items"][0]["documents"] = ["서류 이름만"]
     with pytest.raises(ValidationError):
         validator("checklist").validate(payload)
