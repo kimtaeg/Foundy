@@ -55,6 +55,28 @@ def test_old_or_unsafe_report_formats_are_rejected(mutation):
         validator("report").validate(payload)
 
 
+@pytest.mark.parametrize("check_id", ["building_use", "building_violation"])
+def test_ai_high_is_allowed_only_for_building_checks(check_id):
+    payload = example("report-normal")
+    payload["groups"][0]["items"][0].update(check_id=check_id, verdict="high", decided_by="ai")
+    validator("report").validate(payload)
+
+
+@pytest.mark.parametrize("check_id", ["permit_docs", "trademark_similar", "ad_claims", "labeling"])
+def test_ai_high_is_rejected_for_other_checks(check_id):
+    payload = example("report-normal")
+    payload["groups"][0]["items"][0].update(check_id=check_id, verdict="high", decided_by="ai")
+    with pytest.raises(ValidationError):
+        validator("report").validate(payload)
+
+
+@pytest.mark.parametrize("check_id", ["permit_docs", "trademark_similar"])
+def test_rule_high_is_still_allowed_for_other_checks(check_id):
+    payload = example("report-normal")
+    payload["groups"][0]["items"][0].update(check_id=check_id, verdict="high", decided_by="rule")
+    validator("report").validate(payload)
+
+
 def test_old_combined_report_and_schedule_is_rejected():
     with pytest.raises(ValidationError):
         validator("report").validate({"input": {}, "items": [], "schedule": [], "disclaimer": "예시"})
