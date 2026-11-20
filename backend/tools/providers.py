@@ -97,8 +97,9 @@ class Providers:
         uses = sorted({re.sub(r"\s", "", r["mainPurpsCdNm"]) for r in selected if r.get("mainPurpsCdNm")})
         if not uses:
             raise ValueError("FLOOR_USE_UNAVAILABLE")
+        # 주소 코드도 함께 돌려줘 분석 결과 저장 때 stores.address_codes 로 남긴다 (관할 기관 연락처에 쓴다)
         return ToolResult(ok=True, source="건축HUB 층별개요", fetched_at=now_utc(),
-                          data={"floor_uses": uses, "violation": None})
+                          data={"floor_uses": uses, "violation": None, "address_codes": codes})
 
     def trademark(self, name):
         if not self.settings.kipris_api_key:

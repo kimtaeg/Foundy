@@ -12,6 +12,7 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-17 | 최초 작성 |
+| 2026-11-21 | 마이페이지 수정·카드 선택 구현 반영: 분석 중 `/choose`·`PATCH /stores`는 `409 RUN_IN_PROGRESS`(저장 안 함), 재분석이 필요하면 변경과 run을 한 트랜잭션으로 저장하고 `run_id` 반환. `/choose`의 재분석 여부는 이전 선택을 비우기 전 ↔ 새 선택 후 유효 값 비교로 결정. `address_detail`(층·호수)은 `building`만. 직원 여부만 바꾸면 재분석 없이 고용 항목 생성·숨김. 미리보기 응답에 `dry_run`, `/changes` 항목에 `changed`·`impacts`·`reset_items` 추가 |
 | 2026-11-20 (확정) | 프로토타입 `foundy` 확정 반영: 서류함은 **받는 곳 안내만**(`documents[]`는 서류 이름·받는 곳 링크·찾는 방법·기관 전화번호, `type`·`ready`·`prepared_id` 제거, `PATCH /documents/{doc_key}` 제거, `GET /documents`는 읽기 전용), 결과 카드에서 **`prepared[]`(문의 문구·특약·서류 초안) 제거**하고 `contact`(기관 전화번호)로 대체, 체크리스트 `prepared` 제거, **상권 분석(`/map`·`/market`)과 메뉴 광고 문구(`menu_text`)는 마지막에 구현**해 현재 범위에서 제외 |
 | 2026-11-20 (서류, 같은 날 확정에서 축소됨) | **필요 서류와 서류함**: 체크리스트 항목의 `documents`를 문자열 목록에서 **서류 객체**(`type`: 만들어 줌·받는 곳·내가 준비·기관에 문의, 받는 곳 링크, 기관 전화번호, 준비 여부)로 바꾸고, `GET /documents`(서류함)·`PATCH /documents/{doc_key}`(준비 완료 체크) 추가, 대시보드 `documents_progress`, 상담의 서류 질문 응답 |
 | 2026-11-19 (프로토타입 반영) | **로그인·계정**(소셜 로그인, 사용자별 가게 소유), **마이페이지**(`PATCH /stores`가 영향 `impacts[]`·초기화된 카드 `reset_items[]`를 돌려줌, 변경 기록 `/changes`), **다음으로 할 일**(`next_steps[]`), 알림 유형 확장과 `as_of`(시점 이동 시연), AI 상담 응답 `kind`·`contacts[]`·통화 준비, **상권 분석**으로 재편(`/map`·`/market`, 후보 자리 `/sites` 전부 제거), 점검 카드 선택지 `set_main_site` 제거(`adds_checklist` 추가), 지원사업 보기·필터, 화면–API 매핑 갱신 |
@@ -85,7 +86,7 @@
 | 401 | `UNAUTHORIZED` | 로그인 토큰이 없거나 만료됨 |
 | 403 | `FORBIDDEN` | 다른 계정의 가게에 접근함 |
 | 404 | `STORE_NOT_FOUND`, `RUN_NOT_FOUND`, `ITEM_NOT_FOUND` |  |
-| 409 | `RUN_IN_PROGRESS` | 같은 가게의 분석이 이미 실행 중 |
+| 409 | `RUN_IN_PROGRESS` | 같은 가게의 분석이 이미 실행 중. 분석 중에 카드 선택(`/choose`)·가게 정보 수정(`PATCH /stores`)을 보내도 같은 오류이며, 아무것도 저장하지 않는다 |
 | 409 | `STORE_EXISTS` | 이미 가게를 등록한 계정이 다시 등록함 (수정은 `PATCH`) |
 | 422 | `ADDRESS_NOT_RESOLVED` | 주소를 코드로 바꾸지 못함 |
 | 429 | `RATE_LIMITED` | 외부 API 한도 초과 (가능하면 캐시·mock으로 대체하고 에러를 내지 않음) |
@@ -344,10 +345,11 @@
 | --- | --- | --- |
 | `opening_date` | `dates` | 체크리스트 날짜만 계산 도구로 재계산 (외부 조회 없음) |
 | `name` | `trademark` | 상표 검색(KIPRIS) |
-| `address`, `address_detail` | `building`, `law`, `checklist` (+ `market`은 상권 분석을 붙일 때) | 건축물대장·조문 조회, 체크리스트 재구성 |
+| `address` | `building`, `law`, `checklist` (+ `market`은 상권 분석을 붙일 때) | 건축물대장·조문 조회, 체크리스트 재구성 |
+| `address_detail` (층·호수) | `building` | 건축물대장(층별 용도) 조회만 |
 | `business_type_input`, `answers.sells_alcohol` | `building`, `law`, `checklist` | 업종 구분·건물 용도·신고 항목 |
 | `answers.uses_terrace` | `law`, `checklist` | 옥외영업 관련 점검 |
-| `answers.has_employees` | `checklist` | 고용 카테고리 표시 여부 |
+| `answers.has_employees` | `checklist` | 고용 카테고리 표시 여부. 재분석 없이 규칙 묶음으로 바로 갱신 (없음 → 있음이면 고용 항목 생성) |
 | (마지막에 구현) `menu_text` | `ad` | 광고 문구 점검(AI) |
 | `owner_birth_year` | `grants` | 지원사업 자격 판정 |
 | `answers.funds_krw` | `costs` | 비용·지원사업 계산 |
@@ -355,15 +357,25 @@
 
 - **영향받는 점검 카드의 선택은 초기화한다.** 예를 들어 주소가 바뀌면 건물 용도 카드(`r-01`)와 위반건축물 카드(`r-03`)의 `chosen_option`·`action_status`가 지워지고 다시 결정 대기가 된다. 지워진 카드는 `reset_items[]`로 알려 주고, 프론트는 **저장 전에** 이 목록을 미리 보여 준다 (미리보기는 같은 규칙으로 프론트가 계산하거나 `?dry_run=true`로 호출한다).
 - 카드가 초기화되면 그 카드로 생긴 체크리스트 항목(`adds_checklist`)과 자동 체크(`auto_checked`)도 함께 풀린다. 사용자가 직접 체크한 항목은 그대로 둔다.
-- 개업일만 바뀌면 `needs_reanalyze`는 `false`이고 `recomputed: ["checklist"]`만 돌려준다.
-- `needs_reanalyze: true`이면 서버가 영향받는 단계만 담아 재분석을 시작하고 `run_id`를 돌려준다 (`runs.trigger = user`, 진행은 4장의 SSE). 마이페이지는 "다시 반영 중" 진행 창으로 보여 준다.
+- 개업일만 바뀌면 `needs_reanalyze`는 `false`이고 `recomputed: ["checklist"]`만 돌려준다 (체크리스트 날짜만 재계산, 외부 조회·AI 없음).
+- 직원 여부만 바뀌면 재분석하지 않는다. 직원 없음 → 있음이면 고용 체크리스트 항목을 만들고, 있음 → 없음이면 항목을 지우지 않고 숨긴다 (체크 상태 유지).
+- 재분석 범위(`runs.scope`)는 `impacts` 중 `building`·`law`·`trademark`·`checklist`이고, 외부 조회가 필요한 단계(`building`·`law`·`trademark`)가 하나라도 있을 때만 재분석한다. `dates`·`costs`·`grants`는 재분석 범위가 아니다.
+- 카드를 초기화해 선택 효과(예: 술 빼기)가 사라지면 그 값의 영향 단계도 `impacts`에 더한다.
+- `needs_reanalyze: true`이면 서버가 **변경 내용과 새 분석 실행을 한 트랜잭션으로 저장**하고 `run_id`를 돌려준다 (`runs.trigger = user`, 진행은 4장의 SSE). 마이페이지는 "다시 반영 중" 진행 창으로 보여 준다.
+- 분석이 실행 중이면 `409 RUN_IN_PROGRESS`이고 아무것도 저장하지 않는다. 미리보기(`?dry_run=true`)는 DB를 바꾸지 않으므로 분석 중에도 된다.
+- 응답의 `needs_reanalyze`는 **서버가 실제로 새 run을 만들었는지**이고 항상 `run_id`가 있을 때만 `true`다. 미리보기 응답은 저장 응답과 같은 형식이고 `dry_run: true`, `run_id: null`이며, `needs_reanalyze`는 저장하면 재분석할지(예정)를 뜻한다. 미리보기와 실제 저장은 같은 영향 계산을 쓴다.
+- 바뀐 값이 없거나(같은 값 재전송) 주소·이름을 비우면 `400 INVALID_INPUT`. 주소·층을 바꾸면 저장된 `address_codes`를 비워 재분석에서 새 주소로 다시 조회한다. 새 주소의 실제 조회(또는 그 캐시)에 성공하면 분석 결과를 저장할 때 새 `address_codes`도 저장해 관할 기관 연락처(`contact`)가 새 주소 기준으로 바뀐다. 조회에 실패하거나 모의 응답으로 대체되면 비운 채로 두고(이전 코드를 되살리지 않음) 연락처는 기본 안내(110)다.
 - 챗봇이 제안한 조건 변경도 사용자가 확인한 뒤 이 엔드포인트로 반영한다 (`/chat`의 `actions` 참고).
 - 변경 내용은 `GET /api/stores/{store_id}/changes`에 남는다.
 
 ### `GET /api/stores/{store_id}/changes` — 최근 변경 반영 기록
 
 ```json
-{ "items": [ { "change_id": "ch-01", "at": "2026-11-19", "lines": ["주소: …성수이로 12 → …성수이로 99", "건물 용도·주류 카드 선택 초기화 (다시 결정 대기)"] } ] }
+{ "items": [ { "change_id": "ch-01", "at": "2026-11-19",
+  "changed": [ { "field": "address", "from": "…성수이로 12", "to": "…성수이로 99" } ],
+  "impacts": ["building", "law", "checklist"],
+  "reset_items": [ { "item_id": "r-01", "title": "건물 용도·주류", "chosen_label": "다른 자리를 알아보기" } ],
+  "lines": ["주소: …성수이로 12 → …성수이로 99", "“건물 용도·주류” 카드 선택 초기화 (다시 결정 대기)"] } ] }
 ```
 
 - 최근 10건. 같은 내용이 알림(`type: change`)으로도 남는다 (12장).
@@ -614,12 +626,15 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
   "added_checklist": ["x-0"],
   "applied_changes": ["체크리스트에 추가: 용도가 맞는 다른 후보 자리 알아보기", "이 자리의 점검은 위반 소지 높음으로 유지돼요"],
   "recomputed": ["checklist"],
-  "needs_reanalyze": false
+  "needs_reanalyze": false,
+  "run_id": null
 }
 ```
 
 - 사용자가 `[추천대로 진행]` 또는 다른 선택지를 눌렀을 때 호출한다. 서버가 `apply`에 적힌 변경(가게 정보·답변 수정, 체크리스트 항목 추가)을 반영한다.
-- `needs_reanalyze: true`이면 서버가 곧바로 재분석 실행을 시작하고 `run_id`를 돌려준다 (`runs.trigger = user`). 프론트는 진행 화면으로 이동한다.
+- 재분석 여부는 **이전 선택을 비우기 전과 새 선택을 적용한 후의 유효 값**(5-2, `sells_alcohol`·`name`)을 비교해 코드가 정한다. 바뀐 값의 영향 단계(3장 영향 규칙)에 `building`·`law`·`trademark`가 있으면 `needs_reanalyze: true`다. 새 선택에는 효과가 없어도 이전 선택의 효과(예: 술 빼기)가 사라지면 재분석한다. 유효 값이 그대로면(같은 선택 재전송 포함) 재분석하지 않는다.
+- `needs_reanalyze: true`이면 서버가 **선택 내용과 새 분석 실행을 한 트랜잭션으로 저장**하고 `run_id`를 돌려준다 (`runs.trigger = user`). 프론트는 진행 화면으로 이동한다. 재분석하지 않으면 `run_id`는 `null`이다. 응답의 `needs_reanalyze`는 **서버가 실제로 새 run을 만들었는지**(`run_id`가 있을 때만 `true`)이고, 선택지 `options[].apply.needs_reanalyze`(AI가 붙인 안내)와 역할이 다르다. 프론트는 진행 화면 이동을 응답의 값으로 정한다.
+- 분석이 실행 중이면 `409 RUN_IN_PROGRESS`이고 선택을 저장하지 않는다. 없는 선택지는 실행 여부와 상관없이 `400 INVALID_INPUT`.
 - `apply.type`이 `none`인 선택지는 `chosen_option`만 기록한다.
 - 이미 선택한 항목을 다시 호출하면 선택을 바꾼다 (이전 선택으로 생긴 변경은 재분석으로 다시 계산된다).
 - 응답의 `applied_changes`, `verdict_before`, `resolved_title`로 화면이 "무엇이 바뀌었는지"를 바로 보여준다. 선택을 바꾸면 `action_status`는 `pending`으로 돌아간다.

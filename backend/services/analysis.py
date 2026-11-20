@@ -84,13 +84,33 @@ def expire_stale(session, store_id=None) -> int:
     return count
 
 
-def create_run(session, store: Store, manager: "AnalysisManager", scope: list[str]):
+def run_in_progress() -> ApiError:
+    return ApiError(409, "RUN_IN_PROGRESS", "이미 분석이 실행 중입니다.")
+
+
+def lock_store(session, store: Store) -> Store:
+    """가게 행을 잠그고 실행 중인 분석이 있으면 409. 분석 요청·카드 선택·가게 수정이 먼저 부른다.
+
+    잠금은 트랜잭션이 끝날 때까지 유지되므로, 이후의 변경과 새 run 저장이 다른 요청과 섞이지 않는다.
+    """
     store = session.scalar(select(Store).where(Store.id == store.id).with_for_update()
                            .execution_options(populate_existing=True))
     expire_stale(session, store.id)
-    active = session.scalar(select(Run.id).where(Run.store_id == store.id, Run.status.in_(ACTIVE)))
-    if active:
-        raise ApiError(409, "RUN_IN_PROGRESS", "이미 분석이 실행 중입니다.")
+    if session.scalar(select(Run.id).where(Run.store_id == store.id, Run.status.in_(ACTIVE))):
+        raise run_in_progress()
+    return store
+
+
+def _active_conflict(exc: IntegrityError) -> bool:
+    return getattr(getattr(exc.orig, "diag", None), "constraint_name", None) == "runs_one_active"
+
+
+def start_run(session, store: Store, manager: "AnalysisManager", scope: list[str]) -> uuid.UUID:
+    """잠근 가게(lock_store)에 run을 만들고, 지금까지의 변경과 함께 한 번에 커밋한 뒤 실행을 맡긴다.
+
+    커밋 전에 실패하면 호출한 쪽의 변경도 함께 롤백된다 (변경만 저장되고 분석이 안 도는 상태를 만들지 않는다).
+    """
+    session.flush()
     cards, _ = load_state(session, store)
     snapshot = store_input(store, cards)
     if snapshot.answers["sells_alcohol"] is None:
@@ -104,8 +124,8 @@ def create_run(session, store: Store, manager: "AnalysisManager", scope: list[st
     except IntegrityError as exc:
         session.rollback()
         manager.release()
-        if getattr(getattr(exc.orig, "diag", None), "constraint_name", None) == "runs_one_active":
-            raise ApiError(409, "RUN_IN_PROGRESS", "이미 분석이 실행 중입니다.") from exc
+        if _active_conflict(exc):
+            raise run_in_progress() from exc
         raise
     except Exception:
         session.rollback()
@@ -118,6 +138,21 @@ def create_run(session, store: Store, manager: "AnalysisManager", scope: list[st
         fail_run(row.id, "ANALYSIS_FAILED", "분석 작업을 시작하지 못했습니다.")
         raise
     return row.id
+
+
+def create_run(session, store: Store, manager: "AnalysisManager", scope: list[str]):
+    return start_run(session, lock_store(session, store), manager, scope)
+
+
+def reanalysis_scope(steps: list[str]) -> list[str]:
+    """영향 단계(impacts.run) → 재분석 범위. 외부 조회·AI가 필요한 단계(building·law·trademark)가 있을 때만 돈다.
+
+    checklist만 있으면(직원 여부 등) 규칙 묶음으로 바로 갱신하므로 재분석하지 않는다.
+    dates·grants·costs는 분석 run의 범위가 아니다.
+    """
+    if not {"building", "law", "trademark"} & set(steps):
+        return []
+    return [s for s in CORE_SCOPE if s in steps]
 
 
 def append_event(run_id: uuid.UUID, event: str, data: dict) -> None:
@@ -207,6 +242,9 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None):
                 task.offset_days = (item.due_date - snapshot.opening_date).days
                 task.evidence = [e.model_dump(mode="json") for e in item.evidence]
         store.business_type, store.onboarded_at = result.business_type, store.onboarded_at or now_utc()
+        if getattr(result, "address_codes", None) and not store.address_codes:
+            # 주소를 바꿔 비워 둔 코드를 새 주소의 실제 조회 결과로 채운다. 조회에 실패하면 비운 채로 둔다 (110 안내)
+            store.address_codes = result.address_codes
         for c in cost.rows:
             session.add(CostLog(run_id=row.id, store_id=store.id, step=c.step, model=c.model,
                                 input_tokens=c.input_tokens, output_tokens=c.output_tokens, cost_krw=c.cost_krw))

@@ -42,7 +42,8 @@ def test_building_uses_selected_floor_and_never_invents_violation_flag():
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         provider = Providers(client, settings())
         result = provider.building(store(address_codes={"sigungu_cd": "11200", "bjdong_cd": "11500", "bun": "0113", "ji": "0000"}))
-        assert result.data == {"floor_uses": ["제1종근린생활시설"], "violation": None}
+        assert result.data == {"floor_uses": ["제1종근린생활시설"], "violation": None,  # 위반 표기는 지어내지 않는다
+                               "address_codes": {"sigungu_cd": "11200", "bjdong_cd": "11500", "bun": "0113", "ji": "0000"}}
         assert result.fetched_at and not result.from_mock
         with pytest.raises(ValueError, match="FLOOR_REQUIRED"):
             provider.building(store(address_detail=None, address_codes={"sigungu_cd": "11200", "bjdong_cd": "11500", "bun": "0113", "ji": "0000"}))
