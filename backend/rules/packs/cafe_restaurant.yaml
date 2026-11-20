@@ -30,7 +30,8 @@ derive:
     "true": 일반음식점
     "false": 휴게음식점
 
-# 건물 용도 적합 여부 (건축법 시행령 별표 1 기준, TODO: D 담당이 조문 확인)
+# 건물 용도 규칙표: AI 판정의 대조용 안전장치다 (AI와 규칙표가 high·ok에서 어긋나면 확인 권장으로 낮춘다).
+# AI가 실패하면 이 표로 만든 카드로 대체한다. (건축법 시행령 별표 1 기준, TODO: D 담당이 조문 확인)
 # - 신고 업종마다 허용되는 용도. 허용 목록에 없고 known_uses 안이면 high.
 # - known_uses 밖의 용도(판매시설, 업무시설 등)는 규칙으로 단정하지 않고 unknown.
 building_use:
@@ -45,12 +46,14 @@ building_use:
 # - call_questions: 통화 준비 질문. {biz}는 신고 업종으로 채운다
 # - consequence·action: 선택지가 없는 카드의 "안 하면 생기는 일"과 사용자 할 일 (AI 호출 없음)
 checks:
-  - id: building_use
+  - id: building_use         # AI가 건축물대장의 층 용도와 조문을 읽고 판정한다. 아래 building_use 규칙표는 대조용 안전장치
     stage: 계약 전
-    decided_by: rule
+    decided_by: ai
+    ai_high_allowed: true    # 근거 검증과 규칙표 대조를 통과한 경우에만 위반 소지 높음
     remedies: [change_business_type, request_use_change, find_other_site]
-    contact: build
-    checklist_task: c-01   # 이 항목이 걸리면 연결되는 체크리스트 기본 항목 id
+    contact_key: build
+    checklist_item: c-01        # 연결되는 체크리스트 기본 항목 id (AI 모듈)
+    checklist_task: 건축물대장 확인 및 임대차 계약 검토   # 같은 항목의 이름 (백엔드가 항목 이름으로 연결한다)
     titles:
       high: "이 자리에서는 {business_type} 신고가 어려워요"
       ok: "이 건물에서 {business_type} 신고가 가능해요"
@@ -64,13 +67,16 @@ checks:
     stage: 계약 전
     decided_by: ai
     remedies: [rename_store, proceed]
-    checklist_task: c-02
-  - id: building_violation
+    checklist_item: c-02        # 연결되는 체크리스트 기본 항목 id (AI 모듈)
+    checklist_task: 상호·상표 유사 여부 추가 확인   # 같은 항목의 이름 (백엔드가 항목 이름으로 연결한다)
+  - id: building_violation   # AI가 건축물대장의 위반건축물 표기를 읽고 판정한다 (표기 정보가 없으면 판단 불가)
     stage: 계약 전
-    decided_by: rule
+    decided_by: ai
+    ai_high_allowed: true
     remedies: []
-    contact: build
-    checklist_task: c-01
+    contact_key: build
+    checklist_item: c-01        # 연결되는 체크리스트 기본 항목 id (AI 모듈)
+    checklist_task: 건축물대장 확인 및 임대차 계약 검토   # 같은 항목의 이름 (백엔드가 항목 이름으로 연결한다)
     titles:
       high: "위반건축물로 표기된 건물이에요"
       ok: "위반건축물 표기가 없어요"
@@ -82,12 +88,13 @@ checks:
       - "등재돼 있다면 시정 후 영업신고가 가능한가요?"
       - "건축물대장에서 직접 확인하려면 어떻게 하나요?"
       - "답변을 문자나 공문으로도 받을 수 있을까요?"
-  - id: permit_docs          # 영업신고 서류 (규칙이 정한 안내 카드, 근거는 식품위생법 조문)
+  - id: permit_docs          # 영업신고 서류: AI가 조회한 조문을 읽고 판정한다 (AI가 실패하면 아래 title·reason의 안내 카드)
     stage: 개업 전
-    decided_by: rule
+    decided_by: ai
     remedies: []
-    contact: hyg
-    checklist_task: c-04
+    contact_key: hyg
+    checklist_item: c-04        # 연결되는 체크리스트 기본 항목 id (AI 모듈)
+    checklist_task: 영업 신고에 필요한 서류 준비   # 같은 항목의 이름 (백엔드가 항목 이름으로 연결한다)
     title: "영업신고 서류를 개업 전에 준비해야 해요"
     reason: "영업 형태에 따라 위생교육 수료와 건강진단 등이 요구될 수 있어요."
     consequence: "서류가 준비되지 않으면 신고 일정이 지연될 수 있어요."
@@ -97,9 +104,9 @@ checks:
       - "위생교육은 언제, 어디서 받아야 하나요?"
       - "건강진단결과서는 어느 시점 것까지 인정되나요?"
       - "신고 후 영업신고증을 받기까지 얼마나 걸리나요? (구청 안내 기준)"
-  - id: labeling             # 운영 중 일반 안내. 점검 결과가 아니라서 근거 없이 ok로 둔다
+  - id: labeling             # 운영 중 표시 의무: 조회한 조문이 있으면 AI가 읽고 안내, 없으면 일반 안내(근거 없이 ok)
     stage: 운영 중
-    decided_by: rule
+    decided_by: ai
     remedies: []
     allow_empty_evidence: true
     title: "기본 표시 의무 점검 항목"
@@ -110,33 +117,29 @@ checks:
     decided_by: ai
     remedies: [rewrite_copy]
 
-# 선택지로 생기는 체크리스트 항목. from = [점검 항목 id, 선택지 유형]. 점검 카드를 되돌리면 사라진다.
-extra_tasks:
-  - { id: x-0, task: 용도가 맞는 다른 후보 자리 알아보기, category: 건물·시설, group: 계약 전, offset_days: -70, agency: 본인 확인, from: [building_use, find_other_site] }
-  - { id: x-1, task: 구청 건축과에 용도변경 가능 여부 문의, category: 건물·시설, group: 계약 전, offset_days: -60, agency: 관할 구청 건축과, contact: build, from: [building_use, request_use_change] }
-  - { id: x-2, task: 간판 제작 전 상표 최종 확인 (KIPRIS), category: 간판·광고, group: 계약 전, offset_days: -30, agency: KIPRIS, from: [trademark_similar, proceed] }
-
-# 개업 체크리스트 기본 항목 (foundy 확정). group과 offset_days는 항목마다 고정이다.
-# 날짜 = 개업일 + offset_days (계산 도구). 직원이 없으면 when 항목은 숨긴다.
+# 개업 체크리스트 기본 항목 (foundy 확정). group_label과 offset_days는 항목마다 고정이다.
+# 날짜 = 개업일 + offset_days (계산 도구). 직원이 없으면 when 항목은 숨긴다. rule_key = item_key (서류 목록을 찾는 키)
 checklist:
-  - { id: c-01, task: 건축물대장 확인 및 임대차 계약 검토, category: 건물·시설, group: 계약 전, offset_days: -56, agency: 관할 구청 건축과, contact: build }
-  - { id: c-02, task: 상호·상표 유사 여부 추가 확인, category: 간판·광고, group: 계약 전, offset_days: -49, agency: KIPRIS }
-  - { id: c-03, task: 사업자등록 신청, category: 세무, group: 개업 4주 전, offset_days: -28, agency: 홈택스 또는 세무서, contact: tax }
-  - { id: c-04, task: 영업 신고에 필요한 서류 준비, category: 영업 인허가, group: 개업 4주 전, offset_days: -28, agency: 관할 구청 위생과, contact: hyg, title_prefix_business_type: true }
-  - { id: c-05, task: 식품위생교육 이수, category: 영업 인허가, group: 개업 4주 전, offset_days: -22, agency: 관련 교육기관 }
-  - { id: c-06, task: 건강진단결과서 준비, category: 영업 인허가, group: 개업 직전, offset_days: -10, agency: 보건소 등 }
-  - { id: c-07, task: 간판 설치 관련 기준 확인, category: 간판·광고, group: 개업 직전, offset_days: -6, agency: 관할 구청, contact: build }
-  - { id: c-08, task: 근로계약서 및 고용 관련 사항 확인, category: 고용, group: 개업 직전, offset_days: -3, agency: 고용노동부 안내, contact: labor, when: has_employees }
-  - { id: c-09, task: 운영 중 표시 의무 사항 점검, category: 표시 의무, group: 개업 후, offset_days: 7, agency: 관할 기관 }
+  - { item_key: c-01, rule_key: c-01, task: 건축물대장 확인 및 임대차 계약 검토, category: 건물·시설, group_label: 계약 전, offset_days: -56, agency: 관할 구청 건축과, contact_key: build }
+  - { item_key: c-02, rule_key: c-02, task: 상호·상표 유사 여부 추가 확인, category: 간판·광고, group_label: 계약 전, offset_days: -49, agency: KIPRIS }
+  - { item_key: c-03, rule_key: c-03, task: 사업자등록 신청, category: 세무, group_label: 개업 4주 전, offset_days: -28, agency: 홈택스 또는 세무서, contact_key: tax }
+  - { item_key: c-04, rule_key: c-04, task: 영업 신고에 필요한 서류 준비, category: 영업 인허가, group_label: 개업 4주 전, offset_days: -28, agency: 관할 구청 위생과, contact_key: hyg }
+  - { item_key: c-05, rule_key: c-05, task: 식품위생교육 이수, category: 영업 인허가, group_label: 개업 4주 전, offset_days: -22, agency: 관련 교육기관 }
+  - { item_key: c-06, rule_key: c-06, task: 건강진단결과서 준비, category: 영업 인허가, group_label: 개업 직전, offset_days: -10, agency: 보건소 등 }
+  - { item_key: c-07, rule_key: c-07, task: 간판 설치 관련 기준 확인, category: 간판·광고, group_label: 개업 직전, offset_days: -6, agency: 관할 구청, contact_key: build }
+  - { item_key: c-08, rule_key: c-08, task: 근로계약서 및 고용 관련 사항 확인, category: 고용, group_label: 개업 직전, offset_days: -3, agency: 고용노동부 안내, contact_key: labor, when: has_employees }
+  - { item_key: c-09, rule_key: c-09, task: 운영 중 표시 의무 사항 점검, category: 표시 의무, group_label: 개업 후, offset_days: 7, agency: 관할 기관 }
 
-# 점검 카드 ↔ 체크리스트 자동 체크: 연결된 카드가 모두 완료되면 항목이 자동 체크된다.
-report_links:
-  c-01: [building_use, building_violation]
-  c-02: [trademark_similar]
-  c-04: [permit_docs]
-  x-0: [building_use]
-  x-1: [building_use]
-  x-2: [trademark_similar]
+# 유효 값(선택 효과 적용)으로 제목을 만드는 체크리스트 기본 항목 (응답을 만들 때 신고 업종을 앞에 붙인다)
+checklist_titles:
+  영업 신고에 필요한 서류 준비: "{business_type} 영업 신고에 필요한 서류 준비"
+
+# 선택지로 생기는 체크리스트 항목. remedy가 같은 선택지를 고르면 추가되고 점검 카드를 되돌리면 사라진다.
+# checks = 이 항목과 연결된 점검 항목 (카드가 모두 완료되면 자동 체크)
+extra_tasks:
+  - { item_key: x-0, rule_key: x-0, task: 용도가 맞는 다른 후보 자리 알아보기, category: 건물·시설, group_label: 계약 전, offset_days: -70, agency: 본인 확인, remedy: find_other_site, checks: [building_use] }
+  - { item_key: x-1, rule_key: x-1, task: 구청 건축과에 용도변경 가능 여부 문의, category: 건물·시설, group_label: 계약 전, offset_days: -60, agency: 관할 구청 건축과, contact_key: build, remedy: request_use_change, checks: [building_use] }
+  - { item_key: x-2, rule_key: x-2, task: 간판 제작 전 상표 최종 확인 (KIPRIS), category: 간판·광고, group_label: 계약 전, offset_days: -30, agency: KIPRIS, remedy: proceed, checks: [trademark_similar] }
 
 # 마이페이지에서 바꾼 필드 → 다시 할 일(run) → 선택을 초기화할 카드(reset). 코드가 정하며 AI는 관여하지 않는다.
 # market은 상권 분석을 붙일 때(마지막에 구현) 추가한다.

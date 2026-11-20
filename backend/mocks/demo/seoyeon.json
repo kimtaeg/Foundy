@@ -4,7 +4,7 @@
   "example_notice": "예시 데이터입니다. 실제 조회 결과가 아닙니다.",
   "generated_at": "2026-11-18",
   "reference_date": "2026-11-20",
-  "generated_with": "{'provider': 'gemini', 'fast': 'gemini-3.5-flash-lite', 'main': 'gemini-3.5-flash-lite'} (2026-11-20 foundy 확정 형태로 변환: 저장된 문장 재사용)",
+  "generated_with": "{'provider': 'gemini', 'fast': 'gemini-3.5-flash-lite', 'main': 'gemini-3.5-flash-lite'} (2026-11-20 foundy 확정 형태로 변환: 저장된 문장 재사용, 영업신고 서류 카드는 조문 해석 판정 형태)",
   "store": {
     "store_id": "demo-seoyeon",
     "name": "모노커피",
@@ -174,7 +174,7 @@
       "data": {
         "check_id": "building_use",
         "verdict": "high",
-        "decided_by": "rule",
+        "decided_by": "ai",
         "title": "이 자리에서는 일반음식점 신고가 어려워요",
         "has_options": true
       }
@@ -204,8 +204,8 @@
       "data": {
         "check_id": "permit_docs",
         "verdict": "low",
-        "decided_by": "rule",
-        "title": "영업신고 서류를 개업 전에 준비해야 해요",
+        "decided_by": "ai",
+        "title": "영업신고를 개업 전에 해야 해요",
         "has_options": false
       }
     },
@@ -262,8 +262,8 @@
       "stage": "계약 전",
       "title": "이 자리에서는 일반음식점 신고가 어려워요",
       "verdict": "high",
-      "decided_by": "rule",
-      "reason": "일반음식점은(는) 제2종근린생활시설에서만 가능한데, 이 건물은 제1종근린생활시설이에요.",
+      "decided_by": "ai",
+      "reason": "이 층은 제1종근린생활시설이고, 일반음식점은 제2종 근린생활시설에 해당해서 이 건물 용도로는 어려워요.",
       "consequence": "현재 건물 용도대로라면 일반음식점 신고를 할 수 없어 영업을 시작하기 어려워요.",
       "options": [
         {
@@ -355,7 +355,12 @@
         "text": "구청 건축과에 전화로 문의하기",
         "est_minutes": 3
       },
+      "ai_fallback": false,
       "chosen_option": null,
+      "action_status": "pending",
+      "action_reply": null,
+      "applied_effects": {},
+      "applied_changes": [],
       "evidence": [
         {
           "type": "data",
@@ -375,7 +380,7 @@
           "value": null,
           "law_name": "건축법 시행령",
           "article": "별표 1",
-          "text": null,
+          "text": "4. 제2종 근린생활시설 … 자. 일반음식점",
           "url": "https://www.law.go.kr/법령/건축법시행령",
           "fetched_at": "2026-11-20T14:03:40+09:00",
           "from_cache": false,
@@ -384,7 +389,8 @@
       ],
       "added_to_checklist": [
         "c-01"
-      ]
+      ],
+      "contact_key": "build"
     },
     {
       "item_id": "r-02",
@@ -496,7 +502,8 @@
       ],
       "added_to_checklist": [
         "c-02"
-      ]
+      ],
+      "contact_key": null
     },
     {
       "item_id": "r-03",
@@ -519,7 +526,12 @@
         "text": "구청 건축과에 전화로 문의하기",
         "est_minutes": 3
       },
+      "ai_fallback": false,
       "chosen_option": null,
+      "action_status": "pending",
+      "action_reply": null,
+      "applied_effects": {},
+      "applied_changes": [],
       "evidence": [
         {
           "type": "data",
@@ -536,16 +548,17 @@
       ],
       "added_to_checklist": [
         "c-01"
-      ]
+      ],
+      "contact_key": "build"
     },
     {
       "item_id": "r-04",
       "check_id": "permit_docs",
       "stage": "개업 전",
-      "title": "영업신고 서류를 개업 전에 준비해야 해요",
+      "title": "영업신고를 개업 전에 해야 해요",
       "verdict": "low",
-      "decided_by": "rule",
-      "reason": "영업 형태에 따라 위생교육 수료와 건강진단 등이 요구될 수 있어요.",
+      "decided_by": "ai",
+      "reason": "음식점 영업은 시장·군수·구청장에게 신고해야 하는 영업에 해당할 수 있어요. 조문에 적힌 할 일: 영업신고서 작성·제출 / 구청 위생과에 필요 서류 확인",
       "consequence": "서류가 준비되지 않으면 신고 일정이 지연될 수 있어요.",
       "options": [],
       "recommendation": null,
@@ -560,6 +573,10 @@
         "est_minutes": 10
       },
       "chosen_option": null,
+      "action_status": "pending",
+      "action_reply": null,
+      "applied_effects": {},
+      "applied_changes": [],
       "evidence": [
         {
           "type": "law",
@@ -567,7 +584,7 @@
           "value": null,
           "law_name": "식품위생법",
           "article": "제37조",
-          "text": "영업 신고에 관한 규정 (조문 번호와 원문은 규칙 담당 확인 전 임시값)",
+          "text": "대통령령으로 정하는 영업을 하려는 자는 대통령령으로 정하는 바에 따라 영업 종류별 또는 영업소별로",
           "url": "https://www.law.go.kr/법령/식품위생법",
           "fetched_at": "2026-11-20T14:03:40+09:00",
           "from_cache": false,
@@ -576,7 +593,8 @@
       ],
       "added_to_checklist": [
         "c-04"
-      ]
+      ],
+      "contact_key": "hyg"
     },
     {
       "item_id": "r-05",
@@ -593,7 +611,8 @@
       "user_action": null,
       "chosen_option": null,
       "evidence": [],
-      "added_to_checklist": []
+      "added_to_checklist": [],
+      "contact_key": null
     }
   ],
   "checklist": [
@@ -636,7 +655,8 @@
         "r-03"
       ],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": "build"
     },
     {
       "item_id": "c-02",
@@ -668,7 +688,8 @@
         "r-02"
       ],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": null
     },
     {
       "item_id": "c-03",
@@ -702,11 +723,12 @@
       "source": "rule",
       "report_item_ids": [],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": "tax"
     },
     {
       "item_id": "c-04",
-      "task": "일반음식점 영업신고에 필요한 서류 준비",
+      "task": "영업 신고에 필요한 서류 준비",
       "category": "영업 인허가",
       "group_label": "개업 4주 전",
       "dday": -28,
@@ -742,7 +764,8 @@
         "r-04"
       ],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": "hyg"
     },
     {
       "item_id": "c-05",
@@ -758,7 +781,8 @@
       "source": "rule",
       "report_item_ids": [],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": null
     },
     {
       "item_id": "c-06",
@@ -774,7 +798,8 @@
       "source": "rule",
       "report_item_ids": [],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": null
     },
     {
       "item_id": "c-07",
@@ -812,7 +837,8 @@
       "source": "rule",
       "report_item_ids": [],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": "build"
     },
     {
       "item_id": "c-08",
@@ -859,7 +885,8 @@
       "source": "rule",
       "report_item_ids": [],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": "labor"
     },
     {
       "item_id": "c-09",
@@ -889,7 +916,8 @@
       "source": "rule",
       "report_item_ids": [],
       "evidence": [],
-      "done": false
+      "done": false,
+      "contact_key": null
     },
     {
       "item_id": "g-example-001",
@@ -918,7 +946,8 @@
           "from_mock": false
         }
       ],
-      "done": false
+      "done": false,
+      "contact_key": null
     },
     {
       "item_id": "g-example-003",
@@ -947,7 +976,8 @@
           "from_mock": false
         }
       ],
-      "done": false
+      "done": false,
+      "contact_key": null
     }
   ],
   "grants": {

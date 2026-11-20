@@ -14,7 +14,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from rules.engine import contact_of, judge_building_use
+from rules.engine import contact_of
 
 from .llm import LLM, LLMError
 from .ports import StoreInput
@@ -43,13 +43,13 @@ class AdviceDraft(BaseModel):
 
 def adds_checklist(pack: dict, check_id: str, remedy: str) -> list[str]:
     """이 선택지를 고르면 체크리스트에 새로 생기는 항목 id (규칙 묶음 extra_tasks의 from)."""
-    return [t["id"] for t in pack.get("extra_tasks", []) if list(t.get("from", [])) == [check_id, remedy]]
+    return [t["item_key"] for t in pack.get("extra_tasks", []) if t.get("remedy") == remedy and check_id in t.get("checks", [])]
 
 
 def contact_for(pack: dict, spec: dict, sigungu: str | None = None) -> Contact | None:
     """점검 항목의 담당 기관 연락처. 번호는 규칙 묶음 contacts에서만 가져온다 (AI가 만들지 않는다).
     관할 구청은 주소의 시군구 코드로 고르고, 표에 없는 지역은 정부민원안내콜센터로 대체한다."""
-    c = contact_of(pack, spec.get("contact"), sigungu)
+    c = contact_of(pack, spec.get("contact_key"), sigungu)
     return Contact(**c) if c else None
 
 
@@ -65,11 +65,10 @@ def build_options(
         apply = apply.model_copy(update={"adds_checklist": adds_checklist(pack, item.check_id, remedy)})
         options.append(Option(option_id=f"o-{len(options) + 1}", remedy=remedy, apply=apply, **kw))
 
-    uses = extras.get("floor_uses", [])
     for remedy in spec.get("remedies", []):
         if remedy == "change_business_type" and item.check_id == "building_use":
             alt = "휴게음식점"
-            if store.answers.get("sells_alcohol") is True and judge_building_use(pack, alt, uses).verdict == "ok":
+            if store.answers.get("sells_alcohol") is True and alt in extras.get("ok_business_types", []):
                 add(remedy, label=f"술 빼고 {alt}으로 시작",
                     summary=f"{alt}으로 신고하면 이 건물에서 가능해요. 대신 술은 팔 수 없어요.",
                     apply=ApplyAction(type="update_store", payload={"answers": {"sells_alcohol": False}},
@@ -100,10 +99,10 @@ def advise_item(
     """판정이 ok가 아닌 항목에 결과 카드 필드를 채워 돌려준다. LLM이 실패해도 선택지와 연락처는 남긴다."""
     options = build_options(pack, store, item, spec, extras, business_type)
     contact = contact_for(pack, spec, store.address_codes.get("sigungu_cd"))
-    base = {"options": options, "contact": contact}
+    base = {"options": options, "contact": contact, "contact_key": spec.get("contact_key")}
     fixed = spec.get("action")  # 선택지가 없는 항목의 할 일·결과는 규칙 묶음에 정해 둔다 (AI 호출 없음)
     if not options:
-        update = {"contact": contact}
+        update = {"contact": contact, "contact_key": spec.get("contact_key")}
         if spec.get("consequence"):
             update["consequence"] = spec["consequence"]
         if fixed:
@@ -148,5 +147,5 @@ def advise_item(
     )
     return item.model_copy(update={
         "consequence": d.consequence.strip(), "options": options, "recommendation": recommendation,
-        "contact": contact, "user_action": user_action,
+        "contact": contact, "contact_key": spec.get("contact_key"), "user_action": user_action,
     })

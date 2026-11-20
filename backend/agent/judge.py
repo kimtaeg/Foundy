@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 from .llm import LLM, LLMError
 from .ports import StoreInput, ToolResult
 from .prompts import judge as prompt
+from rules.engine import RuleResult
+
 from .schemas import Evidence, ReportItem
 
 
@@ -142,3 +144,222 @@ def judge_ad_claims(llm: LLM, store: StoreInput, spec: dict, item_id: str) -> Re
     if verdict == "ok":
         evidence = [Evidence(type="data", source=src, value="입력한 문구 전체를 검토했어요")]
     return _item(spec, item_id, verdict=verdict, title=j.title, reason=reason, evidence=evidence)
+
+
+class PermitJudgment(BaseModel):
+    verdict: Literal["low", "ok", "unknown"]
+    title: str
+    reason: str
+    required: list[str] = Field(default_factory=list)
+    cited: list[str] = Field(default_factory=list)
+    quotes: list[str] = Field(default_factory=list)
+
+
+MAX_ARTICLE_CHARS = 3000
+
+
+def _squash(text: str) -> str:
+    return "".join((text or "").split())
+
+
+def _law_evidence(res: ToolResult, art: dict, quote: str | None = None) -> Evidence:
+    return Evidence(
+        type="law", source=res.source, law_name=art.get("law_name"), article=art.get("article"),
+        text=quote or (art.get("text") or "")[:MAX_ARTICLE_CHARS] or None, url=art.get("url"),
+        fetched_at=res.fetched_at, from_cache=res.from_cache, from_mock=res.from_mock)
+
+
+def _static_permit(spec: dict, item_id: str, res: ToolResult, fallback: bool = False) -> ReportItem:
+    """AI 없이 만든 안내 카드. 조문 근거가 있으면 low(확인 권장), 없으면 근거가 없어 판단하지 않는다.
+    규칙 묶음이 allow_empty_evidence로 허용한 안내 항목(표시 의무)은 근거 없이 ok다."""
+    arts = (res.data or {}).get("articles", []) if res.ok else []
+    evidence = [_law_evidence(res, a) for a in arts]
+    if spec.get("allow_empty_evidence"):
+        verdict = "ok"
+    else:
+        verdict = "low" if evidence else "unknown"
+    return ReportItem(
+        item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="rule", ai_fallback=fallback,
+        verdict=verdict, title=spec["title"], reason=spec["reason"], evidence=evidence)
+
+
+def judge_law_card(
+    llm: LLM, store: StoreInput, business_type: str | None, res: ToolResult, spec: dict, item_id: str,
+) -> ReportItem:
+    """조회한 법령 조문을 AI가 읽고 이 가게의 영업신고 관련 할 일을 판정한다.
+
+    - AI가 인용한 조문·문장이 조회한 원문에 실제로 있는지 코드가 검증한다. 없으면 그 근거는 버린다.
+    - 근거를 검증하지 못하면 unknown이다. AI가 실패하면 규칙 묶음의 안내 카드로 대체한다.
+    """
+    arts = (res.data or {}).get("articles", []) if res.ok else []
+    arts = [a for a in arts if a.get("text")]
+    if not arts:
+        return _static_permit(spec, item_id, res)  # 읽을 조문이 없으면 판단하지 않는다 (근거 없음 → unknown)
+
+    by_key = {f"{a.get('law_name')} {a.get('article')}": a for a in arts}
+    shown = [{"key": k, "law_name": a.get("law_name"), "article": a.get("article"),
+              "text": (a.get("text") or "")[:MAX_ARTICLE_CHARS]} for k, a in by_key.items()]
+    ctx_store = {"name": store.name, "sells_alcohol": store.answers.get("sells_alcohol"),
+                 "uses_terrace": store.answers.get("uses_terrace"), "has_employees": store.answers.get("has_employees")}
+    try:
+        j = llm.parse(
+            step="judge_permit_docs", tier="main", system=prompt.PERMIT_SYSTEM,
+            user=prompt.PERMIT_USER.format(
+                business_type=business_type or "[확인 필요]", store=json.dumps(ctx_store, ensure_ascii=False),
+                articles=json.dumps(shown, ensure_ascii=False)),
+            schema=PermitJudgment,
+        )
+    except LLMError:
+        return _static_permit(spec, item_id, res, fallback=True)
+
+    cited = [k for k in dict.fromkeys(j.cited) if k in by_key]
+    squashed = {k: _squash(by_key[k].get("text") or "") for k in cited}
+    quotes: dict[str, list[str]] = {k: [] for k in cited}
+    for q in dict.fromkeys(x.strip() for x in j.quotes if x.strip()):
+        for k in cited:
+            if _squash(q) and _squash(q) in squashed[k]:
+                quotes[k].append(q)
+                break
+    verified = [k for k in cited if quotes[k]]
+    verdict, reason = j.verdict, j.reason
+    if verdict == "low" and not verified:
+        verdict, reason = "unknown", "AI가 인용한 조문 문장을 조회한 원문에서 확인하지 못했어요. 구청 위생과에 직접 확인해 보세요."
+    if verdict == "ok" and not cited:
+        verdict, reason = "unknown", "해당하지 않는다고 본 근거 조문을 특정하지 못했어요. 구청 위생과에 직접 확인해 보세요."
+    evidence = [_law_evidence(res, by_key[k], " … ".join(quotes[k]) or None) for k in (verified or cited)]
+    if verdict != "unknown" and j.required and verdict == "low":
+        reason = f"{reason} 조문에 적힌 할 일: " + " / ".join(r.strip() for r in j.required[:4] if r.strip())
+    return ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="ai",
+                      verdict=verdict, title=j.title, reason=reason, evidence=evidence)
+
+
+judge_permit_docs = judge_law_card  # 영업신고 서류 카드. 표시 의무 카드도 같은 함수(조문 해석)를 쓴다
+
+
+# ---- 건물 용도·위반건축물: AI가 건축물대장과 조문을 읽고 판정, 규칙표는 대조용 안전장치 ----
+class BuildingJudgment(BaseModel):
+    verdict: Literal["high", "low", "ok", "unknown"]
+    title: str
+    reason: str
+    cited_uses: list[str] = Field(default_factory=list)
+    cited: list[str] = Field(default_factory=list)
+    quotes: list[str] = Field(default_factory=list)
+    ok_business_types: list[str] = Field(default_factory=list)
+
+
+class ViolationJudgment(BaseModel):
+    verdict: Literal["high", "ok", "unknown"]
+    title: str
+    reason: str
+
+
+BUSINESS_TYPES = ("휴게음식점", "일반음식점")
+
+
+def _rule_building_card(spec: dict, item_id: str, rr: RuleResult, uses: list[str], b: ToolResult,
+                        law: ToolResult, business_type: str | None, fallback: bool) -> tuple[ReportItem, dict]:
+    """AI 없이 규칙표로 만든 건물 용도 카드 (AI 실패·건축물대장 없음일 때)."""
+    from rules.engine import render_title
+
+    ev = ([_data_evidence(b, ", ".join(uses))] if uses else [])
+    ev += [_law_evidence(law, a) for a in ((law.data or {}).get("articles", []) if law.ok else [])]
+    title = render_title(spec, rr.verdict, business_type=business_type) or rr.reason
+    return (ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], title=title, verdict=rr.verdict,
+                       decided_by="rule", ai_fallback=fallback, reason=rr.reason, evidence=ev),
+            {"floor_uses": uses, "ok_business_types": rr.facts.get("ok_business_types", [])})
+
+
+def judge_building_use_ai(
+    llm: LLM, store: StoreInput, business_type: str | None, b: ToolResult, law: ToolResult, rr: RuleResult,
+    spec: dict, item_id: str, pack: dict,
+) -> tuple[ReportItem, dict]:
+    """AI가 건축물대장의 층 용도와 조문을 읽고 신고 업종이 가능한지 판정한다.
+
+    코드 검증: 인용한 용도는 건축물대장에 있어야 하고, high는 조문 인용이 검증돼야 한다. 규칙표(rr)와 high·ok가
+    서로 어긋나면 low(구청 확인 권장)로 낮춘다. 규칙표가 판단할 수 없는데 AI가 high면 low로 낮춘다.
+    """
+    from rules.engine import judge_building_use as table
+
+    uses = (b.data or {}).get("floor_uses", []) if b.ok else []
+    rr_ok_types = [t for t in BUSINESS_TYPES if table(pack, t, uses).verdict == "ok"] if uses else []
+    rr.facts["ok_business_types"] = rr_ok_types
+    if not uses or business_type is None:
+        return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=False)
+
+    arts = [a for a in ((law.data or {}).get("articles", []) if law.ok else []) if a.get("text")]
+    by_key = {f"{a.get('law_name')} {a.get('article')}": a for a in arts}
+    shown = [{"key": k, "text": (a.get("text") or "")[:MAX_ARTICLE_CHARS]} for k, a in by_key.items()]
+    try:
+        j = llm.parse(
+            step="judge_building_use", tier="main", system=prompt.BUILDING_SYSTEM,
+            user=prompt.BUILDING_USER.format(
+                store=json.dumps({"name": store.name, "sells_alcohol": store.answers.get("sells_alcohol")},
+                                 ensure_ascii=False),
+                business_type=business_type, floor_uses=json.dumps(uses, ensure_ascii=False),
+                articles=json.dumps(shown, ensure_ascii=False)),
+            schema=BuildingJudgment,
+        )
+    except LLMError:
+        return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=True)
+
+    cited_uses = [u for u in dict.fromkeys(j.cited_uses) if u in uses]
+    cited = [k for k in dict.fromkeys(j.cited) if k in by_key]
+    quotes: dict[str, list[str]] = {k: [] for k in cited}
+    for q in dict.fromkeys(x.strip() for x in j.quotes if x.strip()):
+        for k in cited:
+            if _squash(q) in _squash(by_key[k].get("text") or ""):
+                quotes[k].append(q)
+                break
+    law_verified = [k for k in cited if quotes[k]]
+    verdict, reason = j.verdict, j.reason
+    if verdict in ("high", "ok") and not cited_uses:
+        verdict, reason = "unknown", "AI가 인용한 건물 용도를 건축물대장에서 확인하지 못했어요. 구청 건축과에 확인해 보세요."
+    elif verdict == "high" and not law_verified:
+        verdict = "low"
+        reason += " (근거 조문을 원문에서 확인하지 못해 확인 권장으로 낮췄어요)"
+    if verdict in ("high", "ok") and rr.verdict in ("high", "ok") and verdict != rr.verdict:
+        verdict, reason = "low", "AI 판단과 규칙표가 달라서 확인 권장으로 낮췄어요. 구청 건축과에 확인해 보세요."
+    elif verdict == "high" and rr.verdict == "unknown":
+        verdict = "low"
+        reason += " (규칙표로는 확인되지 않아 확인 권장으로 낮췄어요)"
+    evidence = [_data_evidence(b, ", ".join(cited_uses or uses))]
+    evidence += [_law_evidence(law, by_key[k], " … ".join(quotes[k]) or None) for k in (law_verified or cited)]
+    ok_types = [t for t in dict.fromkeys(j.ok_business_types) if t in BUSINESS_TYPES and t in rr_ok_types]
+    item = ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="ai",
+                      verdict=verdict, title=j.title, reason=reason, evidence=evidence)
+    return item, {"floor_uses": uses, "ok_business_types": ok_types}
+
+
+def judge_violation_ai(llm: LLM, b: ToolResult, spec: dict, item_id: str) -> ReportItem:
+    """AI가 건축물대장의 위반건축물 표기를 읽고 판정한다. 표기 정보가 없으면 AI를 부르지 않고 판단 불가다."""
+    from rules.engine import render_title
+
+    violation = (b.data or {}).get("violation") if b.ok else None
+
+    def rule_card(fallback: bool) -> ReportItem:
+        if violation is True:
+            v, reason, ev = "high", "건축물대장에 위반건축물로 표기돼 있어요.", [_data_evidence(b, "위반건축물 표기 있음")]
+        elif violation is False:
+            v, reason, ev = "ok", "건축물대장에 위반건축물 표기가 없어요.", [_data_evidence(b, "위반건축물 표기 없음")]
+        else:
+            v = "unknown"
+            reason = "건축물대장 응답에 위반건축물 표기 정보가 없어요." if b.ok else "건축물대장을 조회하지 못했어요."
+            ev = [_data_evidence(b, "위반건축물 표기 정보 없음")] if b.ok else []
+        return ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], title=render_title(spec, v) or reason,
+                          verdict=v, decided_by="rule", ai_fallback=fallback, reason=reason, evidence=ev)
+
+    if violation is None:
+        return rule_card(False)  # 읽을 표기가 없다 (AI가 추측하지 않는다)
+    try:
+        j = llm.parse(step="judge_violation", tier="main", system=prompt.VIOLATION_SYSTEM,
+                      user=prompt.VIOLATION_USER.format(violation=json.dumps(violation)), schema=ViolationJudgment)
+    except LLMError:
+        return rule_card(True)
+    expected = "high" if violation else "ok"
+    verdict, reason = j.verdict, j.reason
+    if verdict != expected:  # 표기 값과 다른 판정은 쓰지 않는다
+        verdict, reason = expected, rule_card(False).reason
+    ev = [_data_evidence(b, "위반건축물 표기 있음" if violation else "위반건축물 표기 없음")]
+    return ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="ai", verdict=verdict,
+                      title=j.title if verdict == j.verdict else (render_title(spec, verdict) or j.title),
+                      reason=reason, evidence=ev)

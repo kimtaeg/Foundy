@@ -113,7 +113,9 @@ class ReportItem(BaseModel):
     options: list[Option] = Field(default_factory=list)
     recommendation: Recommendation | None = None
     contact: Contact | None = None
+    contact_key: str | None = None  # 규칙 묶음 contacts의 키. DB에는 이 키만 저장하고 번호는 응답 때 채울 수 있다
     user_action: UserAction | None = None
+    ai_fallback: bool = False  # AI 판정이 실패해 규칙 안내 카드로 대체했는지
     chosen_option: str | None = None
     # 사용자 진행 상태 (결정 → 실행 → 완료). 백엔드가 DB에서 읽어 채운다 (DB 명세서 2-4)
     action_status: Literal["pending", "sent", "done"] = "pending"
@@ -135,6 +137,7 @@ class ChecklistItem(BaseModel):
     documents: list[Document] = Field(default_factory=list)
     agency: str | None = None
     contact: Contact | None = None
+    contact_key: str | None = None
     source: Literal["rule", "report", "grant"] = "rule"
     report_item_ids: list[str] = Field(default_factory=list)  # report_links로 연결된 점검 카드
     evidence: list[Evidence] = Field(default_factory=list)

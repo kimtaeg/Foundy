@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from rules.engine import derive_business_type, load_pack
+from rules.engine import contact_of, derive_business_type, load_pack
 
 # 지금 규칙 묶음은 하나다. 업종이 늘면 stores.business_type_input → 묶음 이름 대응을 규칙 쪽에 둔다.
 DEFAULT_PACK = "cafe_restaurant"
@@ -69,7 +69,9 @@ def documents_for(pack: dict, rule_key: str | None) -> list[dict]:
     return list((pack.get("documents") or {}).get(rule_key) or [])
 
 
-def contact_for(pack: dict, contact_key: str | None) -> dict | None:
-    if not contact_key:
+def contact_for(pack: dict, contact_key: str | None, sigungu: str | None = None) -> dict | None:
+    """기관 연락처. 관할 구청은 주소의 시군구 코드로 고르고, 표에 없는 지역은 정부민원안내콜센터(110)로 대체한다."""
+    c = contact_of(pack, contact_key, sigungu)
+    if c is None:
         return None
-    return (pack.get("contacts") or {}).get(contact_key)
+    return {"agency": c["agency"], "phone": c["phone"], "tip": c.get("tip"), "verified": not c["is_example"]}

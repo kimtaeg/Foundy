@@ -185,7 +185,8 @@ CREATE TABLE report_items (
   stage           text NOT NULL CHECK (stage IN ('계약 전','개업 전','운영 중')),
   -- 내용 (분석이 만든다)
   verdict         text NOT NULL CHECK (verdict IN ('high','low','unknown','ok')),
-  decided_by      text NOT NULL CHECK (decided_by IN ('rule','ai')),
+  decided_by      text NOT NULL CHECK (decided_by IN ('rule','ai')),   -- 판정 주체. 건물 용도·위반건축물·영업신고 서류·상표 유사는 ai(AI가 실패해 규칙표 카드로 대체하면 rule + ai_fallback)
+  ai_fallback     boolean NOT NULL DEFAULT false,   -- AI 판정이 실패해 규칙 안내 카드로 대체했는지 (decided_by는 rule로 남는다)
   title           text NOT NULL,           -- 결론 한 줄 (쉬운 말)
   reason          text,
   consequence     text,                    -- 안 하면 생기는 일
@@ -193,7 +194,7 @@ CREATE TABLE report_items (
   recommendation  jsonb,                   -- {option_id, reason} 또는 NULL
   user_action     jsonb,                   -- {type, text, est_minutes} 또는 NULL (기본 할 일)
   contact_key     text,                    -- 규칙 묶음 contacts의 키 (build|hyg|…). 번호는 응답 때 채운다
-  evidence        jsonb NOT NULL DEFAULT '[]',   -- Evidence 목록 (비면 verdict는 unknown)
+  evidence        jsonb NOT NULL DEFAULT '[]',   -- Evidence 목록 (비면 verdict는 unknown). AI 판정의 근거는 AI가 쓴 문장이 아니라 **코드가 검증한 원문 인용**(조문·문장·상표 번호)이다
   -- 사용자 진행 상태
   chosen_option   text,                    -- 고른 option_id. 아직이면 NULL
   chosen_at       timestamptz,
@@ -216,14 +217,14 @@ CREATE INDEX report_items_store_stage ON report_items (store_id, stage);
 
 | `item_key` | `check_id` | `stage` | 기본 판정 | 결정 방식 | 선택지 | 연락처 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `r-01` | `building_use` | 계약 전 | 술 판매 → `high`, 아니면 `ok` | `rule` | 술 빼고 카페로 시작(`o-1`) / 용도변경 신청(`o-2`) / 다른 자리를 알아보기(`o-3`) | `build` |
+| `r-01` | `building_use` | 계약 전 | 술 판매 → `high`, 아니면 `ok` | `ai` (규칙표 대조) | 술 빼고 카페로 시작(`o-1`) / 용도변경 신청(`o-2`) / 다른 자리를 알아보기(`o-3`) | `build` |
 | `r-02` | `trademark_similar` | 계약 전 | `low` | `ai` | 이름 바꾸기(`o-1`) / 그대로 진행(`o-2`) | — |
-| `r-03` | `building_violation` | 계약 전 | `unknown` (대장 응답에 위반건축물 표기 없음) | `rule` | 없음 | `build` |
+| `r-03` | `building_violation` | 계약 전 | `unknown` (대장 응답에 위반건축물 표기 없음) | `ai` (표기가 없으면 AI를 부르지 않음) | 없음 | `build` |
 | `r-04` | `permit_docs` | 개업 전 | `low` | `ai` | 없음 | `hyg` |
-| `r-05` | `labeling` | 운영 중 | `ok` | `rule` | 없음 | — |
+| `r-05` | `labeling` | 운영 중 | `ok` | `ai`(조문이 있을 때) / 일반 안내 | 없음 | — |
 
 - 술을 안 파는 가게의 `r-01`은 `ok`이고 `options`가 빈 배열이며 `user_action`이 `NULL`이다 (결과 카드가 아니다).
-- `verdict`: `high`는 규칙이 데이터로 확인한 경우만, AI 판정(`decided_by='ai'`)의 상한은 `low`. 근거(`evidence`)가 없으면 `unknown`.
+- `verdict`: AI 판정(`decided_by='ai'`)의 상한은 `low`이고, **건물 용도·위반건축물만** AI와 규칙표가 일치하고 근거(대장 값·조문 문장)가 코드로 검증됐을 때 `high`를 허용한다. 근거(`evidence`)가 없으면 `unknown`.
 
 **`options` jsonb** (API 명세서 Option과 같다)
 
@@ -325,7 +326,7 @@ CREATE INDEX checklist_store_due ON checklist_items (store_id, due_date);
 - **`group_label`은 항목마다 규칙 묶음에 적힌 고정 값이다.** `dday`로 계산해 나누지 않는다 (`foundy`가 그렇다). `dday`는 응답 때 `due_date`와 오늘로 계산한다 (`D-56`, 지난 날은 `D+3`).
 - **`due_date`는 계산 도구가 만든다**: `opening_date + offset_days`. 개업일만 바뀌면 이 컬럼만 다시 계산한다 (외부 조회·LLM 없음).
 - **조건부 항목**: `c-08`(카테고리 `고용`)은 `stores.has_employees = false`이면 응답에서 숨긴다 (행은 두고 `hidden_categories`로 알린다). `c-04`의 제목은 유효 값의 `sells_alcohol`로 만든다.
-- **`report_links`**: 체크리스트 항목과 점검 카드의 연결은 규칙 묶음(`report_links`)에 있고, 테이블에 저장하지 않는다. 응답의 `report_item_ids`도 규칙에서 만든다. (규칙을 바꾸면 기존 가게에도 바로 적용된다.)
+- **`report_links`**: 체크리스트 항목과 점검 카드의 연결은 규칙 묶음(`checks[].checklist_item`·`extra_tasks[].checks`)에 있고, 테이블에 저장하지 않는다. 응답의 `report_item_ids`도 규칙에서 만든다. (규칙을 바꾸면 기존 가게에도 바로 적용된다.)
 - **서류**: `checklist_items`에 서류를 저장하지 않는다. `rule_key`로 규칙 묶음 `documents`를 찾아 응답에 붙인다 (7장). 선택지 항목(`x-*`)의 서류도 같은 방식이고 그 카드를 되돌려 행이 삭제되면 같이 사라진다.
 - **지원사업 마감 항목**(`source='grant'`): 마감일이 지나지 않은 `eligible`·`partial` 공고만 `g-<grant_id>`로 추가한다 (`unknown`은 넣지 않는다). `offset_days`는 `due_date - opening_date`로 채우고, `group_label`만 `dday`로 정한다 (≤ -29 계약 전, -28~-15 개업 4주 전, -14~-1 개업 직전, 0 이상 개업 후).
 - **완료 체크**
@@ -588,7 +589,7 @@ effective.business_type = 규칙 derive(effective.sells_alcohol)
 
 ### 5-4. 점검 카드 완료 → 체크리스트 자동 체크
 
-규칙 묶음의 `report_links`(체크리스트 항목 → 카드 목록)를 쓴다.
+규칙 묶음의 연결 정의(체크리스트 항목 → 카드 목록, `rules.engine.report_links`)를 쓴다.
 
 ```
 sync_links(store):
@@ -652,7 +653,7 @@ sync_links(store):
 | `checks` | 점검 카드 목록·순서(`item_key`), `remedies`(허용 선택지 유형), `contact`, `call_questions` |
 | `checklist` | 기본 체크리스트 항목(`item_key`, 제목, 카테고리, `group_label`, `offset_days`, 담당 기관, `when`) |
 | `extra_tasks` | 선택지로 생기는 항목(`x-0`, `x-1`, `x-2`)의 정의 |
-| `report_links` | 체크리스트 항목 ↔ 점검 카드 연결 (자동 체크) |
+| `checks[].checklist_item`, `extra_tasks[].checks` | 체크리스트 항목 ↔ 점검 카드 연결 (자동 체크) |
 | `impacts` | 바꾼 필드 → `impacts` → 초기화할 카드 |
 | `documents`, `sites` | 체크리스트 항목별 필요 서류와 받는 곳(공식 사이트 첫 화면 링크·찾는 방법). **서류함의 원천** |
 | `contacts` | 기관 이름·전화번호 (`build`, `hyg`, `tax`, `labor`, `gen`). 관할 구청(`build`, `hyg`)은 `by_sigungu[stores.address_codes.sigungu_cd]`의 번호를 쓰고, 표에 없는 지역은 `fallback`(정부민원안내콜센터 110, 확인된 번호)과 안내 `tip`을 쓴다. 번호는 **응답을 만들 때** 규칙 묶음에서 채우고 DB에는 `contact_key`만 저장한다 |

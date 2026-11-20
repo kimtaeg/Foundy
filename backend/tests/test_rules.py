@@ -1,7 +1,7 @@
 import pytest
 
 from rules.engine import (
-    active_checks, base_checklist, business_type_reason, call_questions, check_spec, derive_business_type,
+    active_checks, base_checklist, report_links, business_type_reason, call_questions, check_spec, derive_business_type,
     documents_of, impact_of, judge_building_use, load_pack, normalize_use, pending_questions,
 )
 
@@ -70,9 +70,9 @@ def test_every_check_has_remedies_key():
 
 def test_checklist_is_foundy_set_with_fixed_groups_and_offsets():
     items = base_checklist(PACK, {"has_employees": True})
-    assert [i["id"] for i in items] == [f"c-0{n}" for n in range(1, 10)]
-    assert {i["id"]: (i["group"], i["offset_days"]) for i in items}["c-04"] == ("개업 4주 전", -28)
-    assert "c-08" not in [i["id"] for i in base_checklist(PACK, {"has_employees": False})]
+    assert [i["item_key"] for i in items] == [f"c-0{n}" for n in range(1, 10)]
+    assert {i["item_key"]: (i["group_label"], i["offset_days"]) for i in items}["c-04"] == ("개업 4주 전", -28)
+    assert "c-08" not in [i["item_key"] for i in base_checklist(PACK, {"has_employees": False})]
 
 
 def test_documents_links_come_only_from_verified_sites():
@@ -101,6 +101,12 @@ def test_impacts_decide_run_and_reset_by_rule():
 
 def test_report_links_reference_existing_checks_and_tasks():
     ids = {c["id"] for c in PACK["checks"]}
-    tasks = {c["id"] for c in PACK["checklist"]} | {t["id"] for t in PACK["extra_tasks"]}
-    for task, cards in PACK["report_links"].items():
+    tasks = {c["item_key"] for c in PACK["checklist"]} | {t["item_key"] for t in PACK["extra_tasks"]}
+    links = report_links(PACK)
+    assert links["c-01"] == ["building_use", "building_violation"] and links["x-2"] == ["trademark_similar"]
+    for task, cards in links.items():
         assert task in tasks and set(cards) <= ids
+    names = {c["item_key"]: c["task"] for c in PACK["checklist"]}
+    for c in PACK["checks"]:  # 백엔드는 항목 이름으로 연결한다: checklist_task가 항목 이름과 같아야 한다
+        if c.get("checklist_item"):
+            assert c["checklist_task"] == names[c["checklist_item"]]

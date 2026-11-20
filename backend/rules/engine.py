@@ -120,6 +120,18 @@ def base_checklist(pack: dict, answers: dict) -> list[dict]:
     return items
 
 
+def report_links(pack: dict) -> dict[str, list[str]]:
+    """체크리스트 항목 id → 연결된 점검 항목 id. 기본 항목은 checks[].checklist_item, 선택지 항목은 extra_tasks[].checks에서 만든다
+    (연결된 카드가 모두 완료되면 항목이 자동 체크된다. 한 곳에서만 정의한다)."""
+    links: dict[str, list[str]] = {}
+    for c in pack.get("checks", []):
+        if c.get("checklist_item") and not c.get("deferred"):
+            links.setdefault(c["checklist_item"], []).append(c["id"])
+    for t in pack.get("extra_tasks", []):
+        links[t["item_key"]] = list(t.get("checks", []))
+    return links
+
+
 def active_checks(pack: dict) -> list[dict]:
     """점검 항목 중 지금 만드는 것 (deferred: true는 마지막에 구현할 항목이라 건너뛴다)."""
     return [c for c in pack["checks"] if not c.get("deferred")]

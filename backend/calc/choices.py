@@ -43,11 +43,12 @@ def effective_store(store, items: list[ReportItem]):
 def _extra_item(
     pack: dict, task_id: str, origin: ReportItem, option_id: str, opening: date, calc: Calc, sigungu: str | None,
 ) -> ChecklistItem:
-    t = next(t for t in pack["extra_tasks"] if t["id"] == task_id)
+    t = next(t for t in pack["extra_tasks"] if t["item_key"] == task_id)
     d = calc.checklist_dates(opening, t["offset_days"])
-    contact = contact_of(pack, t.get("contact"), sigungu)
+    contact = contact_of(pack, t.get("contact_key"), sigungu)
     return ChecklistItem(
-        item_id=task_id, rule_key=task_id, task=t["task"], category=t["category"], group_label=t["group"],
+        item_id=task_id, rule_key=t.get("rule_key") or task_id, task=t["task"], category=t["category"], group_label=t["group_label"],
+        contact_key=t.get("contact_key"),
         due_date=d["due_date"], dday=d["dday"], agency=t.get("agency"),
         contact=Contact(**contact) if contact else None,
         documents=[Document(**doc) for doc in documents_of(pack, task_id, sigungu)], source="report",

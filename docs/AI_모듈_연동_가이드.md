@@ -201,6 +201,13 @@ threading.Thread(target=run, args=(store, run_id, q), daemon=True).start()   # �
 | `cost.rows` (`CostRow`: step, model, input_tokens, output_tokens, cost_krw) | `cost_logs` | `done` 이벤트의 `cost_krw`는 `result.cost_krw` |
 | `result.guardrail_changes` | 로그 | 비어 있는 게 정상. 비어 있지 않으면 AI 출력을 가드레일이 고쳤다는 뜻이라 확인용으로 남긴다 |
 
+**조문 해석 판정 (`judge_permit_docs`, 영업신고 서류 카드 `permit_docs`)**
+
+- `tools.law("permit_docs")`가 돌려준 조문 `articles[].text`를 AI가 읽고 `PermitJudgment`(`verdict` low/ok/unknown, `title`, `reason`, `required`, `cited`, `quotes`)로 답한다. **조문의 `text`가 비어 있으면 AI를 부르지 않고** 근거 없음으로 처리한다 (백엔드 도구가 조문 원문을 `text`에 담아야 한다).
+- **검증은 코드가 한다**: `cited`는 조회한 조문 목록에 있는 것만, `quotes`는 그 조문 원문에 실제로 있는 문장만(공백·줄바꿈 무시) 근거로 쓴다. `low`인데 검증된 인용이 없으면 `unknown`, `ok`인데 인용 조문이 없으면 `unknown`이다. AI 판정은 `high`가 될 수 없다.
+- 근거(`evidence`)는 AI가 쓴 문장이 아니라 검증된 `quotes`와 조문 메타(법령명·조문·URL)로 코드가 만든다. `consequence`·`user_action`·`contact`는 규칙 묶음 값이다.
+- AI가 실패하거나(3회 연속 실패 포함) 읽을 조문이 없으면 규칙 묶음의 안내 카드로 대체한다 (`decided_by: rule`, 근거 조문이 있으면 `low`).
+
 ### 4-4. `GET /report`, `GET /checklist`, `GET /dashboard` — AI 호출 없음
 
 저장된 값을 읽어 API 명세서 형태로 조립만 하면 된다. `ReportItem`·`ChecklistItem`의 필드 이름은 명세서와 같다. `stage`별 묶음, `group_label`별 묶음은 백엔드가 만든다.
@@ -225,7 +232,7 @@ threading.Thread(target=run, args=(store, run_id, q), daemon=True).start()   # �
 
 `status`(`pending | sent | done`)와 `reply`를 `report_items.action_status`, `action_reply`에 저장한다. 나머지는 **코드**가 한다.
 
-1. **자동 체크**: 규칙 묶음의 `report_links`로 이 카드와 연결된 체크리스트 항목을 찾는다. 연결된 카드가 **모두 `done`**이면 그 항목을 `done = true`, `auto_checked = true`로 바꾸고 `auto_checked`에 담아 응답한다. 카드를 `pending`으로 되돌리면 `auto_checked = true`인 항목만 되돌린다 (사용자가 직접 한 체크는 유지).
+1. **자동 체크**: 규칙 묶음의 연결 정의(`checks[].checklist_item`, `extra_tasks[].checks`)로 이 카드와 연결된 체크리스트 항목을 찾는다. 연결된 카드가 **모두 `done`**이면 그 항목을 `done = true`, `auto_checked = true`로 바꾸고 `auto_checked`에 담아 응답한다. 카드를 `pending`으로 되돌리면 `auto_checked = true`인 항목만 되돌린다 (사용자가 직접 한 체크는 유지).
 2. **다음으로 할 일**: 새로 생긴 할 일(이번 선택의 `adds_checklist`) → 결정 대기 카드(`verdict: high` 먼저) → 다른 카드의 직접 할 일(`action_status: pending`) → 완료하지 않은 체크리스트 중 `due_date`가 빠른 2개 순서로 최대 5개를 `next_steps[]`로 응답한다. 정렬은 순수 코드다.
 3. **알림**: `sent`·`done`이면 `alerts`에 `type: next`를 남기고(같은 카드는 갱신), `pending`이면 지운다.
 
@@ -378,7 +385,7 @@ extra = grant_checklist_items(result, calc, store.opening_date, start_index=len(
 - [ ] `run_analysis`를 스레드에서 돌리고 `emit`을 SSE 큐로 연결하는 방식
 - [ ] `AnalysisResult` 저장 매핑(4-3)과 재분석 시 `done` 이어받기
 - [ ] `POST /demo`가 `seoyeon.json`을 복사하고 예시 계정·토큰을 만드는 방식 (4-10)
-- [ ] 규칙 묶음 `contacts`·`report_links`·`documents`·`sites`·`call_questions` 반영 (상권용 `tools.places`·`calc/market.py`·`franchise_brands`는 마지막에 구현)
+- [ ] 규칙 묶음 `contacts`·연결 정의·`documents`·`sites`·`call_questions` 반영 (상권용 `tools.places`·`calc/market.py`·`franchise_brands`는 마지막에 구현)
 - [ ] `/action`의 자동 체크·다음 할 일, `PATCH /stores`의 `impacts`·`reset_items`(4-5b, 4-6)
 - [ ] 로그인 토큰의 `user_id`와 `stores.user_id` 소유 확인 (모든 `/stores/{id}/*`)
 - [ ] 챗봇 `actions`를 프론트가 호출하는 API 매핑(4-7)이 프론트와 맞는지

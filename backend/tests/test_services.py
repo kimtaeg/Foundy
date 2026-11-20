@@ -49,23 +49,23 @@ def test_effects_from_apply_accepts_both_shapes():
 
 
 def test_task_title_and_hidden_categories(pack):
-    assert task_title(pack, "영업신고", {"business_type": "휴게음식점"}) == "휴게음식점 영업신고"
-    assert task_title(pack, "사업자등록", {"business_type": "휴게음식점"}) == "사업자등록"
+    assert task_title(pack, "영업 신고에 필요한 서류 준비", {"business_type": "휴게음식점"}) == "휴게음식점 영업 신고에 필요한 서류 준비"
+    assert task_title(pack, "사업자등록 신청", {"business_type": "휴게음식점"}) == "사업자등록 신청"
     hidden = hidden_categories(pack, {"has_employees": False})
     assert [h["category"] for h in hidden] == ["고용"]
     assert hidden_categories(pack, {"has_employees": True}) == []
 
 
 def test_link_map_uses_check_ids(pack):
-    cards = [card("r-01", "building_use"), card("r-02", "building_violation"), card("r-04", "trademark_similar")]
-    items = [item("c-01", "건물 확인·임대차 계약"), item("x-1", "용도변경 문의", source="report"),
-             item("x-2", "상표 확인", source="report"), item("c-05", "사업자등록")]
-    assert link_map(pack, cards, items) == {"c-01": ["r-01", "r-02"], "x-1": ["r-01"], "x-2": ["r-04"]}
+    cards = [card("r-01", "building_use"), card("r-03", "building_violation"), card("r-02", "trademark_similar")]
+    items = [item("c-01", "건축물대장 확인 및 임대차 계약 검토"), item("x-1", "용도변경 문의", source="report"),
+             item("x-2", "상표 확인", source="report"), item("c-03", "사업자등록 신청")]
+    assert link_map(pack, cards, items) == {"c-01": ["r-01", "r-03"], "x-1": ["r-01"], "x-2": ["r-02"]}
 
 
 def test_sync_links_needs_all_cards_and_keeps_manual_checks(pack):
-    r01, r02 = card("r-01", "building_use"), card("r-02", "building_violation")
-    c01 = item("c-01", "건물 확인·임대차 계약")
+    r01, r02 = card("r-01", "building_use"), card("r-03", "building_violation")
+    c01 = item("c-01", "건축물대장 확인 및 임대차 계약 검토")
     r01.action_status = "done"
     assert sync_links(pack, [r01, r02], [c01], NOW) == [] and not c01.done
     r02.action_status = "done"

@@ -22,7 +22,7 @@ RULES_PATH = BACKEND_DIR / "rules" / "packs" / "cafe_restaurant.yaml"
 
 DEMO_USER_NAME = "이서연"
 # 시작 상태에서 완료된 체크리스트 (명세서 9장: 사업자등록·식품위생교육). 시드 파일의 task 이름으로 찾는다
-DEMO_DONE_TASKS = ("사업자등록", "위생교육 신청")
+DEMO_DONE_TASKS = ("사업자등록 신청", "식품위생교육 이수")
 ANSWER_COLUMNS = ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw")
 # 공용 응답 계약(docs/report-schema.json)이 허용하는 선택지 적용 유형. 후보 자리(set_main_site)는 제외됐다
 ALLOWED_APPLY_TYPES = ("update_store", "none")

@@ -18,6 +18,7 @@ def effective_store(pack: dict, store: Any, cards: list[Any]) -> dict:
             if key in (card.applied_effects or {}):
                 eff[key] = card.applied_effects[key]
     eff["business_type"] = business_type(pack, eff["sells_alcohol"])
+    eff["sigungu_cd"] = (getattr(store, "address_codes", None) or {}).get("sigungu_cd")  # 관할 구청 번호를 고르는 키
     return eff
 
 

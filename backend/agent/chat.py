@@ -139,7 +139,7 @@ def _show(v) -> str:
 def _choice_summary(pack: dict, item: ReportItem, option_id: str) -> list[str]:
     opt = next(o for o in item.options if o.option_id == option_id)
     out = [f"{item.title} → “{opt.label}” 선택"]
-    tasks = {t["id"]: t["task"] for t in pack.get("extra_tasks", [])}
+    tasks = {t["item_key"]: t["task"] for t in pack.get("extra_tasks", [])}
     out += [f"체크리스트에 추가: {tasks.get(t, t)}" for t in opt.apply.adds_checklist]
     if opt.apply.needs_reanalyze:
         out.append("선택을 적용하면 영향받는 점검이 다시 계산돼요")

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from agent.schemas import ChecklistItem, ReportItem
+from rules.engine import report_links
 
 
 def sync_links(
@@ -18,7 +19,7 @@ def sync_links(
     out: list[ChecklistItem] = []
     auto: list[str] = []
     for c in checklist:
-        cards = (pack.get("report_links") or {}).get(c.item_id)
+        cards = report_links(pack).get(c.item_id)
         if cards and all(card in present for card in cards):
             all_done = all(card in done_checks for card in cards)
             if all_done and not c.done:
