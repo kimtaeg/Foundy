@@ -190,7 +190,7 @@ NULLABLE = {"owner_birth_year", "funds_krw"}
 REQUIRED_TEXT = {"name", "business_type_input", "address"}
 
 
-def _patch_values(body: StorePatch) -> dict[str, Any]:
+def _patch_values(body: StorePatch, pack: dict) -> dict[str, Any]:
     """보낸 필드만 규칙 묶음 키로 펼친다. 값 검증 실패는 400 INVALID_INPUT."""
     values = {k: getattr(body, k) for k in body.model_fields_set if k != "answers"}
     if body.answers is not None:
@@ -202,6 +202,9 @@ def _patch_values(body: StorePatch) -> dict[str, Any]:
             values[key] = value = value.strip()
             if key in REQUIRED_TEXT and not value:
                 raise invalid_input("주소를 비울 수 없습니다." if key == "address" else f"{key} 값은 비울 수 없습니다.")
+    if "business_type_input" in values:
+        # 가게 등록과 같은 규칙(규칙 묶음 business_type_inputs)으로 검증한다. 없으면 DB CHECK 위반으로 500이 났다 (#105)
+        store_register.validate_business_type(pack, values["business_type_input"])
     year = values.get("owner_birth_year")
     if year is not None and not 1900 <= year <= date.today().year:
         raise invalid_input("출생 연도가 올바르지 않습니다.")
@@ -213,8 +216,8 @@ def _patch_values(body: StorePatch) -> dict[str, Any]:
 @router.patch("")
 def update_store(body: StorePatch, request: Request, dry_run: bool = Query(default=False),
                  store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
-    values = _patch_values(body)
     pack = get_pack(store)
+    values = _patch_values(body, pack)  # 미리보기·저장 공통. 분석 중 확인(409)보다 먼저 입력을 검증한다
     if not dry_run:
         store = lock_store(db, store)  # 분석 중이면 409이고 아무것도 저장하지 않는다
     cards, items = card_service.load_state(db, store)
