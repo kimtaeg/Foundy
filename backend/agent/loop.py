@@ -75,37 +75,59 @@ def _ai_status(guarded: GuardedLLM, before: int, done_msg: str) -> tuple[str, st
 def run_analysis(
     store: StoreInput, *, tools: Tools, calc: Calc, llm: LLM, pack: dict | None = None,
     emit: Emit | None = None, include_grants: bool = False, today: date | None = None,
+    scope: list[str] | None = None,
 ) -> AnalysisResult:
     pack = pack or load_pack("cafe_restaurant")
     emit = emit or (lambda event, data: None)
     llm = guarded = GuardedLLM(llm)  # 연속 실패·시간 초과 시 남은 LLM 호출을 건너뛴다
     business_type = derive_business_type(pack, store.answers)
+    selected = set(scope if scope is not None else ("building", "law", "trademark", "checklist"))
+    all_checks = active_checks(pack)
+    check_ids = {
+        "building": {"building_use", "building_violation"},
+        "law": {"building_use", "permit_docs"},
+        "trademark": {"trademark_similar"},
+        "checklist": set(),
+    }
+    affected = set().union(*(check_ids.get(name, set()) for name in selected))
+    if selected == {"building", "law", "trademark", "checklist"}:
+        affected = {c["id"] for c in all_checks}
+    checks = [c for c in all_checks if c["id"] in affected]
 
     def step(name: str, status: str, message: str, **extra) -> None:
         emit("step", {"step": name, "status": status, "message": message, **extra})
 
     # 1. 조회
-    step("building", "running", "건축물대장 조회 중")
-    b = _safe("건축물대장", tools.building, store)
+    b = ToolResult(ok=False, source="건축물대장", error="미실행")
+    if "building" in selected:
+        step("building", "running", "건축물대장 조회 중")
+        b = _safe("건축물대장", tools.building, store)
+        step("building", _status(b),
+             ("캐시·예시 건축물 자료 사용" if b.from_cache or b.from_mock else "건축물대장 조회 완료")
+             if b.ok else "건축물대장 조회 실패", source=b.source)
+    elif "law" in selected and hasattr(tools, "cached_building"):
+        b = _safe("건축물대장 캐시", tools.cached_building, store)
     uses = (b.data or {}).get("floor_uses", []) if b.ok else []
-    step("building", _status(b),
-         f"이 층 용도: {', '.join(uses)}" if uses else ("건축물대장 조회 실패" if not b.ok else "이 층 용도 정보 없음"),
-         source=b.source)
 
-    step("trademark", "running", "상표 검색 중")
-    t = _safe("KIPRIS", tools.trademark, store.name)
-    n_sim = len((t.data or {}).get("similar", [])) if t.ok else 0
-    step("trademark", _status(t), f"비슷한 상표 {n_sim}건" if t.ok else "상표 조회 실패", source=t.source)
+    t = ToolResult(ok=False, source="KIPRIS", error="미실행")
+    if "trademark" in selected:
+        step("trademark", "running", "상표 검색 중")
+        t = _safe("KIPRIS", tools.trademark, store.name)
+        n_sim = len((t.data or {}).get("similar", [])) if t.ok else 0
+        step("trademark", _status(t), f"비슷한 상표 {n_sim}건" if t.ok else "상표 조회 실패", source=t.source)
 
     # 2. 규칙 판정 + AI 판정 (점검 항목 순서는 규칙 묶음의 순서)
-    laws = {cid: _safe("국가법령정보", tools.law, cid) for cid in ("building_use", "permit_docs")}
-    law_statuses = [_status(r) for r in laws.values()]
-    step("law", "failed" if all(s == "failed" for s in law_statuses)
-         else ("fallback" if any(s != "done" for s in law_statuses) else "done"),
-         "조문 조회 완료" if "failed" not in law_statuses else "일부 조문을 조회하지 못했어요")
+    laws = {cid: ToolResult(ok=False, source="국가법령정보", error="미실행") for cid in ("building_use", "permit_docs")}
+    if "law" in selected:
+        laws = {cid: _safe("국가법령정보", tools.law, cid) for cid in laws}
+        law_statuses = [_status(r) for r in laws.values()]
+        law_status = "failed" if all(s == "failed" for s in law_statuses) else (
+            "fallback" if any(s != "done" for s in law_statuses) else "done")
+        message = {"done": "조문 조회 완료", "fallback": "캐시·예시 법령 자료로 대체하거나 일부 조문 확인이 필요해요",
+                   "failed": "조문을 조회하지 못해 확인이 필요해요"}[law_status]
+        step("law", law_status, message)
 
     step("rules", "running", "규칙 판정 중")
-    checks = active_checks(pack)
     found: dict[str, tuple[ReportItem, dict]] = {}  # check_id → (항목, 선택지 만들 때 쓰는 부가 정보)
 
     for spec in checks:
@@ -153,10 +175,10 @@ def run_analysis(
 
     # 카드 번호(r-01…)는 규칙 묶음의 점검 항목 순서가 정한다
     drafts: list[tuple[ReportItem, dict]] = []
-    for spec in checks:
+    for index, spec in enumerate(all_checks, start=1):
         if spec["id"] in found:
             item, extras = found[spec["id"]]
-            drafts.append((item.model_copy(update={"item_id": f"r-{len(drafts) + 1:02d}"}), extras))
+            drafts.append((item.model_copy(update={"item_id": f"r-{index:02d}"}), extras))
 
     # 3. 결과 카드 (선택지·추천·기관 연락처)
     step("advise", "running", "해결 방안 만드는 중")
@@ -173,12 +195,13 @@ def run_analysis(
     step("advise", *_ai_status(guarded, before, "해결 방안 준비 완료"))
 
     # 4. 개업 체크리스트 (날짜는 계산 도구, 시기는 규칙 묶음의 항목별 값)
-    step("checklist", "running", "개업 체크리스트 만드는 중")
+    if "checklist" in selected:
+        step("checklist", "running", "개업 체크리스트 만드는 중")
     sigungu = store.address_codes.get("sigungu_cd")
-    card_of = {item.check_id: item.item_id for item in items}
+    card_of = {spec["id"]: f"r-{n:02d}" for n, spec in enumerate(all_checks, start=1)}
     links = pack.get("report_links") or {}
     checklist: list[ChecklistItem] = []
-    for base in base_checklist(pack, store.answers):
+    for base in base_checklist(pack, store.answers) if "checklist" in selected else []:
         d = calc.checklist_dates(store.opening_date, base["offset_days"])
         task = base["task"]
         if base.get("title_prefix_business_type") and business_type:
@@ -195,7 +218,8 @@ def run_analysis(
         if item.verdict == "ok" or not task_id or not any(c.item_id == task_id for c in checklist):
             continue
         items[idx] = item.model_copy(update={"added_to_checklist": [task_id]})
-    step("checklist", "done", f"체크리스트 {len(checklist)}개 항목")
+    if "checklist" in selected:
+        step("checklist", "done", f"체크리스트 {len(checklist)}개 항목")
 
     # 5. 정책 알림 (선택): 공고 자격 판정, 마감일을 체크리스트에 추가
     grants_result: GrantsResult | None = None

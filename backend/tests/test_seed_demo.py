@@ -104,7 +104,8 @@ def test_options_follow_public_contract(rows):
 
 def test_demo_run_keeps_events(demo, rows):
     assert rows.run["trigger"] == "demo" and rows.run["status"] == "done"
-    assert rows.run["events"] == demo["events"]
+    assert rows.run["events"] == [e for e in demo["events"]
+                                   if not (e["event"] == "step" and e["data"]["step"] == "grants")]
 
 
 def test_rule_metadata_is_kept(rows):

@@ -2,6 +2,9 @@
 # TODO(D 담당): 실제 순서·기간과 조문 번호는 사전조사로 확정한 뒤 반영한다.
 pack: cafe_restaurant
 
+# 점검별 법령명·조/별표 번호는 아직 미확정이다. 확정 후 AI 연동 가이드의 law_references 형식으로 채운다.
+law_references: {}
+
 # 되물을 후보. AI가 이 중에서 지금 필요한 것만 고른다.
 ask:
   - id: sells_alcohol
