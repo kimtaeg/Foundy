@@ -137,7 +137,7 @@ def run_analysis(
                                      verdict="low", decided_by="rule", reason=spec["reason"], evidence=ev), {})
         elif cid == "labeling":
             found[cid] = (ReportItem(item_id="", check_id=cid, stage=spec["stage"], title=spec["title"],
-                                     verdict="ok", decided_by="rule", reason=spec["reason"]), {})
+                                     verdict="unknown", decided_by="rule", reason=spec["reason"]), {})
     step("rules", "done", "규칙 판정 완료")
 
     step("interpret", "running", "AI 판정 중")
@@ -167,8 +167,7 @@ def run_analysis(
         spec = check_spec(pack, item.check_id)
         if item.verdict != "ok":
             item = advise_item(llm, pack, store, item, spec, extras, business_type)
-        item, c = enforce(item, allowed_remedies=spec.get("remedies"),
-                          allow_empty_evidence=bool(spec.get("allow_empty_evidence")))
+        item, c = enforce(item, allowed_remedies=spec.get("remedies"))
         changes += [f"{item.item_id}: {x}" for x in c]
         items.append(item)
     step("advise", *_ai_status(guarded, before, "해결 방안 준비 완료"))

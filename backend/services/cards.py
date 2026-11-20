@@ -123,8 +123,8 @@ def choose(session: Session, pack: dict, store: Store, card: ReportItem, option_
         if spec is None or key in existing:
             continue
         item = ChecklistItem(
-            store_id=store.id, item_key=key, source="report", task=spec["task"], category=spec["category"],
-            group_label=spec["group_label"], offset_days=spec["offset_days"],
+            store_id=store.id, item_key=key, rule_key=key, source="report", task=spec["task"], category=spec["category"],
+            group_label=spec["group"], offset_days=spec["offset_days"], contact_key=spec.get("contact"),
             due_date=store.opening_date + timedelta(days=spec["offset_days"]), agency=spec.get("agency"),
             origin_item_key=card.item_key, origin_option=option_id, evidence=[], done=False, auto_checked=False,
         )

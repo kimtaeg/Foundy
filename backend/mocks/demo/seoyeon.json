@@ -213,7 +213,7 @@
       "event": "item",
       "data": {
         "check_id": "labeling",
-        "verdict": "ok",
+        "verdict": "unknown",
         "decided_by": "rule",
         "title": "기본 표시 의무 점검 항목",
         "has_options": false
@@ -242,8 +242,8 @@
         "summary": {
           "high": 1,
           "low": 2,
-          "unknown": 1,
-          "ok": 1
+          "unknown": 2,
+          "ok": 0
         },
         "cost_krw": 0.0
       }
@@ -252,8 +252,8 @@
   "summary": {
     "high": 1,
     "low": 2,
-    "unknown": 1,
-    "ok": 1
+    "unknown": 2,
+    "ok": 0
   },
   "report_items": [
     {
@@ -583,14 +583,18 @@
       "check_id": "labeling",
       "stage": "운영 중",
       "title": "기본 표시 의무 점검 항목",
-      "verdict": "ok",
+      "verdict": "unknown",
       "decided_by": "rule",
       "reason": "운영 단계의 일반적인 점검 항목입니다. 실제 점검 결과가 아닙니다.",
-      "consequence": "",
+      "consequence": "표시 의무를 충족했는지 아직 확인할 수 없어요.",
       "options": [],
       "recommendation": null,
       "contact": null,
-      "user_action": null,
+      "user_action": {
+        "type": "visit",
+        "text": "서류함에서 표시 의무 안내 확인하기",
+        "est_minutes": null
+      },
       "chosen_option": null,
       "evidence": [],
       "added_to_checklist": []

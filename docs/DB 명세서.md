@@ -220,7 +220,7 @@ CREATE INDEX report_items_store_stage ON report_items (store_id, stage);
 | `r-02` | `trademark_similar` | 계약 전 | `low` | `ai` | 이름 바꾸기(`o-1`) / 그대로 진행(`o-2`) | — |
 | `r-03` | `building_violation` | 계약 전 | `unknown` (대장 응답에 위반건축물 표기 없음) | `rule` | 없음 | `build` |
 | `r-04` | `permit_docs` | 개업 전 | `low` | `ai` | 없음 | `hyg` |
-| `r-05` | `labeling` | 운영 중 | `ok` | `rule` | 없음 | — |
+| `r-05` | `labeling` | 운영 중 | `unknown` (근거 없는 안내도 예외 없음) | `rule` | 없음 | — |
 
 - 술을 안 파는 가게의 `r-01`은 `ok`이고 `options`가 빈 배열이며 `user_action`이 `NULL`이다 (결과 카드가 아니다).
 - `verdict`: `high`는 규칙이 데이터로 확인한 경우만, AI 판정(`decided_by='ai'`)의 상한은 `low`. 근거(`evidence`)가 없으면 `unknown`.

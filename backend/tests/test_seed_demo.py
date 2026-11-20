@@ -19,13 +19,14 @@ def rows(demo):
 
 
 def test_row_counts(demo, rows):
-    assert len(rows.report_items) == len(demo["report_items"]) == 4
-    assert len(rows.checklist_items) == len(demo["checklist"]) == 9
+    assert len(rows.report_items) == len(demo["report_items"]) == 5
+    assert len(rows.checklist_items) == 9
+    assert all(c["source"] == "rule" for c in rows.checklist_items)
 
 
 def test_item_key_mapping(demo, rows):
     assert [r["item_key"] for r in rows.report_items] == [r["item_id"] for r in demo["report_items"]]
-    assert [c["item_key"] for c in rows.checklist_items] == [c["item_id"] for c in demo["checklist"]]
+    assert [c["item_key"] for c in rows.checklist_items] == [c["item_id"] for c in demo["checklist"] if c["source"] == "rule"]
     assert all("item_id" not in r for r in rows.report_items + rows.checklist_items)
     assert all("report_item_id" not in c for c in rows.checklist_items)
 
@@ -48,7 +49,7 @@ def test_offset_days(rows):
 
 def test_done_items(rows):
     done = {c["item_key"]: c["task"] for c in rows.checklist_items if c["done"]}
-    assert done == {"c-02": "위생교육 신청", "c-05": "사업자등록"}
+    assert done == {"c-03": "사업자등록 신청", "c-05": "식품위생교육 이수"}
     assert not any(c["auto_checked"] for c in rows.checklist_items)
 
 
@@ -58,7 +59,7 @@ def test_initial_card_state(rows):
 
 def test_decision_alerts(rows):
     keys = [a["dedupe_key"] for a in rows.alerts]
-    assert keys == ["dec-r-01", "dec-r-04"]
+    assert keys == ["dec-r-01", "dec-r-02"]
     assert all(a["type"] == "decision" for a in rows.alerts)
     assert all(a["cta"]["item_id"] == a["dedupe_key"][4:] for a in rows.alerts)
 
@@ -89,17 +90,27 @@ def test_sqlalchemy_url():
 def test_options_follow_public_contract(rows):
     r01 = next(r for r in rows.report_items if r["item_key"] == "r-01")
     ids = [o["option_id"] for o in r01["options"]]
-    assert ids == ["o-1", "o-3"]  # set_main_site(후보 자리) 선택지는 뺀다
+    assert ids == ["o-1", "o-2", "o-3"]
     assert all("site_id" not in o for r in rows.report_items for o in r["options"])
     by_id = {o["option_id"]: o for o in r01["options"]}
-    assert by_id["o-3"]["apply"]["adds_checklist"] == ["x-1"]  # request_use_change → x-1
-    assert "adds_checklist" not in by_id["o-1"]["apply"]
-    r04 = next(r for r in rows.report_items if r["item_key"] == "r-04")
-    proceed = next(o for o in r04["options"] if o["remedy"] == "proceed")
+    assert by_id["o-2"]["apply"]["adds_checklist"] == ["x-1"]  # request_use_change → x-1
+    assert by_id["o-1"]["apply"]["adds_checklist"] == []
+    assert by_id["o-3"]["apply"]["adds_checklist"] == ["x-0"]
+    r02 = next(r for r in rows.report_items if r["item_key"] == "r-02")
+    proceed = next(o for o in r02["options"] if o["remedy"] == "proceed")
     assert proceed["apply"]["adds_checklist"] == ["x-2"]
-    assert rows.skipped["options"] == ["r-01/o-2"]
+    assert rows.skipped["options"] == []
 
 
 def test_demo_run_keeps_events(demo, rows):
     assert rows.run["trigger"] == "demo" and rows.run["status"] == "done"
     assert rows.run["events"] == demo["events"]
+
+
+def test_rule_metadata_is_kept(rows):
+    cards = {r["item_key"]: r for r in rows.report_items}
+    items = {c["item_key"]: c for c in rows.checklist_items}
+    assert cards["r-01"]["contact_key"] == "build"
+    assert cards["r-04"]["contact_key"] == "hyg"
+    assert items["c-04"]["contact_key"] == "hyg"
+    assert all(c["rule_key"] == c["item_key"] for c in rows.checklist_items)

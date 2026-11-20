@@ -44,8 +44,8 @@
     "summary": {
       "high": 1,
       "low": 1,
-      "unknown": 0,
-      "ok": 3
+      "unknown": 1,
+      "ok": 2
     },
     "items": {
       "building_use": {
@@ -70,7 +70,7 @@
         "decided_by": "rule"
       },
       "labeling": {
-        "verdict": "ok"
+        "verdict": "unknown"
       }
     },
     "absent": [

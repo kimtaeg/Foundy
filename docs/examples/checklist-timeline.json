@@ -15,14 +15,32 @@
           "group_label": "개업 4주 전",
           "dday": -28,
           "due_date": "2027-02-02",
-          "documents": [],
+          "documents": [
+            {
+              "doc_id": "example-doc",
+              "name": "서류 안내 예시",
+              "agency": "관할 기관 확인 필요",
+              "guide": "공식 사이트에서 해당 서류를 검색하세요.",
+              "links": [
+                {
+                  "label": "정부24",
+                  "url": "https://www.gov.kr/"
+                }
+              ],
+              "contact": {
+                "agency": "관할 기관 확인 필요",
+                "phone": null,
+                "is_example": true,
+                "tip": null
+              }
+            }
+          ],
           "agency": "관할 기관 확인 필요",
           "source": "report",
           "report_item_id": "r-01",
           "report_item_ids": [
             "r-01"
           ],
-          "prepared": [],
           "evidence": [],
           "done": false,
           "auto_checked": false

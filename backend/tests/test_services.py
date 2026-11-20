@@ -24,9 +24,9 @@ def card(key, check_id, verdict="low", options=(), chosen=None, status="pending"
               title=f"{check_id} 카드")
 
 
-def item(key, task, source="rule", done=False, auto=False, due=date(2027, 1, 5), category="건물·시설", origin=None):
+def item(key, task, source="rule", done=False, auto=False, due=date(2027, 1, 5), category="건물·시설", origin=None, rule_key="auto"):
     return NS(item_key=key, task=task, source=source, done=done, done_at=None, auto_checked=auto, due_date=due,
-              category=category, origin_item_key=origin, agency=None)
+              category=category, origin_item_key=origin, agency=None, rule_key=key if rule_key == "auto" else rule_key)
 
 
 STORE = NS(name="모노커피", sells_alcohol=True, uses_terrace=False, has_employees=False, funds_krw=None)
@@ -49,7 +49,8 @@ def test_effects_from_apply_accepts_both_shapes():
 
 
 def test_task_title_and_hidden_categories(pack):
-    assert task_title(pack, "영업신고", {"business_type": "휴게음식점"}) == "휴게음식점 영업신고"
+    assert task_title(pack, "일반음식점 영업신고에 필요한 서류 준비",
+                      {"business_type": "휴게음식점"}, "c-04") == "휴게음식점 영업신고에 필요한 서류 준비"
     assert task_title(pack, "사업자등록", {"business_type": "휴게음식점"}) == "사업자등록"
     hidden = hidden_categories(pack, {"has_employees": False})
     assert [h["category"] for h in hidden] == ["고용"]
@@ -57,14 +58,14 @@ def test_task_title_and_hidden_categories(pack):
 
 
 def test_link_map_uses_check_ids(pack):
-    cards = [card("r-01", "building_use"), card("r-02", "building_violation"), card("r-04", "trademark_similar")]
+    cards = [card("r-01", "building_use"), card("r-03", "building_violation"), card("r-02", "trademark_similar")]
     items = [item("c-01", "건물 확인·임대차 계약"), item("x-1", "용도변경 문의", source="report"),
              item("x-2", "상표 확인", source="report"), item("c-05", "사업자등록")]
-    assert link_map(pack, cards, items) == {"c-01": ["r-01", "r-02"], "x-1": ["r-01"], "x-2": ["r-04"]}
+    assert link_map(pack, cards, items) == {"c-01": ["r-01", "r-03"], "x-1": ["r-01"], "x-2": ["r-02"]}
 
 
 def test_sync_links_needs_all_cards_and_keeps_manual_checks(pack):
-    r01, r02 = card("r-01", "building_use"), card("r-02", "building_violation")
+    r01, r02 = card("r-01", "building_use"), card("r-03", "building_violation")
     c01 = item("c-01", "건물 확인·임대차 계약")
     r01.action_status = "done"
     assert sync_links(pack, [r01, r02], [c01], NOW) == [] and not c01.done
@@ -97,3 +98,18 @@ def test_next_steps_order_and_limit():
     assert steps[2]["sub"] == "추천: 추천안"
     assert steps[4]["title"] == "위생교육"  # 숨긴 고용 항목과 새 항목은 빠진다
     assert len(next_steps(cards, items, hidden={"고용"})) <= 5
+
+
+def test_missing_linked_card_does_not_auto_complete(pack):
+    cards = [card("r-01", "building_use", status="done")]
+    c01 = item("c-01", "건축물대장 확인 및 임대차 계약 검토")
+    assert sync_links(pack, cards, [c01], NOW) == []
+    assert not c01.done
+
+
+def test_old_reused_checklist_id_is_not_assigned_new_meaning(pack):
+    cards = [card("r-02", "trademark_similar", status="done")]
+    old_hygiene = item("c-02", "위생교육 신청", rule_key=None)
+    assert link_map(pack, cards, [old_hygiene]) == {}
+    assert sync_links(pack, cards, [old_hygiene], NOW) == []
+    assert not old_hygiene.done

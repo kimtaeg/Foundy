@@ -101,9 +101,12 @@ def test_next_steps_order_and_limit():
     steps = next_steps(PACK, items, cl, excl=bu.item_id)
     kinds = [s.kind for s in steps]
     assert kinds[0] == "new" and steps[0].go == {"page": "checklist", "item_id": "x-0"}
-    assert kinds.index("decide") < kinds.index("do") < kinds.index("task")  # 새 할 일 → 결정 → 직접 할 일 → 체크리스트
-    assert len(steps) == 5 and kinds.count("task") == 1  # 최대 5개로 자른다
+    assert kinds == ["new", "decide", "do", "do", "do"]  # 표시 의무 확인까지 직접 할 일 3개가 먼저 온다.
     assert steps[kinds.index("decide")].sub.startswith("추천:")
+    items = [i.model_copy(update={"action_status": "done"}) if i.check_id == "labeling" else i for i in items]
+    steps = next_steps(PACK, items, cl, excl=bu.item_id)
+    assert [s.kind for s in steps] == ["new", "decide", "do", "do", "task"]  # 직접 할 일이 줄면 체크리스트가 뒤에 온다.
+    assert len(steps) == 5
 
 
 def test_next_steps_empty_when_everything_done():

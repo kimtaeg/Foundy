@@ -22,25 +22,9 @@
           "consequence": "확인 필요",
           "options": [],
           "recommendation": null,
-          "prepared": [
-            {
-              "prepared_id": "p-01",
-              "kind": "inquiry_message",
-              "title": "문의 예시",
-              "body": "[확인 필요]",
-              "editable": true,
-              "contact": {
-                "agency": "관할 기관 확인 필요",
-                "phone": null,
-                "source": "example",
-                "verified": false
-              }
-            }
-          ],
           "user_action": {
             "type": "send",
-            "text": "관할 기관 확인",
-            "prepared_id": "p-01"
+            "text": "관할 기관 확인"
           },
           "chosen_option": null,
           "action_status": "pending",
@@ -51,7 +35,13 @@
             "c-01"
           ],
           "applied_changes": [],
-          "evidence": []
+          "evidence": [],
+          "contact": {
+            "agency": "관할 기관 확인 필요",
+            "phone": null,
+            "is_example": true,
+            "tip": null
+          }
         }
       ]
     }

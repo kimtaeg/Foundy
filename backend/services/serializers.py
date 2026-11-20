@@ -29,8 +29,8 @@ EVIDENCE_KEYS = ("type", "source", "value", "law_name", "article", "text", "url"
 OPTION_KEYS = ("option_id", "label", "summary", "time", "cost", "apply", "remedy", "user_action")
 APPLY_KEYS = ("type", "payload", "needs_reanalyze", "adds_checklist")
 ESTIMATE_KEYS = ("text", "basis", "delta_krw")
-USER_ACTION_KEYS = ("type", "text", "est_minutes", "prepared_id")
-CONTACT_KEYS = ("agency", "phone", "tip", "source", "verified")
+USER_ACTION_KEYS = ("type", "text", "est_minutes")
+CONTACT_KEYS = ("agency", "phone", "is_example", "tip")
 
 
 def _pick(d: dict | None, keys: tuple[str, ...]) -> dict | None:
@@ -95,7 +95,7 @@ def store(pack: dict, s: Store, cards: list[ReportItem]) -> dict:
 
 # ---------- 점검 리포트 ----------
 
-def report_item(card: ReportItem, linked: list[str]) -> dict:
+def report_item(pack: dict, card: ReportItem, linked: list[str], sigungu: str | None = None) -> dict:
     out = {
         "item_id": card.item_key,
         "check_id": card.check_id,
@@ -106,6 +106,7 @@ def report_item(card: ReportItem, linked: list[str]) -> dict:
         "reason": card.reason or "",
         "options": [option(o) for o in card.options or []],
         "recommendation": card.recommendation,
+        "contact": contact(contact_for(pack, card.contact_key, sigungu)),
         "user_action": _pick(current_user_action(card), USER_ACTION_KEYS),
         "chosen_option": card.chosen_option,
         "action_status": card.action_status,
@@ -145,7 +146,8 @@ def report(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistI
         if stage and st != stage:
             continue
         rows = sorted((c for c in cards if c.stage == st), key=_sort_key)
-        groups.append({"stage": st, "items": [report_item(c, sorted(linked_by_card[c.item_key])) for c in rows]})
+        groups.append({"stage": st, "items": [report_item(pack, c, sorted(linked_by_card[c.item_key]),
+                                                          (s.address_codes or {}).get("sigungu_cd")) for c in rows]})
     out = {
         "store_id": str(s.id),
         "run_id": str(run.id) if run else "",
@@ -162,17 +164,18 @@ def report(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistI
 
 # ---------- 체크리스트·서류 ----------
 
-def checklist_item(pack: dict, item: ChecklistItem, eff: dict, links: dict[str, list[str]], today: date) -> dict:
+def checklist_item(pack: dict, item: ChecklistItem, eff: dict, links: dict[str, list[str]], today: date,
+                   sigungu: str | None = None) -> dict:
     return {
         "item_id": item.item_key,
-        "task": task_title(pack, item.task, eff),
+        "task": task_title(pack, item.task, eff, item.rule_key),
         "category": item.category,
         "group_label": item.group_label,
         "dday": dday(item.due_date, today),
         "due_date": item.due_date.isoformat(),
-        "documents": [d.get("name", "") for d in documents_for(pack, item.rule_key)],
+        "documents": documents_for(pack, item.rule_key, sigungu),
         "agency": item.agency,
-        "contact": contact(contact_for(pack, item.contact_key)),
+        "contact": contact(contact_for(pack, item.contact_key, sigungu)),
         "source": item.source,
         "report_item_ids": links.get(item.item_key, []),
         "evidence": evidence(item.evidence),
@@ -188,7 +191,7 @@ def checklist(pack: dict, s: Store, cards: list[ReportItem], items: list[Checkli
     links = link_map(pack, cards, items)
     today = today_kst()
     visible = sorted((i for i in items if i.category not in hidden_set), key=lambda i: (i.due_date, i.item_key))
-    rows = [(i, checklist_item(pack, i, eff, links, today)) for i in visible]
+    rows = [(i, checklist_item(pack, i, eff, links, today, (s.address_codes or {}).get("sigungu_cd"))) for i in visible]
     if view == "category":
         groups = [{"category": c, "items": [r for i, r in rows if i.category == c]} for c in CATEGORIES]
     else:
@@ -211,12 +214,12 @@ def documents(pack: dict, s: Store, cards: list[ReportItem], items: list[Checkli
     today = today_kst()
     groups, total, finished = [], 0, 0
     for i in sorted(items, key=lambda i: (i.due_date, i.item_key)):
-        docs = documents_for(pack, i.rule_key)
+        docs = documents_for(pack, i.rule_key, (s.address_codes or {}).get("sigungu_cd"))
         if i.category in hidden_set or not docs:
             continue
         total += len(docs)
         finished += len(docs) if i.done else 0
-        groups.append({"item_id": i.item_key, "task": task_title(pack, i.task, eff), "group_label": i.group_label,
+        groups.append({"item_id": i.item_key, "task": task_title(pack, i.task, eff, i.rule_key), "group_label": i.group_label,
                        "due_date": i.due_date.isoformat(), "dday": dday(i.due_date, today), "agency": i.agency,
                        "done": i.done, "documents": docs})
     return {"summary": {"total": total, "finished": finished, "remaining": total - finished},

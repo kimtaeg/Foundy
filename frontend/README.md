@@ -16,6 +16,10 @@ Next.js + TypeScript + Tailwind. 아직 프로젝트를 생성하지 않았다.
 시기별·카테고리별 체크리스트 JSON을 사용한다. 모두 합성 예시 데이터다.
 필드 변경·검증 방법·아직 연결되지 않은 AI 내부 모델은 `docs/examples/README.md`를 참고한다.
 
+연락처는 카드의 `contact`에서 `agency/phone/is_example/tip`을 읽는다.
+서류는 `documents[]`의 `doc_id/name/agency/guide/links/contact`로 표시한다.
+이전 `prepared`·연락처 `verified` 필드는 사용하지 않는다.
+
 ## 실행
 
 ```bash
