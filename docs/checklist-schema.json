@@ -1,0 +1,129 @@
+{
+  "type": "object",
+  "properties": {
+    "opening_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "done",
+        "total"
+      ],
+      "additionalProperties": false
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "group_label": {
+                "enum": [
+                  "계약 전",
+                  "개업 4주 전",
+                  "개업 직전",
+                  "개업 후"
+                ]
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "report-schema.json#/$defs/checklist_item"
+                }
+              }
+            },
+            "required": [
+              "group_label",
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "category": {
+                "enum": [
+                  "영업 인허가",
+                  "세무",
+                  "고용",
+                  "건물·시설",
+                  "간판·광고",
+                  "표시 의무",
+                  "정책"
+                ]
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "report-schema.json#/$defs/checklist_item"
+                }
+              }
+            },
+            "required": [
+              "category",
+              "items"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "hidden_categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "enum": [
+              "영업 인허가",
+              "세무",
+              "고용",
+              "건물·시설",
+              "간판·광고",
+              "표시 의무",
+              "정책"
+            ]
+          },
+          "hidden_reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "hidden_reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "is_example": {
+      "type": "boolean"
+    },
+    "example_notice": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "opening_date",
+    "progress",
+    "groups",
+    "hidden_categories"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://foundy.invalid/contracts/checklist-schema.json",
+  "title": "StoreChecklistResponse",
+  "description": "API 명세서 §7의 timeline/category 응답. 날짜 구간·법정기한 추가 제안은 여기서 확정하지 않는다."
+}
