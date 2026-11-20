@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, code: str, message: str):
-        self.status, self.code, self.message = status, code, message
+    def __init__(self, status: int, code: str, message: str, extra: dict | None = None):
+        # extra: error 객체에 덧붙일 필드 (예: 422 ADDRESS_NOT_RESOLVED 의 candidates)
+        self.status, self.code, self.message, self.extra = status, code, message, extra or {}
 
 
 def unauthorized() -> ApiError:
@@ -35,14 +36,14 @@ def invalid_input(message: str) -> ApiError:
     return ApiError(400, "INVALID_INPUT", message)
 
 
-def _body(code: str, message: str) -> dict:
-    return {"error": {"code": code, "message": message}}
+def _body(code: str, message: str, extra: dict | None = None) -> dict:
+    return {"error": {"code": code, "message": message, **(extra or {})}}
 
 
 def install(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError):
-        return JSONResponse(_body(exc.code, exc.message), status_code=exc.status)
+        return JSONResponse(_body(exc.code, exc.message, exc.extra), status_code=exc.status)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError):

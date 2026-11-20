@@ -72,9 +72,10 @@ class Store(Base):
     region: Mapped[str | None] = mapped_column(Text)
     opening_date: Mapped[date] = mapped_column(Date, nullable=False)
     owner_birth_year: Mapped[int | None] = mapped_column(Integer)
-    sells_alcohol: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
-    uses_terrace: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
-    has_employees: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # 되묻기 답변. NULL = 아직 답하지 않음 (0002_auth_answers)
+    sells_alcohol: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    uses_terrace: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    has_employees: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     funds_krw: Mapped[int | None] = mapped_column(BigInteger)
     onboarded_at: Mapped[datetime | None] = _ts(nullable=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
@@ -235,3 +236,24 @@ class CostLog(Base):
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     cost_krw: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, server_default=text("0"))
+
+
+# 0002_auth_answers: 로그아웃한 토큰과 소셜 로그인 state
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+
+    token_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime] = _ts()
+
+
+class OAuthState(Base):
+    __tablename__ = "oauth_states"
+
+    state: Mapped[str] = mapped_column(Text, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    redirect_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    browser_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = _ts()

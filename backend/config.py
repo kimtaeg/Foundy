@@ -31,6 +31,19 @@ class Settings(BaseSettings):
     data_go_kr_key: str = Field(default="", repr=False)
     law_oc: str = Field(default="", repr=False)
     kipris_api_key: str = Field(default="", repr=False)
+    # 소셜 로그인 (인가 코드 방식). 비어 있는 제공자는 로그인을 시작할 수 없다 (503)
+    kakao_client_id: str = Field(default="", repr=False)
+    kakao_client_secret: str = Field(default="", repr=False)
+    google_client_id: str = Field(default="", repr=False)
+    google_client_secret: str = Field(default="", repr=False)
+    naver_client_id: str = Field(default="", repr=False)
+    naver_client_secret: str = Field(default="", repr=False)
+    # 허용하는 로그인 콜백 주소 (쉼표 구분). 요청의 redirect_uri 는 이 목록에 있을 때만 쓴다. 첫 값이 기본값
+    oauth_redirect_uris: str = ""
+
+    @property
+    def redirect_uris(self) -> list[str]:
+        return [u.strip() for u in self.oauth_redirect_uris.split(",") if u.strip()]
 
     @property
     def frontend_origins(self) -> list[str]:
