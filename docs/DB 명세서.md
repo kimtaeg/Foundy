@@ -12,6 +12,7 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-20 | 최초 작성. `foundy` 확정 기능 기준. **상권 분석(상권 테이블·캐시)과 메뉴 광고 문구(`menu_text`)는 마지막에 구현하므로 지금 테이블에 넣지 않고 10장에 추가 방법만 적는다.** 서류함은 규칙 묶음으로 만들어서 테이블이 없다 |
+| 2026-11-20 | 백엔드 착수 결정: `cost_logs`는 `run_id` NULL 허용 + `store_id` 직접 연결로 확정(2-10), `decision` 알림은 저장 방식(`dec-<item_key>`)으로 확정, 로그인은 예시 계정(`provider='demo'`)만 먼저 만들고 소셜 로그인은 Must 이후. 첫 마이그레이션 `backend/db/migrations/versions/0001_init.py` |
 
 ---
 
@@ -38,6 +39,7 @@ erDiagram
     stores ||--o{ change_logs : has
     stores ||--o{ grant_matches : has
     runs ||--o{ cost_logs : has
+    stores ||--o{ cost_logs : has
     report_items }o--o{ checklist_items : "report_links"
 ```
 
@@ -460,7 +462,12 @@ CREATE TABLE cost_logs (
 CREATE INDEX cost_logs_run ON cost_logs (run_id);
 ```
 
-- 챗봇 호출은 `runs(trigger='chat')`를 만들어 연결하거나(아키텍처 문서의 방식) `run_id`를 NULL 허용으로 바꿔 `store_id`를 직접 두는 방식 중 백엔드가 고른다. 후자를 쓰면 `ALTER TABLE cost_logs ALTER COLUMN run_id DROP NOT NULL; ADD COLUMN store_id uuid REFERENCES stores(id)`를 추가한다.
+- **확정 (2026-11-20): `run_id`를 NULL 허용으로 바꾸고 `store_id`를 직접 둔다.** 챗봇 호출마다 `runs(trigger='chat')`를 만들면 분석 실행 중에 `runs_one_active`(가게당 실행 1개) 인덱스와 충돌하기 때문이다. 분석 단계 비용은 `run_id`와 `store_id`를 둘 다 채우고, 챗봇 비용은 `store_id`만 채운다. 첫 마이그레이션이 위 DDL 다음에 아래를 실행한다.
+
+```sql
+ALTER TABLE cost_logs ALTER COLUMN run_id DROP NOT NULL;
+ALTER TABLE cost_logs ADD COLUMN store_id uuid REFERENCES stores(id) ON DELETE CASCADE;
+```
 
 ---
 
@@ -716,9 +723,9 @@ sync_links(store):
 
 - [ ] `item_key` 발급 규칙 확정: 점검 카드는 규칙 `checks` 순서의 `r-01…`, 체크리스트 기본 항목은 규칙 `checklist` 순서의 `c-01…`. 규칙 묶음에 항목을 추가하면 번호가 밀리지 않게 **키를 규칙에 명시**한다 (순서 번호로 만들지 않는다).
 - [ ] `stores`의 `answers` 컬럼 방식(2-2)으로 API 응답 `answers` 객체를 조립하는 위치(직렬화 함수) 확정.
-- [ ] `alerts`의 `decision` 알림을 저장할지, 결정 대기 카드에서 응답 때 계산할지 (이 문서는 저장 + `dedupe_key`). 계산 방식으로 가면 `decision` 행은 만들지 않는다.
-- [ ] 챗봇 비용 기록(`cost_logs`)을 `runs(trigger='chat')`에 연결할지 `store_id`로 직접 연결할지 (2-10).
+- [x] `alerts`의 `decision` 알림을 저장할지, 결정 대기 카드에서 응답 때 계산할지 (이 문서는 저장 + `dedupe_key`). 계산 방식으로 가면 `decision` 행은 만들지 않는다. → **저장으로 확정** (2026-11-20)
+- [x] 챗봇 비용 기록(`cost_logs`)을 `runs(trigger='chat')`에 연결할지 `store_id`로 직접 연결할지 (2-10). → **`store_id` 직접 연결로 확정** (2026-11-20)
 - [ ] 소셜 로그인의 `provider_user_id` 필드(카카오 `id`, 구글 `sub`, 네이버 `id`) 매핑.
 - [ ] 관할 구청 전화번호를 규칙 묶음에 시군구별로 채우는 방법 (`contacts.phone_by_sigungu`). 확인하지 못한 번호는 `phone: null`.
 - [ ] 서류 받는 곳 링크(`sites`)를 배포 전에 사람이 확인한다.
-- [ ] 데모 시드 파일 `seoyeon.json`에 `report_items`·`checklist_items`·`alerts`가 이 스키마 형태로 들어 있는지.
+- [ ] 데모 시드 파일 `seoyeon.json`에 `report_items`·`checklist_items`·`alerts`가 이 스키마 형태로 들어 있는지. → 2026-11-20 확인: **아니다.** API 응답 형태(`item_id`, `answers` 객체, `offset_days` 없음, `alerts` 없음)라 `backend/db/seed_demo.py`가 변환한다. 점검 카드는 4개(`r-01` building_use, `r-02` building_violation, `r-03` alcohol_vs_type, `r-04` trademark_similar)로 2-4 표와 키·항목이 다르고 `permit_docs`·`labeling`이 없다. 체크리스트 키도 2-5 표와 다르다(`c-05`가 사업자등록, 지원사업 마감이 `g-*`가 아닌 `c-08`·`c-09`).
