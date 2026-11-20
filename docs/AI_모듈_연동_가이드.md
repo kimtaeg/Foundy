@@ -8,6 +8,7 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-18 | 최초 작성 (분석·챗봇·정책 알림·후보 자리 비교·예시로 해보기 연동) |
+| 2026-11-20 | 프로토타입 `foundy` 확정 반영: 서류 목록·받는 곳 링크는 AI 호출 없이 규칙 묶음으로 만들고(4-5c) 서류 생성·준비 체크는 없앴다. 카드의 `prepared`(문의 문구·특약·초안)는 쓰지 않고 `contact`와 통화 질문 목록으로 대체했다(4-4, 4-7). **상권 분석(4-9)은 마지막에 구현**하며 현재 범위에서 제외했다 |
 | 2026-11-19 | 프로토타입 반영: 후보 자리 비교(`/sites`) 제거, 상권 분석(`GET /map`) 추가, 마이페이지 수정(`PATCH /stores`의 영향 분석·카드 초기화), 실행 상태(`/action`)의 다음 할 일·자동 체크, 상담 확장(`kind`·`contacts`·통화 준비) 등 **AI 모듈에 추가로 필요한 것** 정리 (4-7), 로그인으로 `store` 소유 확인 |
 
 ---
@@ -25,14 +26,14 @@ POST /chat          ──────────────▶    chat(llm, C
 GET  /grants        ──────────────▶    judge_grants(llm, store, tools.grants(store))
 PATCH /stores/{id}  ──────────────▶    (AI 호출 없음. 영향 분석은 코드, 필요하면 run_analysis 부분 재실행)
 POST /report/.../action ───────────▶    (AI 호출 없음. 다음 할 일·자동 체크는 코드)
-GET  /map           ──────────────▶    (AI 호출 없음. tools.places + calc 상권 지표)
+GET  /map           ──────────────▶    (마지막에 구현. AI 호출 없음. tools.places + calc 상권 지표)
 POST /demo          ──────────────▶    (함수 호출 없음, mocks/demo/seoyeon.json 복사)
 ```
 
 | 백엔드가 구현 | AI 모듈이 제공 |
 | --- | --- |
 | `tools`: 주소·건축물대장·상표·법령·지원사업 조회 (`building`, `trademark`, `law`, `grants`) | 규칙 묶음(`rules/`): 업종 구분, 건물 용도 판정, 체크리스트 기본 항목 |
-| `calc`: 날짜 계산 (`checklist_dates`, `date_info`) | 판정·선택지·초안·챗봇·요약 (LLM 호출 포함) |
+| `calc`: 날짜 계산 (`checklist_dates`, `date_info`) | 판정·선택지·추천·챗봇·요약 (LLM 호출 포함) |
 | DB 저장, SSE, 라우터, 캐시 | 근거 검증·가드레일, 비용 기록(`CostTracker`) |
 
 > 숫자 조건 대조(`calc/match.py`)와 비용 계산(`calc/costs.py`)은 AI 모듈 쪽에서 이미 만들어 두었다. 같은 `calc/` 폴더에 `dates.py`를 추가하면 된다 (`__init__.py`는 만들지 않았다. 필요하면 추가해도 된다).
@@ -193,7 +194,7 @@ threading.Thread(target=run, args=(store, run_id, q), daemon=True).start()   # �
 | `result` 필드 | 저장 위치 | 비고 |
 | --- | --- | --- |
 | `result.business_type` | `stores.business_type` | |
-| `result.items` (`ReportItem`) | `report_items` | `options`, `recommendation`, `prepared`, `user_action`, `evidence`는 jsonb. `model_dump(mode="json")` 그대로 저장 |
+| `result.items` (`ReportItem`) | `report_items` | `options`, `recommendation`, `contact`, `user_action`, `evidence`는 jsonb. `model_dump(mode="json")` 그대로 저장. `prepared`(문의 문구·특약·서류 초안)는 만들어도 저장·노출하지 않는다 (foundy에 해당 화면이 없다) |
 | `result.checklist` (`ChecklistItem`) | `checklist_items` | 새 분석이면 이전 항목을 교체 (아래 5절 완료 체크 보존 참고) |
 | `result.grants` (`GrantsResult`, `include_grants=True`일 때) | `grant_matches` | `items[*]`를 행으로, `excluded_count`·`closed_count`는 run 요약에 |
 | `result.summary` | 응답의 `report.summary` | 저장하지 않고 항목에서 다시 세어도 같다 |
@@ -205,7 +206,7 @@ threading.Thread(target=run, args=(store, run_id, q), daemon=True).start()   # �
 저장된 값을 읽어 API 명세서 형태로 조립만 하면 된다. `ReportItem`·`ChecklistItem`의 필드 이름은 명세서와 같다. `stage`별 묶음, `group_label`별 묶음은 백엔드가 만든다.
 
 - `dashboard.pending_decisions`: `options`가 있고 `chosen_option`이 `None`인 항목.
-- `dashboard.today_todos`: 각 항목의 `user_action`(할 일 1개, 소요 시간, `prepared_id`).
+- `dashboard.today_todos`: 각 항목의 `user_action`(할 일 1개, 소요 시간).
 
 ### 4-5. `POST /report/items/{item_id}/choose` — 선택지 적용 (AI 호출 없음)
 
@@ -227,6 +228,20 @@ threading.Thread(target=run, args=(store, run_id, q), daemon=True).start()   # �
 1. **자동 체크**: 규칙 묶음의 `report_links`로 이 카드와 연결된 체크리스트 항목을 찾는다. 연결된 카드가 **모두 `done`**이면 그 항목을 `done = true`, `auto_checked = true`로 바꾸고 `auto_checked`에 담아 응답한다. 카드를 `pending`으로 되돌리면 `auto_checked = true`인 항목만 되돌린다 (사용자가 직접 한 체크는 유지).
 2. **다음으로 할 일**: 새로 생긴 할 일(이번 선택의 `adds_checklist`) → 결정 대기 카드(`verdict: high` 먼저) → 다른 카드의 직접 할 일(`action_status: pending`) → 완료하지 않은 체크리스트 중 `due_date`가 빠른 2개 순서로 최대 5개를 `next_steps[]`로 응답한다. 정렬은 순수 코드다.
 3. **알림**: `sent`·`done`이면 `alerts`에 `type: next`를 남기고(같은 카드는 갱신), `pending`이면 지운다.
+
+### 4-5c. 서류 목록·서류함 (AI 호출 없음)
+
+서류함은 **서류를 받는 곳을 안내**하는 화면이다. `checklist_items.documents`는 규칙 묶음의 `documents`와 `sites`, 가게 상태로 **코드가 만든다.** AI는 링크도 서류 목록도 만들지 않는다. 서류를 대신 만들어 주지도, 서류별 준비 여부를 저장하지도 않는다.
+
+| 만드는 것 | 방법 |
+| --- | --- |
+| 필요 서류 목록 | 규칙 묶음 `documents` (체크리스트 항목 id별). 가게 상태(직원 여부, 선택지 적용)로 항목이 숨겨지면 서류도 뺀다 |
+| 받는 곳 링크 | 규칙 묶음 `sites`의 검증된 공식 사이트 첫 화면 주소만 (정부24·홈택스·세움터·KIPRIS·고용노동부·4대사회보험 정보연계센터·국립농산물품질관리원) |
+| 찾는 방법 `guide` | 규칙 묶음의 고정 문구 |
+| 기관 전화번호 `contact` | 규칙 묶음 `contacts`에서 고름 (영업신고 → 위생과, 간판 → 건축과) |
+
+- `GET /documents`(서류함)는 체크리스트를 서류 기준으로 다시 묶고, `완료한 항목의 서류`·`남은 서류` 숫자는 항목의 `done`으로 센다. 서류를 따로 저장하지 않는다.
+- 링크 목록은 배포 전에 사람이 확인해야 한다 (아키텍처 8장 확인 목록).
 
 ### 4-6. `PATCH /stores/{id}` — 마이페이지 가게 정보 수정
 
@@ -264,7 +279,7 @@ return reply.model_dump(mode="json")      # answer, evidence, actions, note (+ �
 | `update_store` | `PATCH /stores/{id}` (`payload` 그대로: `opening_date`, `name`, `answers`) |
 | `choose_option` | `POST /report/items/{item_id}/choose` (`payload.item_id`, `payload.option_id`) |
 | `check_item` | `PATCH /checklist/{item_id}` (`payload.done`) |
-| `navigate` | 화면 이동 (`payload.page`: `report` / `checklist` / `market` / `grants` / `mypage`, 확인 불필요) |
+| `navigate` | 화면 이동 (`payload.page`: `dashboard` / `report` / `checklist` / `docs` / `grants` / `mypage`, 확인 불필요. `market`은 상권 분석을 붙일 때 추가) |
 
 - 사실을 묻는데 근거가 없으면 "이 가게의 점검 결과로는 알 수 없어요…"로 답한다 (세금 같은 범위 밖 질문 포함). 오류가 아니라 정상 응답이다.
 - LLM이 실패하면 "지금은 답변을 만들지 못했어요"라는 기본 답변이 `200`으로 나간다.
@@ -276,11 +291,12 @@ return reply.model_dump(mode="json")      # answer, evidence, actions, note (+ �
 | 응답 `kind` (`grounded`/`change`/`oos`/`chitchat`) | `ChatLLMReply.kind`는 `grounded/change_request/chitchat/out_of_scope` | 이름만 API 명세서 값으로 맞춰 매핑 (`change_request → change`, `out_of_scope → oos`) |
 | 변경 제안의 전→후 미리보기 `summary[]` | 없음 | 코드가 `actions`의 값에서 만든다 (개업일: 새 날짜로 계산한 체크리스트 3건, 선택지: 그 선택지의 `applied_changes`) |
 | 범위 밖 질문의 기관 전화번호 `contacts[]` | 없음 (안내 문장만) | 코드가 질문 주제(세금·4대보험·건물 등)로 규칙 묶음 `contacts`에서 고른다. AI는 번호를 쓰지 않는다 |
-| 통화 준비 `call_prep` (번호·30초 순서·물어볼 질문) | 없음 | 카드의 `prepared`(문의 문구)와 `contact`로 코드가 틀을 만들고 질문만 LLM이 다듬을 수 있다. 모르는 칸은 `[확인 필요]` |
+| 통화 준비 `call_prep` (번호·진행 순서·물어볼 질문) | 없음 | 규칙 묶음 `call_questions`(점검 항목 `check_id`별 질문 목록, `{biz}` 같은 칸은 가게 정보로 채움)와 카드의 `contact`로 **코드가** 만든다. 모르는 칸은 `[확인 필요]`. 통화 메모는 카드의 `action_reply`에 저장한다 |
 | "오늘 뭐부터 하죠?" 요약 + 추천 선택지 적용 제안 | 없음 | 선택·정렬은 `next_steps` 코드, 문장만 LLM (또는 템플릿) |
 | 추천 질문 `GET /chat/suggestions` | 없음 | 코드 (결정 대기 카드, 개업까지 남은 일수, `focus`로 고름) |
 | 항목 고정 `focus`로 다른 주제 질문 시 고정에 갇히지 않기 | `focus`를 우선 근거로 사용 | 프롬프트에서 "다른 주제면 전체 근거에서 답하라"를 명시 |
 
+- **서류 질문**("영업신고에 필요한 서류가 뭐예요?")은 해당 항목의 `documents[]`를 `ChatContext`에 넣어 답하게 한다. 항목은 질문의 키워드로 코드가 고르고(없으면 다음 미완료 항목), 받는 곳 링크·찾는 방법·전화번호는 규칙 묶음 값만 인용한다. 서류 작성이나 대신 제출은 하지 않는다고 안내한다. 근거가 없으면 판단 불가로 안내한다.
 - 제안 `actions`의 `check_item`은 `payload.item_id`를 쓴다 (`payload.done` 아님). 요청 값과 id는 코드가 검증하고 `requires_confirm: true`를 붙인다.
 
 ### 4-8. `GET /grants` — 지원사업
@@ -299,7 +315,9 @@ extra = grant_checklist_items(result, calc, store.opening_date, start_index=len(
 - `result.ok == False`는 공고 조회 실패다 (`items`는 빈 배열).
 - 포스터: 공고 응답에 이미지·첨부 필드가 있으면 `poster = {url, source: "api", credit}`로 저장하고, 없으면 `url: null, source: "generated"`로 두어 화면이 제목·기관·마감으로 포스터형 카드를 만든다. 이미지는 AI가 만들지 않는다.
 
-### 4-9. `GET /map`, `GET /market` — 상권 분석 (AI 호출 없음)
+### 4-9. `GET /map`, `GET /market` — 상권 분석 (마지막에 구현, AI 호출 없음)
+
+> **현재 범위에서 제외했다.** Must·Should가 끝난 뒤 구현해 붙인다. 그 전까지 `analyze`·`PATCH /stores`·알림은 상권 분석에 의존하지 않는다 (`impacts`의 `market`과 가입 진행 단계의 "주변 동종 업소 조회"는 이때 추가). 아래는 붙일 때의 설계다.
 
 **후보 자리 추가·비교(`/sites`)는 서비스 범위에서 제외했다** (입지를 정한 사용자만 대상). `agent/location.py`의 `compare_sites`, `site_building_check`, `calc/costs.py`는 더 이상 부르지 않는다 (삭제 여부는 팀 결정).
 
@@ -353,11 +371,11 @@ extra = grant_checklist_items(result, calc, store.opening_date, start_index=len(
 - [ ] `tools.building` 반환의 `floor_uses`가 **가게 층 기준**으로 나오는지, `violation`이 없을 때 `None`인지
 - [ ] `tools.trademark`, `tools.law`, `tools.grants`의 `data` 형태와 `ok=False` 처리
 - [ ] 지원사업 응답의 공고문 본문(`text`)을 한 덩어리로 만드는 방법
-- [ ] `calc.checklist_dates`, `calc.date_info` 구현과 **`group_label` 구간 기준**
+- [ ] `calc.checklist_dates`, `calc.date_info` 구현. `foundy`는 **항목별 `offset_days`(일 단위)와 고정 `group_label`**을 쓰므로 `week` 인자 대신 `offset_days`를 받게 하거나 `week`을 일수로 바꿔 넘긴다 (`아키텍처_인프라.md` 6장 `checklist`)
 - [ ] `run_analysis`를 스레드에서 돌리고 `emit`을 SSE 큐로 연결하는 방식
 - [ ] `AnalysisResult` 저장 매핑(4-3)과 재분석 시 `done` 이어받기
 - [ ] `POST /demo`가 `seoyeon.json`을 복사하고 예시 계정·토큰을 만드는 방식 (4-10)
-- [ ] `tools.places`(카카오 로컬)와 `calc/market.py`(상권 지표) 구현, 규칙 묶음 `franchise_brands`·`contacts`·`report_links` 반영
+- [ ] 규칙 묶음 `contacts`·`report_links`·`documents`·`sites`·`call_questions` 반영 (상권용 `tools.places`·`calc/market.py`·`franchise_brands`는 마지막에 구현)
 - [ ] `/action`의 자동 체크·다음 할 일, `PATCH /stores`의 `impacts`·`reset_items`(4-5b, 4-6)
 - [ ] 로그인 토큰의 `user_id`와 `stores.user_id` 소유 확인 (모든 `/stores/{id}/*`)
 - [ ] 챗봇 `actions`를 프론트가 호출하는 API 매핑(4-7)이 프론트와 맞는지
