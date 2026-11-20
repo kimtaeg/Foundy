@@ -88,3 +88,22 @@ checklist:
   - { task: 사업자등록, category: 세무, week: -3 }
   - { task: 간판 신고·카드 단말기, category: 간판·광고, week: -2 }
   - { task: 근로계약서·4대보험, category: 고용, week: -1, when: has_employees }
+
+# 유효 값(선택 효과 적용)으로 제목을 만드는 체크리스트 기본 항목 (DB 명세서 2-5: 영업신고 제목 앞에 신고 업종)
+checklist_titles:
+  영업신고: "{business_type} 영업신고"
+
+# 선택지로 생기는 체크리스트 항목 (DB 명세서 2-5 표). 선택지의 remedy가 같으면 그 선택을 고를 때 추가된다.
+# checks = 이 항목과 연결된 점검 항목 (DB 명세서 5-4 report_links). 기본 항목의 연결은 checks[].checklist_task 가 정한다.
+extra_tasks:
+  - { item_key: x-0, task: 용도가 맞는 다른 후보 자리 알아보기, category: 건물·시설, group_label: 계약 전, offset_days: -70, agency: 본인 확인, remedy: find_other_site, checks: [building_use] }
+  - { item_key: x-1, task: 구청 건축과에 용도변경 가능 여부 문의, category: 건물·시설, group_label: 계약 전, offset_days: -60, agency: 관할 구청 건축과, remedy: request_use_change, checks: [building_use] }
+  - { item_key: x-2, task: 간판 제작 전 상표 최종 확인 (KIPRIS), category: 간판·광고, group_label: 계약 전, offset_days: -30, agency: KIPRIS, remedy: proceed, checks: [trademark_similar] }
+
+# 아직 사람이 확인한 값이 없어 비워 둔다 (AI가 채우지 않는다)
+# documents: 체크리스트 항목별 필요 서류·받는 곳 (API 명세서 7장 서류 객체)
+# sites: 공식 사이트 첫 화면 주소
+# contacts: 기관 연락처 (전화번호는 확인된 것만)
+documents: {}
+sites: {}
+contacts: {}

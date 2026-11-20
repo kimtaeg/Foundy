@@ -70,7 +70,8 @@ cafe-precheck/
     ├── config.py             # 환경변수 설정 (pydantic-settings)
     ├── railway.json          # Railway 배포 설정 (preDeploy: alembic upgrade head)
     ├── alembic.ini           # 마이그레이션 설정 (DB 주소는 적지 않음)
-    ├── api/                  # 라우터 (health, demo …)
+    ├── api/                  # 라우터 (health, demo, me, stores, checklist, alerts), 인증·에러 처리
+    ├── services/             # 유효 값·자동 체크·다음 할 일·카드 상태 변경·응답 조립
     ├── db/                   # 엔진·세션, ORM 모델, 예시 계정 시드, migrations/
     ├── agent/                # 에이전트 루프, 프롬프트, 리포트 조립, 비용 기록
     ├── tools/                # 외부 API 도구 (address, building, law, trademark, cache)

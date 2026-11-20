@@ -30,10 +30,13 @@ def _session_factory() -> sessionmaker[Session]:
 
 
 def get_db() -> Iterator[Session]:
-    """FastAPI 의존성: 요청마다 세션을 열고 닫는다. 커밋은 호출하는 쪽이 정한다."""
+    """FastAPI 의존성: 요청마다 세션을 열고 닫는다. 변경 API는 마지막에 commit 한 번 (요청 = 트랜잭션 하나)."""
     session = _session_factory()()
     try:
         yield session
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 

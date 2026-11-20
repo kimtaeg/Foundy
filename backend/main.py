@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from api import demo, health
+from api import alerts, checklist, demo, errors, health, me, stores
 from config import get_settings
 from db.session import transaction
 
@@ -54,5 +54,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(health.router)
-app.include_router(demo.router)
+errors.install(app)
+
+for router in (health.router, demo.router, me.router, stores.router, checklist.router, alerts.router):
+    app.include_router(router)
