@@ -40,7 +40,7 @@ startup_agent/
     ├── agent/                # 역할 A — AI는 여기
     │   ├── loop.py           # 에이전트 루프 (LLM ↔ 도구)
     │   ├── prompts/          # 시스템 프롬프트, 되묻기, 리포트 작성
-    │   ├── report.py         # 판정 3단계, 리포트 조립
+    │   ├── report.py         # 판정 4가지(high/low/unknown/ok), 리포트 조립
     │   └── cost.py           # 토큰·비용 기록
     ├── tools/                # 역할 B
     │   ├── address.py        # 도로명주소
