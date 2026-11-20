@@ -6,10 +6,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import alerts, checklist, demo, errors, health, me, runs, stores
+from api import alerts, auth, checklist, demo, errors, health, me, runs, stores
 from config import get_settings
 from db.session import transaction
 from services.analysis import AnalysisManager, expire_stale
+from services.auth import purge_expired
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,13 @@ def cleanup_stale_runs() -> int:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        with transaction() as session:
+            purged = purge_expired(session)  # 만료된 로그아웃 기록·소셜 로그인 state
+        if purged:
+            logger.info("만료된 인증 기록 %d건을 정리했습니다", purged)
+    except Exception as exc:
+        logger.warning("인증 기록 정리 실패 (%s)", type(exc).__name__)
     try:
         cleaned = cleanup_stale_runs()
         if cleaned:
@@ -51,5 +59,6 @@ app.add_middleware(
 
 errors.install(app)
 
-for router in (health.router, demo.router, me.router, stores.router, checklist.router, alerts.router, runs.router):
+for router in (health.router, demo.router, auth.router, me.router, stores.register_router, stores.router,
+               checklist.router, alerts.router, runs.router):
     app.include_router(router)

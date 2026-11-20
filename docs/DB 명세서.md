@@ -114,9 +114,9 @@ CREATE TABLE stores (
   region              text,                           -- 주소에서 얻은 시군구·동 (예: 서울 성동구 성수동)
   opening_date        date NOT NULL,                  -- 개업 예정일 (역산 기준)
   owner_birth_year    int CHECK (owner_birth_year BETWEEN 1900 AND 2100),  -- 지원사업 자격용, 선택
-  sells_alcohol       boolean NOT NULL DEFAULT false,
-  uses_terrace        boolean NOT NULL DEFAULT false,
-  has_employees       boolean NOT NULL DEFAULT false,
+  sells_alcohol       boolean,                        -- NULL = 아직 답하지 않음 (0002_auth_answers)
+  uses_terrace        boolean,
+  has_employees       boolean,
   funds_krw           bigint CHECK (funds_krw >= 0),  -- 준비 자금, 선택
   onboarded_at        timestamptz,                    -- 첫 설정(분석)을 마친 시각. NULL이면 첫 설정 중
   is_demo             boolean NOT NULL DEFAULT false,
@@ -134,7 +134,7 @@ CREATE TABLE stores (
 | `address_codes` | 주소 → 법정동코드·번·지·좌표 (건축물대장 조회 입력) | (서버) |
 | `opening_date` | 개업일. 바뀌면 `checklist_items` 날짜만 다시 계산 | `opening` |
 | `owner_birth_year` | 출생 연도 | `birth` |
-| `sells_alcohol`·`uses_terrace`·`has_employees` | 되묻기 답변 (술 판매, 테라스·옥외 공간, 직원 고용) | `alcohol`, `terrace`, `employees` |
+| `sells_alcohol`·`uses_terrace`·`has_employees` | 되묻기 답변 (술 판매, 테라스·옥외 공간, 직원 고용). `NULL` = 아직 답하지 않음. 마이그레이션 `0002` 전의 행은 값(`false` 포함)을 그대로 둔다 | `alcohol`, `terrace`, `employees` |
 | `funds_krw` | 준비 자금 | `funds` |
 | `onboarded_at` | 첫 설정 완료 시각. `foundy`의 `onboarded` | `onboarded` |
 | `region` | 응답의 `region` (주소에서 파생) | `region` |
@@ -388,6 +388,30 @@ CREATE TABLE change_logs (
 CREATE INDEX change_logs_store ON change_logs (store_id, created_at DESC);
 ```
 
+### 2-7a. `revoked_tokens`·`oauth_states` (인증, 마이그레이션 `0002_auth_answers`)
+
+```sql
+CREATE TABLE revoked_tokens (           -- 로그아웃한 토큰. 요청에 쓴 토큰만 올린다
+  token_key   text PRIMARY KEY,         -- 'jti:<uuid>' 또는 jti 없는 옛 토큰의 'sha256:<hex>'
+  user_id     uuid REFERENCES users(id) ON DELETE CASCADE,
+  expires_at  timestamptz NOT NULL,     -- 토큰 만료 시각. 지나면 정리 (어차피 401)
+  revoked_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE oauth_states (             -- 소셜 로그인 시작 때 발급한 state (10분, 1회용)
+  state         text PRIMARY KEY,
+  provider      text NOT NULL CHECK (provider IN ('kakao','google','naver')),
+  redirect_uri  text NOT NULL,          -- 허용 목록에서 고른 값. 코드 교환 때 이 값을 쓴다
+  browser_hash  text NOT NULL CHECK (browser_hash ~ '^[0-9a-f]{64}$'),  -- 시작한 브라우저의 SHA-256(browser_nonce). 원본은 저장하지 않는다
+  expires_at    timestamptz NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+```
+
+- 콜백 대조: 행 잠금 → `browser_hash` 비교(다르면 소비하지 않고 거절) → 일치하면 삭제·커밋(1회 소비) → 제공자·만료 확인. 브라우저 결속은 제공자 PKCE와 별개인 Foundy 자체 방식이다 (API 명세서 1장).
+
+- 인증 확인: 토큰 서명·만료 → `revoked_tokens`에 없음 → `users`에 있음. 하나라도 아니면 `401`.
+- 만료된 행은 서버 시작·로그인 시작·로그아웃 때 지운다.
+
 ### 2-8. `grant_matches` [시간되면]
 
 지원사업 자격 판정 결과 (가게별). 공고 N건에 LLM 호출이 N번 나가므로 판정 결과를 저장하고 `GET /grants`는 저장본을 읽는다. 새로 판정하는 때는 분석 실행, 다시 조회, `owner_birth_year`·`address`·`business_type_input` 변경 후다.
@@ -493,8 +517,8 @@ ALTER TABLE cost_logs ADD COLUMN store_id uuid REFERENCES stores(id) ON DELETE C
 
 ### 4-1. 첫 설정 (`POST /stores` → `/answers` → `/analyze`)
 
-1. `users` 확인 → `stores` 삽입 (`address_codes`는 주소 도구 결과). 이미 있으면 `409 STORE_EXISTS`.
-2. `/answers`로 `sells_alcohol`·`uses_terrace`·`has_employees`·`funds_krw`를 `stores`에 저장하고 `business_type`을 규칙으로 정한다.
+1. `users` 확인 → `stores` 삽입 (`address_codes`는 주소 도구가 실제 조회로 확인한 결과. 키 없음·`USE_MOCK`·조회 장애면 `NULL`, 답변 칸은 `NULL`). 이미 있으면 `409 STORE_EXISTS`. 실제 조회 결과가 없거나 여럿이면 `422`이고 삽입하지 않는다.
+2. `/answers`로 보낸 답만 `stores`에 저장하고(생략 = 그대로) `business_type`을 규칙으로 정한다. 가게 행을 잠그고 실행 중인 `runs`가 있으면 `409`, `onboarded_at`이 있으면 `400`(마이페이지 안내).
 3. `/analyze`: `runs` 삽입 → 조회·판정·선택지 생성 → `report_items`(규칙 `checks` 순서대로 `r-01`…), `checklist_items`(규칙 기본 항목 + 날짜 계산), `grant_matches`(시간되면), `cost_logs`, `alerts`(결정 대기 카드마다 `decision`) 저장 → `stores.onboarded_at = now()`, `runs.status = 'done'`.
 4. 도구가 실패해도 그 항목만 `verdict='unknown'`으로 두고 끝까지 진행한다 (예외로 전체를 실패시키지 않는다).
 

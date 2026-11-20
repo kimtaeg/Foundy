@@ -10,8 +10,9 @@ from agent.ports import ToolResult
 from config import get_settings
 from services.pack import get_pack
 from services.timeutil import now_utc, today_kst
+from tools import address as address_tool
 
-KAKAO_URL = "https://dapi.kakao.com/v2/local/search/address.json"
+KAKAO_URL = address_tool.KAKAO_URL
 BUILDING_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrFlrOulnInfo"
 TRADEMARK_URL = "https://plus.kipris.or.kr/kipo-api/kipi/trademarkInfoSearchService/getAdvancedSearch"
 LAW_BASE = "https://www.law.go.kr/DRF"
@@ -41,19 +42,10 @@ class Providers:
             return codes
         if not self.settings.kakao_rest_key:
             raise ValueError("MISSING_ADDRESS_KEY")
-        body = self._get(KAKAO_URL, params={"query": store.address}, headers={
-            "Authorization": f"KakaoAK {self.settings.kakao_rest_key}"}).json()
-        documents = body.get("documents", [])
+        documents = address_tool.search(self.client, self.settings.kakao_rest_key, store.address)
         if len(documents) != 1:
             raise ValueError("ADDRESS_AMBIGUOUS_OR_MISSING")
-        address = documents[0].get("address") or {}
-        code = address.get("b_code", "")
-        if not re.fullmatch(r"\d{10}", code):
-            raise ValueError("INVALID_ADDRESS_CODE")
-        return {"sigungu_cd": code[:5], "bjdong_cd": code[5:],
-                "bun": str(address.get("main_address_no", "")).zfill(4),
-                "ji": str(address.get("sub_address_no") or "0").zfill(4),
-                "plat_gb_cd": "1" if address.get("mountain_yn") == "Y" else "0"}
+        return address_tool.codes_from_document(documents[0])
 
     def building(self, store):
         key = self.settings.building_api_key or self.settings.data_go_kr_key
