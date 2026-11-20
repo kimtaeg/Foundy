@@ -66,7 +66,12 @@ cafe-precheck/
 │   ├── components/
 │   └── lib/api.ts            # 백엔드 호출, SSE 수신
 └── backend/                  # FastAPI
-    ├── main.py               # 엔드포인트 (/check, /check/stream)
+    ├── main.py               # FastAPI 앱 (CORS, 라우터 등록, 시작 시 중단된 runs 정리)
+    ├── config.py             # 환경변수 설정 (pydantic-settings)
+    ├── railway.json          # Railway 배포 설정 (preDeploy: alembic upgrade head)
+    ├── alembic.ini           # 마이그레이션 설정 (DB 주소는 적지 않음)
+    ├── api/                  # 라우터 (health, demo …)
+    ├── db/                   # 엔진·세션, ORM 모델, 예시 계정 시드, migrations/
     ├── agent/                # 에이전트 루프, 프롬프트, 리포트 조립, 비용 기록
     ├── tools/                # 외부 API 도구 (address, building, law, trademark, cache)
     ├── rules/                # 업종별 점검 규칙 묶음 (cafe_restaurant.yaml)
