@@ -28,9 +28,16 @@ def validate(name: str, payload: dict) -> None:
 def client():
     from fastapi.testclient import TestClient
 
+    from agent.loop import run_analysis
     from main import app
+    from tests.fakes import SIMILAR, FakeTools
+    from tests.test_loop import llm
 
-    with TestClient(app) as c:
+    with TestClient(app) as c, pytest.MonkeyPatch.context() as mp:
+        # 선택·수정으로 시작되는 재분석이 실제 외부 API·LLM을 부르지 않게 한다
+        manager = app.state.analysis_manager
+        mp.setattr(manager, "dependencies", lambda cost: (FakeTools(similar=SIMILAR), llm()))
+        mp.setattr(manager, "runner", run_analysis)
         yield c
 
 
