@@ -35,6 +35,21 @@ class AnalysisResult:
     cost_krw: float = 0.0
     guardrail_changes: list[str] = field(default_factory=list)
     grants: GrantsResult | None = None
+    # 실제 조회(또는 그 캐시)로 확인한 주소 코드. 모의 응답·조회 실패면 None (저장하지 않는다)
+    address_codes: dict | None = None
+
+
+ADDRESS_CODE_KEYS = ("sigungu_cd", "bjdong_cd", "bun", "ji")
+
+
+def resolved_address_codes(building: ToolResult) -> dict | None:
+    """건축물대장 조회 결과에 실린 주소 코드. 모의 응답의 코드는 다른 주소의 값이라 쓰지 않는다."""
+    if not building.ok or building.from_mock:
+        return None
+    codes = (building.data or {}).get("address_codes")
+    if not isinstance(codes, dict) or not all(codes.get(k) for k in ADDRESS_CODE_KEYS):
+        return None
+    return codes
 
 
 def _safe(source: str, fn, *args) -> ToolResult:
@@ -110,6 +125,7 @@ def run_analysis(
     elif "law" in selected and hasattr(tools, "cached_building"):
         b = _safe("건축물대장 캐시", tools.cached_building, store)
     uses = (b.data or {}).get("floor_uses", []) if b.ok else []
+    address_codes = resolved_address_codes(b)
 
     t = ToolResult(ok=False, source="KIPRIS", error="미실행")
     if "trademark" in selected:
@@ -226,4 +242,5 @@ def run_analysis(
                       "title": item.title, "has_options": bool(item.options)})
     cost_krw = getattr(getattr(llm, "cost", None), "total_krw", 0.0)
     emit("done", {"summary": summary, "cost_krw": cost_krw})
-    return AnalysisResult(business_type, items, checklist, summary, cost_krw, changes, grants_result)
+    return AnalysisResult(business_type, items, checklist, summary, cost_krw, changes, grants_result,
+                          address_codes=address_codes)

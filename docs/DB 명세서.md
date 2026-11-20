@@ -505,7 +505,7 @@ ALTER TABLE cost_logs ADD COLUMN store_id uuid REFERENCES stores(id) ON DELETE C
 3. `chosen_option`, `chosen_at`, `applied_effects = apply.effects`, `applied_changes`, `resolved_title`, `verdict_before`(현재 판정과 `apply.verdict`가 다를 때)를 저장하고 `action_status='pending'`, `action_reply`는 유지.
 4. `apply.adds_checklist`의 각 `item_key`를 `checklist_items`에 삽입 (`source='report'`, `origin_item_key`, `origin_option`, `due_date = opening_date + offset_days`). 이미 있으면 건너뛴다.
 5. `alerts`의 `dec-<item_key>` 삭제.
-6. 유효 값이 바뀌었으면 체크리스트 제목(`c-04`)·영향받는 점검이 다시 계산된다 (필요하면 `runs` 생성, `needs_reanalyze`).
+6. 유효 값이 바뀌었으면 체크리스트 제목(`c-04`)·영향받는 점검이 다시 계산된다. 2단계 **전**의 유효 값과 3단계 후의 유효 값을 비교해, 바뀐 값의 `impacts`에 외부 조회 단계가 있으면 같은 트랜잭션에 `runs(trigger='user', scope=…)`를 만든다 (`needs_reanalyze`). 실행 중인 `runs`가 있으면 시작 전에 `409`로 끝내고 아무것도 쓰지 않는다.
 7. 응답: `applied_changes`, `added_checklist`, `needs_reanalyze`.
 
 ### 4-3. 실행·완료 (`POST /report/items/{item_key}/action`)
@@ -556,7 +556,8 @@ reset_card(item):
 
 3. 초기화할 카드마다 `reset_card` (4-4) → `change_logs` 삽입(+ `alerts` `change`) → `stores` 갱신 → 체크리스트 `due_date` 재계산 → 필요한 단계만 `runs(trigger='user', scope=…)`로 재분석.
 4. **저장 전 미리보기**: `?dry_run=true`이면 1~2단계만 하고 `impacts`·`reset_items`를 돌려준다 (DB 변경 없음). 프론트는 같은 규칙으로 직접 계산해도 된다.
-5. 개업일만 바뀌면 `recomputed: ["checklist"]`만 돌려주고 외부 조회·LLM을 부르지 않는다.
+5. 개업일만 바뀌면 `recomputed: ["checklist"]`만 돌려주고 외부 조회·LLM을 부르지 않는다. 직원 여부만 바뀌면 규칙 묶음의 `when` 항목(고용)을 만들거나 숨기고 재분석하지 않는다.
+6. 실행 중인 `runs`가 있으면 `409 RUN_IN_PROGRESS`로 끝내고 아무것도 쓰지 않는다 (가게 행 잠금 후 확인). 재분석이 필요하면 3단계의 변경과 `runs` 삽입을 한 트랜잭션으로 커밋한다.
 
 ### 4-6. 가게 정보 다시 설정 / 계정 전환
 

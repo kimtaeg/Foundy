@@ -8,7 +8,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from db.models import Alert, ChecklistItem, ReportItem, Store
-from services.effective import effective_store, effects_from_apply
+from services.effective import EFFECT_KEYS, effective_store, effects_from_apply
 from services.links import sync_links
 from services.next_steps import VERDICT_ORDER, is_pending_decision, next_steps
 from services.pack import extra_task, hidden_categories
@@ -83,18 +83,25 @@ class ChooseResult:
     applied: list[str] = field(default_factory=list)
     added_checklist: list[str] = field(default_factory=list)
     applied_changes: list[str] = field(default_factory=list)
-    needs_reanalyze: bool = False
+    # 이전 선택을 비우기 전 ↔ 새 선택을 적용한 후 유효 값이 달라진 가게 값 (재분석 범위를 정한다)
+    changed_fields: list[str] = field(default_factory=list)
 
 
-def choose(session: Session, pack: dict, store: Store, card: ReportItem, option_id: str) -> ChooseResult:
+def validate_option(card: ReportItem, option_id: str) -> dict:
     option = find_option(card, option_id)
     if option is None:
         raise InvalidInput(f"선택지 {option_id} 가 이 카드에 없습니다.")
+    return option
+
+
+def choose(session: Session, pack: dict, store: Store, card: ReportItem, option_id: str) -> ChooseResult:
+    option = validate_option(card, option_id)
     cards, items = load_state(session, store)
+    # 이전 선택의 효과가 사라지는 것도 변화이므로 초기화 전에 유효 값을 잡는다
+    before = effective_store(pack, store, cards)
     if card.chosen_option is not None:
         items = reset_card(session, store, card, items)
 
-    before = effective_store(pack, store, cards)
     apply = option.get("apply") or {}
     effects = effects_from_apply(apply)
     now = now_utc()
@@ -109,8 +116,9 @@ def choose(session: Session, pack: dict, store: Store, card: ReportItem, option_
     card.resolved_title = apply.get("resolved_title")
     after = effective_store(pack, store, cards)
 
+    changed_fields = [k for k in EFFECT_KEYS if before.get(k) != after.get(k)]
     changes = []
-    for key in effects:
+    for key in changed_fields:
         if before.get(key) != after.get(key):
             changes.append(f"{FIELD_LABELS.get(key, key)}: {_fmt(before.get(key))} → {_fmt(after.get(key))}")
     if before.get("business_type") != after.get("business_type"):
@@ -146,7 +154,7 @@ def choose(session: Session, pack: dict, store: Store, card: ReportItem, option_
         applied=[k for k in effects if before.get(k) != after.get(k)],
         added_checklist=added,
         applied_changes=changes,
-        needs_reanalyze=bool(apply.get("needs_reanalyze")),
+        changed_fields=changed_fields,
     )
 
 

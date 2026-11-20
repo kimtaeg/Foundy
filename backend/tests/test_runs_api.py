@@ -215,7 +215,9 @@ def test_saved_demo_events_can_also_be_streamed(context):
 
 def test_selected_state_memo_and_manual_checks_survive(context):
     client, base, headers, *_ = context
-    assert client.post(base + "/report/items/r-01/choose", headers=headers, json={"option_id": "o-1"}).status_code == 200
+    chosen = client.post(base + "/report/items/r-01/choose", headers=headers, json={"option_id": "o-1"})
+    assert chosen.status_code == 200 and chosen.json()["run_id"]  # 술 빼기 → 재분석이 바로 시작된다
+    assert wait(client, chosen.json()["run_id"], headers)["status"] == "done"
     assert client.post(base + "/report/items/r-01/action", headers=headers,
                        json={"status": "done", "reply": "보존할 메모"}).status_code == 200
     assert client.patch(base + "/checklist/c-01", headers=headers, json={"done": True}).status_code == 200
@@ -229,18 +231,48 @@ def test_selected_state_memo_and_manual_checks_survive(context):
     assert task["done"] and not task["auto_checked"]
 
 
-def test_conditions_changed_during_analysis_are_not_overwritten(context, monkeypatch):
+def test_choose_and_update_during_analysis_are_rejected_without_changes(context, monkeypatch):
+    from db.models import ChangeLog
     client, base, headers, _, manager, _ = context
+    sid = uuid.UUID(base.split("/")[-1])
+    store_before = client.get(base, headers=headers).json()
+    with blocked(manager, monkeypatch) as (entered, release):
+        rid = start(context)
+        assert entered.wait(2)
+        chosen = client.post(base + "/report/items/r-01/choose", headers=headers, json={"option_id": "o-1"})
+        assert chosen.status_code == 409 and chosen.json()["error"]["code"] == "RUN_IN_PROGRESS"
+        updated = client.patch(base, headers=headers, json={"answers": {"sells_alcohol": False}})
+        assert updated.status_code == 409 and updated.json()["error"]["code"] == "RUN_IN_PROGRESS"
+        dates = client.patch(base, headers=headers, json={"opening_date": "2027-05-01"})
+        assert dates.status_code == 409
+        preview = client.patch(base + "?dry_run=true", headers=headers, json={"answers": {"sells_alcohol": False}})
+        assert preview.status_code == 200 and preview.json()["dry_run"] is True  # 미리보기는 DB를 바꾸지 않아 허용
+        release.set()
+        assert wait(client, rid, headers)["status"] == "done"
+    _, cards = report(client, base, headers)
+    assert cards["r-01"]["chosen_option"] is None
+    assert client.get(base, headers=headers).json() == store_before
+    with transaction() as session:
+        assert session.scalar(select(ChangeLog.id).where(ChangeLog.store_id == sid)) is None
+        assert len(list(session.scalars(select(Run.id).where(Run.store_id == sid, Run.status.in_(["queued", "running"]))))) == 0
+
+
+def test_conditions_changed_during_analysis_are_not_overwritten(context, monkeypatch):
+    """API는 분석 중 변경을 막지만, 다른 경로로 조건이 바뀌어도 결과로 덮어쓰지 않는다."""
+    from db.models import Store
+    client, base, headers, _, manager, _ = context
+    sid = uuid.UUID(base.split("/")[-1])
     before, _ = report(client, base, headers)
     with blocked(manager, monkeypatch) as (entered, release):
         rid = start(context)
         assert entered.wait(2)
-        client.post(base + "/report/items/r-01/choose", headers=headers, json={"option_id": "o-1"})
+        with transaction() as session:
+            session.get(Store, sid).name = "분석 중 바뀐 이름"
         release.set()
         failed = wait(client, rid, headers)
         assert failed["status"] == "failed" and failed["events"][-1]["data"]["code"] == "INPUT_CHANGED"
-    after, cards = report(client, base, headers)
-    assert after["run_id"] == before["run_id"] and cards["r-01"]["chosen_option"] == "o-1"
+    after, _ = report(client, base, headers)
+    assert after["run_id"] == before["run_id"]
 
 
 def test_invalid_result_rolls_back_all_changes(context, monkeypatch):

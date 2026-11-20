@@ -196,3 +196,16 @@ def test_healthy_llm_keeps_done_status():
     _, events = run()
     status = {d["step"]: d["status"] for e, d in events if e == "step" and d["status"] != "running"}
     assert status["interpret"] == "done" and status["advise"] == "done"
+
+
+def test_resolved_address_codes_only_from_real_lookup():
+    from agent.loop import resolved_address_codes
+    from agent.ports import ToolResult
+
+    codes = {"sigungu_cd": "11200", "bjdong_cd": "11400", "bun": "0001", "ji": "0000"}
+    real = ToolResult(ok=True, source="건축HUB", data={"floor_uses": [], "address_codes": codes})
+    assert resolved_address_codes(real) == codes
+    assert resolved_address_codes(real.model_copy(update={"from_cache": True})) == codes
+    assert resolved_address_codes(real.model_copy(update={"from_mock": True})) is None
+    assert resolved_address_codes(real.model_copy(update={"ok": False})) is None
+    assert resolved_address_codes(real.model_copy(update={"data": {"address_codes": {"sigungu_cd": "11200"}}})) is None
