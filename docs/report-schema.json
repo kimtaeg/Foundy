@@ -450,14 +450,24 @@
       "additionalProperties": false,
       "allOf": [
         {
+          "$comment": "AI 판정의 상한은 low다. 예외: 건물 용도(building_use)·위반건축물(building_violation)은 인용 검증과 규칙표 대조를 통과하면 AI 판정도 high가 될 수 있다 (API 명세서 2장 Verdict).",
           "if": {
             "properties": {
               "decided_by": {
                 "const": "ai"
+              },
+              "check_id": {
+                "not": {
+                  "enum": [
+                    "building_use",
+                    "building_violation"
+                  ]
+                }
               }
             },
             "required": [
-              "decided_by"
+              "decided_by",
+              "check_id"
             ]
           },
           "then": {
