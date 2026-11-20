@@ -14,7 +14,7 @@ from typing import Any
 import yaml
 from sqlalchemy.orm import Session
 
-from db.models import Alert, ChecklistItem, ReportItem, Store, User
+from db.models import Alert, ChecklistItem, ReportItem, Run, Store, User
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 DEMO_PATH = BACKEND_DIR / "mocks" / "demo" / "seoyeon.json"
@@ -24,6 +24,8 @@ DEMO_USER_NAME = "이서연"
 # 시작 상태에서 완료된 체크리스트 (명세서 9장: 사업자등록·식품위생교육). 시드 파일의 task 이름으로 찾는다
 DEMO_DONE_TASKS = ("사업자등록", "위생교육 신청")
 ANSWER_COLUMNS = ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw")
+# 공용 응답 계약(docs/report-schema.json)이 허용하는 선택지 적용 유형. 후보 자리(set_main_site)는 제외됐다
+ALLOWED_APPLY_TYPES = ("update_store", "none")
 
 
 @dataclass
@@ -33,6 +35,7 @@ class DemoRows:
     report_items: list[dict[str, Any]]
     checklist_items: list[dict[str, Any]]
     alerts: list[dict[str, Any]]
+    run: dict[str, Any]
     # 시드 파일에 있지만 DB에 넣지 않은 것 (보고용)
     skipped: dict[str, Any]
 
@@ -55,6 +58,25 @@ def _rule_lookup(entries: list[dict[str, Any]] | None, item_key: str, field: str
 
 def _to_date(value: str) -> date:
     return date.fromisoformat(value)
+
+
+def convert_options(options: list[dict[str, Any]], rules: dict[str, Any]) -> list[dict[str, Any]]:
+    """시드 선택지 → 공용 계약 형태.
+
+    - 허용되지 않은 적용 유형(set_main_site)의 선택지는 뺀다.
+    - site_id 는 계약에 없어 지운다.
+    - 규칙 묶음 extra_tasks 에서 remedy 가 같은 항목을 apply.adds_checklist 로 붙인다.
+    """
+    out = []
+    for opt in options or []:
+        apply = dict(opt.get("apply") or {"type": "none"})
+        if apply.get("type") not in ALLOWED_APPLY_TYPES:
+            continue
+        adds = [t["item_key"] for t in rules.get("extra_tasks") or [] if t.get("remedy") and t.get("remedy") == opt.get("remedy")]
+        if adds and not apply.get("adds_checklist"):
+            apply["adds_checklist"] = adds
+        out.append({**{k: v for k, v in opt.items() if k != "site_id"}, "apply": apply})
+    return out
 
 
 def build_demo_rows(demo: dict[str, Any], rules: dict[str, Any] | None = None) -> DemoRows:
@@ -91,8 +113,11 @@ def build_demo_rows(demo: dict[str, Any], rules: dict[str, Any] | None = None) -
                 "title": item["title"],
                 "reason": item.get("reason"),
                 "consequence": item.get("consequence"),
-                "options": item.get("options") or [],
-                "recommendation": item.get("recommendation"),
+                "options": (options := convert_options(item.get("options") or [], rules)),
+                # 추천 선택지가 빠졌으면 추천도 없앤다
+                "recommendation": rec
+                if (rec := item.get("recommendation")) and any(o["option_id"] == rec.get("option_id") for o in options)
+                else None,
                 "user_action": item.get("user_action"),
                 "contact_key": item.get("contact_key")
                 or _rule_lookup(rules.get("checks"), item["item_id"], "contact_key"),
@@ -143,7 +168,13 @@ def build_demo_rows(demo: dict[str, Any], rules: dict[str, Any] | None = None) -
             )
 
     skipped = {
-        "top_level": [k for k in ("menu_text", "site_compare", "grants", "events") if k in demo or k in src_store],
+        "top_level": [k for k in ("menu_text", "site_compare", "grants") if k in demo or k in src_store],
+        "options": sorted(
+            f"{it['item_id']}/{o['option_id']}"
+            for it in demo.get("report_items", [])
+            for o in it.get("options") or []
+            if (o.get("apply") or {}).get("type") not in ALLOWED_APPLY_TYPES
+        ),
         "report_item_fields": sorted(
             {f for it in demo.get("report_items", []) for f in ("prepared", "added_to_checklist") if f in it}
         ),
@@ -151,7 +182,9 @@ def build_demo_rows(demo: dict[str, Any], rules: dict[str, Any] | None = None) -
             {f for it in demo.get("checklist", []) for f in ("report_item_id", "documents", "prepared", "dday") if f in it}
         ),
     }
-    return DemoRows(user, store, report_items, checklist_items, alerts, skipped)
+    # 미리 저장한 분석 1회 (프론트 진행 화면이 events 를 재생한다. API 명세서 13장)
+    run = {"trigger": "demo", "status": "done", "scope": [], "events": demo.get("events") or []}
+    return DemoRows(user, store, report_items, checklist_items, alerts, run, skipped)
 
 
 def insert_demo(session: Session, rows: DemoRows) -> dict[str, Any]:
@@ -166,15 +199,23 @@ def insert_demo(session: Session, rows: DemoRows) -> dict[str, Any]:
     session.add(store)
     session.flush()
 
+    run = Run(store_id=store.id, started_at=now, finished_at=now, **rows.run)
+    session.add(run)
+    session.flush()
+
     for r in rows.report_items:
-        session.add(ReportItem(store_id=store.id, **r))
+        session.add(ReportItem(store_id=store.id, run_id=run.id, **r))
     for c in rows.checklist_items:
         session.add(ChecklistItem(store_id=store.id, done_at=now if c["done"] else None, **c))
     for a in rows.alerts:
         session.add(Alert(store_id=store.id, **a))
     session.flush()
 
-    return {"user": {"user_id": str(user.id), "name": user.name, "provider": user.provider}, "store_id": str(store.id)}
+    return {
+        "user": {"user_id": str(user.id), "name": user.name, "provider": user.provider},
+        "store_id": str(store.id),
+        "run_id": str(run.id),
+    }
 
 
 def seed_demo(session: Session) -> dict[str, Any]:

@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     database_url: str = ""
     frontend_origin: str = "http://localhost:3000"
     use_mock: bool = True
+    # 예시 계정 토큰(HS256) 서명 키. 비우면 서버 시작마다 임시 키를 만든다 (재시작하면 토큰이 무효)
+    jwt_secret: str = ""
 
     @property
     def frontend_origins(self) -> list[str]:

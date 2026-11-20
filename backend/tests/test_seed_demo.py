@@ -84,3 +84,22 @@ def test_sqlalchemy_url():
     assert sqlalchemy_url("postgresql://u:p@h:1/d") == "postgresql+psycopg://u:p@h:1/d"
     assert sqlalchemy_url("postgres://u:p@h:1/d") == "postgresql+psycopg://u:p@h:1/d"
     assert sqlalchemy_url("postgresql+psycopg://h/d") == "postgresql+psycopg://h/d"
+
+
+def test_options_follow_public_contract(rows):
+    r01 = next(r for r in rows.report_items if r["item_key"] == "r-01")
+    ids = [o["option_id"] for o in r01["options"]]
+    assert ids == ["o-1", "o-3"]  # set_main_site(후보 자리) 선택지는 뺀다
+    assert all("site_id" not in o for r in rows.report_items for o in r["options"])
+    by_id = {o["option_id"]: o for o in r01["options"]}
+    assert by_id["o-3"]["apply"]["adds_checklist"] == ["x-1"]  # request_use_change → x-1
+    assert "adds_checklist" not in by_id["o-1"]["apply"]
+    r04 = next(r for r in rows.report_items if r["item_key"] == "r-04")
+    proceed = next(o for o in r04["options"] if o["remedy"] == "proceed")
+    assert proceed["apply"]["adds_checklist"] == ["x-2"]
+    assert rows.skipped["options"] == ["r-01/o-2"]
+
+
+def test_demo_run_keeps_events(demo, rows):
+    assert rows.run["trigger"] == "demo" and rows.run["status"] == "done"
+    assert rows.run["events"] == demo["events"]
