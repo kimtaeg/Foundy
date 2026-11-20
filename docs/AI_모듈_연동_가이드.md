@@ -105,6 +105,11 @@ class ToolResult(BaseModel):
 - `grants`의 `text`에는 공고문 본문(대상·조건·지원 내용·제출 서류)을 한 덩어리로 넣는다. 응답에 대상·지역·연령이 별도 필드로 있으면 본문 앞에 문장으로 붙여 준다. 6000자까지만 쓴다. AI가 인용하는 조건 문장이 이 `text` 안에 실제로 있어야 근거로 인정된다.
 - `law`는 점검 항목마다 근거 조문을 돌려주는 자리다. 조문 번호는 규칙 담당이 확정하기 전까지 임시 값(건축법 시행령 별표 1, 식품위생법 시행령 제21조)이다.
 
+2026-11-20 구현 기준: 조문 매핑은 미확정 상태로 진행한다. `rules/packs/*.yaml`의 `law_references`에
+점검 check_id별 `{law_name, number, kind: article|annex}` 목록이 확정되어 있을 때만 실제 조문 조회를 연결한다.
+참조가 없으면 LAW_REFERENCE_UNCONFIRMED이며 조회 성공으로 처리하지 않는다. 서버의 대체 정책이 캐시·예시 자료를 쓰면
+from_cache/from_mock와 fallback을 유지한다. 실제 법령 연동 검증 완료와 구분한다.
+
 ### 3-2. `calc` — 날짜 계산
 
 ```python
@@ -218,7 +223,7 @@ threading.Thread(target=run, args=(store, run_id, q), daemon=True).start()   # �
 | `none` | `chosen_option`만 기록. `apply.adds_checklist`가 있으면 그 체크리스트 항목(`source: report`)을 추가한다 |
 
 - `needs_reanalyze: true`면 가게를 갱신한 뒤 `run_analysis`를 새로 돌리고 `run_id`를 돌려준다.
-- 선택은 `report_items.chosen_option`, `chosen_at`에 기록하고 `action_status`는 `pending`으로 둔다. 응답에는 `applied_changes`, `verdict_before`, `resolved_title`을 담는다 (프론트가 "무엇이 바뀌었는지"를 보여 준다). 재분석으로 항목이 교체되면 이전 선택은 사라진다.
+- 선택은 `report_items.chosen_option`, `chosen_at`에 기록하고 `action_status`는 `pending`으로 둔다. 응답에는 `applied_changes`, `verdict_before`, `resolved_title`을 담는다 (프론트가 "무엇이 바뀌었는지"를 보여 준다). **2026-11-20 확정: 재분석 자체로 이전 선택·완료·메모를 지우지 않는다.** DB 명세서의 영향 분석으로 명시적으로 초기화한 카드만 상태를 비우고, 영향 없는 카드·선택 효과·수동 체크는 보존한다. 선택한 카드의 대응 선택지·할 일도 보존해 선택 효과가 사라지지 않게 한다.
 - 선택을 바꾸면 이전 선택이 추가한 체크리스트 항목과 자동 체크를 되돌린다 (아래 4-5b).
 
 ### 4-5b. `POST /report/items/{item_id}/action` — 실행 상태 (AI 호출 없음)

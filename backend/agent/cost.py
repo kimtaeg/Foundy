@@ -26,9 +26,9 @@ class CostTracker:
     rows: list[CostRow] = field(default_factory=list)
 
     def record(self, step: str, model: str, input_tokens: int, output_tokens: int) -> CostRow:
-        price_in = float(os.getenv("LLM_PRICE_IN_USD_PER_1M", "0"))
-        price_out = float(os.getenv("LLM_PRICE_OUT_USD_PER_1M", "0"))
-        usd_krw = float(os.getenv("USD_KRW", "1400"))
+        price_in = float(os.getenv("LLM_PRICE_IN_USD_PER_1M") or "0")
+        price_out = float(os.getenv("LLM_PRICE_OUT_USD_PER_1M") or "0")
+        usd_krw = float(os.getenv("USD_KRW") or "1400")
         usd = (input_tokens * price_in + output_tokens * price_out) / 1_000_000
         row = CostRow(step, model, input_tokens, output_tokens, round(usd * usd_krw, 2))
         self.rows.append(row)

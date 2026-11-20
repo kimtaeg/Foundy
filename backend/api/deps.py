@@ -2,13 +2,16 @@
 
 import uuid
 
-from fastapi import Depends, Header
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from api.errors import forbidden, store_not_found, unauthorized
 from db.models import Store, User
 from db.session import get_db
 from services.auth import read_token
+
+bearer = HTTPBearer(auto_error=False)
 
 
 def _uuid(value: str) -> uuid.UUID | None:
@@ -18,10 +21,10 @@ def _uuid(value: str) -> uuid.UUID | None:
         return None
 
 
-def current_user(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> User:
-    if not authorization or not authorization.lower().startswith("bearer "):
+def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer), db: Session = Depends(get_db)) -> User:
+    if credentials is None or credentials.scheme.lower() != "bearer":
         raise unauthorized()
-    user_id = _uuid(read_token(authorization[7:].strip()) or "")
+    user_id = _uuid(read_token(credentials.credentials.strip()) or "")
     user = db.get(User, user_id) if user_id else None
     if user is None:
         raise unauthorized()

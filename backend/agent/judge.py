@@ -73,6 +73,12 @@ def judge_trademark(
 
     similar = res.data.get("similar") or []
     if not similar:
+        if res.data.get("search_scope") == "name":
+            return _item(
+                spec, item_id, verdict="unknown", title="상표 유사 여부는 추가 확인이 필요해요",
+                reason="제43류 등록 상표 명칭검색은 0건이지만, 발음·표기 유사 상표 전체의 부재를 확인한 결과는 아닙니다.",
+                evidence=[_data_evidence(res, "제43류 등록 상표 명칭검색 후보 0건")],
+            ), {"alternatives": []}
         return _item(
             spec, item_id, verdict="ok",
             title=f"'{name}'과(와) 비슷한 등록 상표가 없어요",

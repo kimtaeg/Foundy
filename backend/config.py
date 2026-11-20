@@ -7,6 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 BACKEND_DIR = Path(__file__).resolve().parent
 
@@ -23,6 +24,13 @@ class Settings(BaseSettings):
     use_mock: bool = True
     # 예시 계정 토큰(HS256) 서명 키. 비우면 서버 시작마다 임시 키를 만든다 (재시작하면 토큰이 무효)
     jwt_secret: str = ""
+    analysis_timeout_seconds: int = Field(default=600, gt=0)
+    analysis_workers: int = Field(default=2, gt=0, le=8)
+    kakao_rest_key: str = Field(default="", repr=False)
+    building_api_key: str = Field(default="", repr=False)
+    data_go_kr_key: str = Field(default="", repr=False)
+    law_oc: str = Field(default="", repr=False)
+    kipris_api_key: str = Field(default="", repr=False)
 
     @property
     def frontend_origins(self) -> list[str]:

@@ -186,7 +186,9 @@ def build_demo_rows(demo: dict[str, Any], rules: dict[str, Any] | None = None) -
         ),
     }
     # 미리 저장한 분석 1회 (프론트 진행 화면이 events 를 재생한다. API 명세서 13장)
-    run = {"trigger": "demo", "status": "done", "scope": [], "events": demo.get("events") or []}
+    events = [e for e in demo.get("events") or []
+              if not (e.get("event") == "step" and e.get("data", {}).get("step") == "grants")]
+    run = {"trigger": "demo", "status": "done", "scope": [], "events": events}
     return DemoRows(user, store, report_items, checklist_items, alerts, run, skipped)
 
 
