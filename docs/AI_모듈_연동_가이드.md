@@ -206,6 +206,20 @@ threading.Thread(target=run, args=(store, run_id, q), daemon=True).start()   # �
 | `cost.rows` (`CostRow`: step, model, input_tokens, output_tokens, cost_krw) | `cost_logs` | `done` 이벤트의 `cost_krw`는 `result.cost_krw` |
 | `result.guardrail_changes` | 로그 | 비어 있는 게 정상. 비어 있지 않으면 AI 출력을 가드레일이 고쳤다는 뜻이라 확인용으로 남긴다 |
 
+**AI가 조회한 데이터를 읽고 판정하는 카드 (`agent/judge.py`)**
+
+| 카드 | 함수 | AI가 읽는 것 | 코드 검증 |
+| --- | --- | --- | --- |
+| 건물 용도 `building_use` | `judge_building_use_ai` | 건축물대장 `floor_uses` + 조문 `articles[].text` | 인용 용도가 대장에 있는지, 인용 문장이 원문에 있는지, 규칙표와 high·ok 대조 |
+| 위반건축물 `building_violation` | `judge_violation_ai` | 건축물대장 `violation` | 표기 값과 다른 판정은 쓰지 않음. 표기가 없으면 AI를 부르지 않음 |
+| 영업신고 서류 `permit_docs` | `judge_law_card` | 조문 `articles[].text` | 인용 조문이 조회 목록에 있는지, 인용 문장이 원문에 있는지 (공백·줄바꿈 무시) |
+| 상표 유사 `trademark_similar` | `judge_trademark` | KIPRIS 유사 상표 | 인용한 상표 번호 |
+
+- **백엔드 도구가 조문 원문을 `articles[].text`에 담아야 한다** (`tools.law('building_use'|'permit_docs')`). 본문이 비면 AI를 부르지 않고 규칙표·안내 카드로 대체한다.
+- AI 판정은 `high`가 될 수 없다. **건물 용도·위반건축물만** 규칙 묶음의 `ai_high_allowed: true`로 예외이며, 근거 검증과 규칙표 대조를 통과해야 `high`다 (`guardrails.enforce(..., ai_high_allowed=)`).
+- AI가 실패하면(3회 연속 실패 포함) 규칙표·안내 카드로 대체하고 `ReportItem.ai_fallback: true`다.
+- 표시 의무 `labeling`은 읽을 근거 데이터가 없어 규칙 안내 카드(`unknown`)다.
+
 ### 4-4. `GET /report`, `GET /checklist`, `GET /dashboard` — AI 호출 없음
 
 저장된 값을 읽어 API 명세서 형태로 조립만 하면 된다. `ReportItem`·`ChecklistItem`의 필드 이름은 명세서와 같다. `stage`별 묶음, `group_label`별 묶음은 백엔드가 만든다.

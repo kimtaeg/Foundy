@@ -192,4 +192,6 @@ class FakeLLM:
         r = self.responses[step]
         if isinstance(r, Exception):
             raise r
+        if callable(r):  # 프롬프트(user)를 보고 응답을 만드는 테스트용 함수
+            r = r(user)
         return r  # type: ignore[return-value]

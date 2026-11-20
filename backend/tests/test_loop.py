@@ -7,13 +7,16 @@ from agent.ports import ToolResult
 from rules.engine import load_pack
 
 from .test_grants import AGE, grant
-from .fakes import BUILDING_ADVICE, SIMILAR, TM_ADVICE, TM_JUDGMENT, FakeCalc, FakeTools, store
+from .fakes import (
+    AI_JUDGES, BUILDING_ADVICE, PERMIT_JUDGMENT, SIMILAR, TM_ADVICE, TM_JUDGMENT, FakeCalc, FakeTools, store,
+)
 
 PACK = load_pack("cafe_restaurant")
 
 
 def llm(**over):
-    base = {"judge_trademark": TM_JUDGMENT, "advise_building_use": BUILDING_ADVICE,
+    base = {**AI_JUDGES, "judge_trademark": TM_JUDGMENT, "judge_permit_docs": PERMIT_JUDGMENT,
+            "advise_building_use": BUILDING_ADVICE,
             "advise_trademark_similar": TM_ADVICE}
     base.update(over)
     return FakeLLM(base)
@@ -34,9 +37,9 @@ def test_s1_alcohol_on_type1_floor():
     res, events = run()
     assert res.business_type == "일반음식점"
     bu = by_check(res)["building_use"]
-    assert bu.verdict == "high" and bu.decided_by == "rule" and bu.title == "이 자리에서는 일반음식점 신고가 어려워요"
-    assert bu.evidence[0].type == "data" and bu.evidence[0].value == "제1종근린생활시설"
-    assert any(e.type == "law" for e in bu.evidence)
+    assert bu.verdict == "high" and bu.decided_by == "ai" and bu.title == "이 자리에서는 일반음식점 신고가 어려워요"
+    assert bu.evidence[0].type == "data" and bu.evidence[0].value == "제1종근린생활시설"  # 건축물대장 값
+    assert any(e.type == "law" and "일반음식점을 할 수 없다" in (e.text or "") for e in bu.evidence)  # 검증된 조문 인용
     assert [o.remedy for o in bu.options] == ["change_business_type", "request_use_change", "find_other_site"]
     assert bu.recommendation.option_id == "o-2" and bu.user_action.type == "send"
     assert bu.contact.agency == "성동구청 건축과" and bu.contact.is_example  # 기관 전화번호(예시)
@@ -53,10 +56,13 @@ def test_ids_unique_and_ordered_by_pack():
     assert [i.item_id for i in res.items] == ["r-01", "r-02", "r-03", "r-04", "r-05"]  # foundy 카드 번호와 같다
 
 
-def test_permit_docs_card_is_rule_card_with_law_evidence_and_contact():
+def test_permit_docs_card_is_judged_by_ai_from_law_text_with_verified_evidence():
     pd = by_check(run()[0])["permit_docs"]
-    assert pd.verdict == "low" and pd.decided_by == "rule" and any(e.type == "law" for e in pd.evidence)
-    assert pd.user_action.type == "sign" and pd.contact.agency == "성동구청 위생과"
+    assert pd.verdict == "low" and pd.decided_by == "ai" and pd.title == "영업신고를 개업 전에 해야 해요"
+    law = pd.evidence[0]
+    assert law.type == "law" and law.article == "제37조" and law.text.startswith("대통령령으로 정하는 영업을")  # 인용 문장만 근거로
+    assert "구청 위생과에 필요 서류 확인" in pd.reason  # AI가 조문에서 뽑은 할 일
+    assert pd.user_action.type == "sign" and pd.contact.agency == "성동구청 위생과"  # 할 일·연락처는 규칙 묶음
 
 
 def test_labeling_is_unknown_without_evidence():
@@ -172,10 +178,15 @@ def test_grants_skipped_without_tool_and_off_by_default():
 def test_llm_outage_stops_calling_after_three_failures_and_marks_fallback():
     from agent.llm import LLMError as _E
 
-    down = FakeLLM({k: _E("down") for k in ("judge_trademark", "advise_building_use", "advise_trademark_similar")})
+    down = FakeLLM({k: _E("down") for k in ("judge_building_use", "judge_violation", "judge_trademark",
+                                            "judge_permit_docs", "advise_building_use", "advise_trademark_similar")})
     res, events = run(llm_=down)
-    assert len(down.calls) == 3  # 세 번 실패한 뒤에는 나머지 AI 호출을 하지 않는다
+    assert len(down.calls) == 3  # 세 번 실패한 뒤에는 나머지 AI 호출을 하지 않는다 (규칙표·안내 카드로 대체)
     assert res.items and res.checklist  # 분석은 끝까지 진행
+    pd = by_check(res)["permit_docs"]  # AI가 실패하면 규칙 묶음의 안내 카드로 대체된다
+    assert pd.verdict == "low" and pd.decided_by == "rule" and pd.ai_fallback and pd.evidence
+    bu = by_check(res)["building_use"]  # 건물 용도도 AI가 실패하면 규칙표 카드로 대체된다 (시연이 멈추지 않는다)
+    assert bu.verdict == "high" and bu.decided_by == "rule" and bu.ai_fallback and bu.evidence
     status = {d["step"]: d["status"] for e, d in events if e == "step" and d["status"] != "running"}
     assert status["interpret"] == "fallback" and status["advise"] == "fallback"
     assert events[-1][0] == "done"

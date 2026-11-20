@@ -33,7 +33,8 @@ derive:
     "true": 일반음식점
     "false": 휴게음식점
 
-# 건물 용도 적합 여부 (건축법 시행령 별표 1 기준, TODO: D 담당이 조문 확인)
+# 건물 용도 규칙표: AI 판정의 대조용 안전장치다 (AI와 규칙표가 high·ok에서 어긋나면 확인 권장으로 낮춘다).
+# AI가 실패하면 이 표로 만든 카드로 대체한다. (건축법 시행령 별표 1 기준, TODO: D 담당이 조문 확인)
 # - 신고 업종마다 허용되는 용도. 허용 목록에 없고 known_uses 안이면 high.
 # - known_uses 밖의 용도(판매시설, 업무시설 등)는 규칙으로 단정하지 않고 unknown.
 building_use:
@@ -48,9 +49,10 @@ building_use:
 # - call_questions: 통화 준비 질문. {biz}는 신고 업종으로 채운다
 # - consequence·action: 선택지가 없는 카드의 "안 하면 생기는 일"과 사용자 할 일 (AI 호출 없음)
 checks:
-  - id: building_use
+  - id: building_use         # AI가 건축물대장의 층 용도와 조문을 읽고 판정한다. 아래 building_use 규칙표는 대조용 안전장치
     stage: 계약 전
-    decided_by: rule
+    decided_by: ai
+    ai_high_allowed: true    # 근거 검증과 규칙표 대조를 통과한 경우에만 위반 소지 높음
     remedies: [change_business_type, request_use_change, find_other_site]
     contact: build
     checklist_task: c-01   # 이 항목이 걸리면 연결되는 체크리스트 기본 항목 id
@@ -68,9 +70,10 @@ checks:
     decided_by: ai
     remedies: [rename_store, proceed]
     checklist_task: c-02
-  - id: building_violation
+  - id: building_violation   # AI가 건축물대장의 위반건축물 표기를 읽고 판정한다 (표기 정보가 없으면 AI를 부르지 않고 판단 불가)
     stage: 계약 전
-    decided_by: rule
+    decided_by: ai
+    ai_high_allowed: true
     remedies: []
     contact: build
     checklist_task: c-01
@@ -85,9 +88,9 @@ checks:
       - "등재돼 있다면 시정 후 영업신고가 가능한가요?"
       - "건축물대장에서 직접 확인하려면 어떻게 하나요?"
       - "답변을 문자나 공문으로도 받을 수 있을까요?"
-  - id: permit_docs          # 영업신고 서류 (규칙이 정한 안내 카드, 근거는 식품위생법 조문)
+  - id: permit_docs          # 영업신고 서류: AI가 조회한 조문을 읽고 판정한다 (AI가 실패하면 아래 title·reason의 안내 카드)
     stage: 개업 전
-    decided_by: rule
+    decided_by: ai
     remedies: []
     contact: hyg
     checklist_task: c-04

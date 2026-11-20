@@ -14,7 +14,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from rules.engine import contact_of, judge_building_use
+from rules.engine import contact_of
 
 from .llm import LLM, LLMError
 from .ports import StoreInput
@@ -65,11 +65,10 @@ def build_options(
         apply = apply.model_copy(update={"adds_checklist": adds_checklist(pack, item.check_id, remedy)})
         options.append(Option(option_id=f"o-{len(options) + 1}", remedy=remedy, apply=apply, **kw))
 
-    uses = extras.get("floor_uses", [])
     for remedy in spec.get("remedies", []):
         if remedy == "change_business_type" and item.check_id == "building_use":
             alt = "휴게음식점"
-            if store.answers.get("sells_alcohol") is True and judge_building_use(pack, alt, uses).verdict == "ok":
+            if store.answers.get("sells_alcohol") is True and alt in extras.get("ok_business_types", []):
                 add(remedy, label=f"술 빼고 {alt}으로 시작",
                     summary=f"{alt}으로 신고하면 이 건물에서 가능해요. 대신 술은 팔 수 없어요.",
                     apply=ApplyAction(type="update_store", payload={"answers": {"sells_alcohol": False}},

@@ -10,12 +10,13 @@ from .schemas import ReportItem
 
 
 def enforce(
-    item: ReportItem, allowed_remedies: list[str] | None = None,
+    item: ReportItem, allowed_remedies: list[str] | None = None, ai_high_allowed: bool = False,
 ) -> tuple[ReportItem, list[str]]:
     """불변 규칙을 적용한 항목과 바꾼 내용 목록을 돌려준다.
 
     1. 근거가 없으면 verdict는 unknown (ok·안내 항목 포함, 예외 없음)
-    2. AI가 판정한 항목은 high가 될 수 없다 → low
+    2. AI가 판정한 항목은 high가 될 수 없다 → low. 규칙 묶음이 ai_high_allowed로 허용한 항목(건물 용도·위반건축물)만 예외이고,
+       그 항목은 판정 단계에서 근거 검증과 규칙표 대조를 통과해야 high다
     3. allowed_remedies가 주어지면 그 밖의 대응 유형 선택지는 제거 (remedy가 비어 있는 선택지도 제거)
     4. 추천은 실제로 남아 있는 선택지를 가리켜야 한다
     """
@@ -27,7 +28,7 @@ def enforce(
         changes.append(f"근거 없음: {item.verdict} → unknown")
     verdict = update.get("verdict", item.verdict)
 
-    if item.decided_by == "ai" and verdict == "high":
+    if item.decided_by == "ai" and verdict == "high" and not ai_high_allowed:
         update["verdict"] = "low"
         changes.append("AI 판정은 high 불가: high → low")
 

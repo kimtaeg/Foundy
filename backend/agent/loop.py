@@ -18,7 +18,9 @@ from rules.engine import (
 from .advise import advise_item
 from .grants import grant_checklist_items, judge_grants
 from .guardrails import enforce
-from .judge import judge_ad_claims, judge_trademark
+from .judge import (
+    judge_ad_claims, judge_building_use_ai, judge_law_card, judge_trademark, judge_violation_ai,
+)
 from .llm import LLM, GuardedLLM
 from .ports import Calc, Emit, StoreInput, ToolResult, Tools
 from .schemas import ChecklistItem, Contact, Document, Evidence, GrantsResult, ReportItem, UserAction
@@ -127,50 +129,31 @@ def run_analysis(
                    "failed": "조문을 조회하지 못해 확인이 필요해요"}[law_status]
         step("law", law_status, message)
 
-    step("rules", "running", "규칙 판정 중")
+    step("rules", "running", "규칙표 대조 준비 중")
     found: dict[str, tuple[ReportItem, dict]] = {}  # check_id → (항목, 선택지 만들 때 쓰는 부가 정보)
-
+    rule_building = judge_building_use(pack, business_type, uses)  # AI 판정과 대조하는 안전장치
     for spec in checks:
-        cid = spec["id"]
-        if cid == "building_use":
-            rr = judge_building_use(pack, business_type, uses)
-            ev = ([_data_ev(b, ", ".join(uses))] if uses else []) + _law_ev(laws[cid])
-            title = render_title(spec, rr.verdict, business_type=business_type) or rr.reason
-            found[cid] = (ReportItem(item_id="", check_id=cid, stage=spec["stage"], title=title,
-                                     verdict=rr.verdict, decided_by="rule", reason=rr.reason, evidence=ev),
-                          {"floor_uses": uses})
-        elif cid == "building_violation":
-            violation = (b.data or {}).get("violation") if b.ok else None
-            if violation is True:
-                v, reason, ev = "high", "건축물대장에 위반건축물로 표기돼 있어요.", [_data_ev(b, "위반건축물 표기 있음")]
-            elif violation is False:
-                v, reason, ev = "ok", "건축물대장에 위반건축물 표기가 없어요.", [_data_ev(b, "위반건축물 표기 없음")]
-            else:
-                v = "unknown"
-                reason = ("건축물대장 응답에 위반건축물 표기 정보가 없어요." if b.ok
-                          else "건축물대장을 조회하지 못했어요.")
-                ev = [_data_ev(b, "위반건축물 표기 정보 없음")] if b.ok else []
-            found[cid] = (ReportItem(item_id="", check_id=cid, stage=spec["stage"],
-                                     title=render_title(spec, v) or reason, verdict=v, decided_by="rule",
-                                     reason=reason, evidence=ev), {})
-        elif cid == "permit_docs":
-            ev = _law_ev(laws[cid])  # 근거(식품위생법 조문)가 없으면 가드레일이 unknown으로 내린다
-            found[cid] = (ReportItem(item_id="", check_id=cid, stage=spec["stage"], title=spec["title"],
-                                     verdict="low", decided_by="rule", reason=spec["reason"], evidence=ev), {})
-        elif cid == "labeling":
-            found[cid] = (ReportItem(item_id="", check_id=cid, stage=spec["stage"], title=spec["title"],
-                                     verdict="unknown", decided_by="rule", reason=spec["reason"]), {})
-    step("rules", "done", "규칙 판정 완료")
+        if spec["id"] == "labeling":  # 읽을 근거 데이터가 없는 일반 안내. 점검 결과가 아니라서 unknown으로 둔다
+            found["labeling"] = (ReportItem(item_id="", check_id="labeling", stage=spec["stage"], title=spec["title"],
+                                            verdict="unknown", decided_by="rule", reason=spec["reason"]), {})
+    step("rules", "done", "규칙표 대조 준비 완료")
 
     step("interpret", "running", "AI 판정 중")
     before = guarded.failures
     for spec in checks:
-        if spec["id"] == "trademark_similar":
-            found[spec["id"]] = judge_trademark(llm, store, t, spec, "")
-        elif spec["id"] == "ad_claims":
+        cid = spec["id"]
+        if cid == "building_use":  # AI가 건축물대장의 층 용도와 조문을 읽고 판정 (규칙표와 대조)
+            found[cid] = judge_building_use_ai(llm, store, business_type, b, laws[cid], rule_building, spec, "", pack)
+        elif cid == "building_violation":  # AI가 건축물대장의 위반건축물 표기를 읽고 판정
+            found[cid] = (judge_violation_ai(llm, b, spec, ""), {})
+        elif cid == "permit_docs":  # AI가 조회한 조문 원문을 읽고 이 가게의 영업신고 할 일을 판정
+            found[cid] = (judge_law_card(llm, store, business_type, laws[cid], spec, ""), {})
+        elif cid == "trademark_similar":
+            found[cid] = judge_trademark(llm, store, t, spec, "")
+        elif cid == "ad_claims":
             item = judge_ad_claims(llm, store, spec, "")
             if item:
-                found[spec["id"]] = (item, {})
+                found[cid] = (item, {})
     step("interpret", *_ai_status(guarded, before, "AI 판정 완료"))
 
     # 카드 번호(r-01…)는 규칙 묶음의 점검 항목 순서가 정한다
@@ -189,7 +172,7 @@ def run_analysis(
         spec = check_spec(pack, item.check_id)
         if item.verdict != "ok":
             item = advise_item(llm, pack, store, item, spec, extras, business_type)
-        item, c = enforce(item, allowed_remedies=spec.get("remedies"))
+        item, c = enforce(item, allowed_remedies=spec.get("remedies"), ai_high_allowed=bool(spec.get("ai_high_allowed")))
         changes += [f"{item.item_id}: {x}" for x in c]
         items.append(item)
     step("advise", *_ai_status(guarded, before, "해결 방안 준비 완료"))
