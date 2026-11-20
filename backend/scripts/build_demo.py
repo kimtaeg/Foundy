@@ -23,18 +23,18 @@ load_dotenv(ROOT / ".env")
 
 from agent.cost import CostTracker  # noqa: E402
 from agent.llm import make_llm  # noqa: E402
-from agent.location import compare_sites  # noqa: E402
 from agent.loop import run_analysis  # noqa: E402
 from agent.ports import StoreInput  # noqa: E402
 from agent.questions import select_questions  # noqa: E402
 from rules.engine import load_pack  # noqa: E402
-from tests.fakes import FakeCalc, JsonTools  # noqa: E402
+from calc.dates import Dates  # noqa: E402
+from tests.fakes import JsonTools  # noqa: E402
 
 DEMO = ROOT / "mocks" / "demo"
 DEMO_TODAY = date(2026, 11, 20)  # 예시 공고의 마감 판단 기준일 (저장 결과를 만든 날과 무관하게 고정)
 # 이서연 씨 사례가 보여줘야 하는 판정. LLM이 일시적으로 실패해 unknown이 되면 다시 돌린다.
-EXPECTED = {"building_use": "high", "building_violation": "unknown", "alcohol_vs_type": "ok",
-            "trademark_similar": "low"}
+EXPECTED = {"building_use": "high", "trademark_similar": "low", "building_violation": "unknown",
+            "permit_docs": "low", "labeling": "ok"}
 
 
 def main() -> None:
@@ -51,7 +51,7 @@ def main() -> None:
     for attempt in range(1, 4):
         events: list[dict] = []
         res = run_analysis(
-            store, tools=JsonTools(inputs["tools"]), calc=FakeCalc(), llm=llm, pack=pack,
+            store, tools=JsonTools(inputs["tools"]), calc=Dates(), llm=llm, pack=pack,
             emit=lambda event, data: events.append({"event": event, "data": data}),
             include_grants=True, today=DEMO_TODAY,
         )
@@ -65,9 +65,6 @@ def main() -> None:
             incomplete.append(f"example-001(기대 eligible, 실제 {g.get('example-001')})")
         if "example-003" not in g or "example-002" in g or res.grants.excluded_count != 1:
             incomplete.append("지원사업 예시(003 포함, 002 제외 기대)")
-        cmp = compare_sites(llm, store, store.sites, pack, res.business_type)
-        if cmp.summary_by != "ai":
-            incomplete.append("후보 자리 비교 요약(AI 요약이 숫자 검증을 통과하지 못함)")
         if not incomplete:
             break
         print(f"시도 {attempt}: 결과 카드가 비었거나 기대와 다른 항목 {incomplete} → 다시 시도")
@@ -90,7 +87,6 @@ def main() -> None:
         "report_items": [i.model_dump(mode="json") for i in res.items],
         "checklist": [c.model_dump(mode="json") for c in res.checklist],
         "grants": res.grants.model_dump(mode="json") if res.grants else None,
-        "site_compare": cmp.model_dump(mode="json"),
         "guardrail_changes": res.guardrail_changes,
     }
     path = DEMO / "seoyeon.json"

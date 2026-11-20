@@ -31,21 +31,6 @@ class ToolResult(BaseModel):
     error: str | None = None
 
 
-class Site(BaseModel):
-    """후보 자리 (비교용). floor_uses는 그 자리의 건축물대장 용도."""
-
-    site_id: str
-    label: str
-    address: str = ""
-    floor_uses: list[str] = Field(default_factory=list)
-    listing: dict | None = None  # deposit_krw, monthly_rent_krw, maintenance_krw, premium_krw, area_m2
-    is_main: bool = False
-    # 반경 내 상권 지표. 없는 지표는 키를 빼거나 {"available": False}로 둔다 (숫자를 만들지 않는다)
-    # 예: {"same_type_count": 14, "open_close_trend": {"available": False}, "foot_traffic": {"available": False}}
-    area_metrics: dict | None = None
-    area_avg_rent_per_m2: int | None = None  # 지역 평균 ㎡당 임대료 (원천 확정 전에는 예시 값)
-
-
 class StoreInput(BaseModel):
     store_id: str
     name: str
@@ -57,7 +42,6 @@ class StoreInput(BaseModel):
     answers: dict = Field(default_factory=dict)
     menu_text: str | None = None
     owner_birth_year: int | None = None
-    sites: list[Site] = Field(default_factory=list)
 
 
 class Tools(Protocol):
@@ -71,16 +55,13 @@ class Tools(Protocol):
 
 
 class Calc(Protocol):
-    def checklist_dates(self, opening_date: date, week: int) -> dict:
-        """{"due_date": date, "dday": int, "group_label": "계약 전|개업 4주 전|개업 직전|개업 후"}"""
+    def checklist_dates(self, opening_date: date, offset_days: int) -> dict:
+        """{"due_date": date, "dday": int}. due_date = 개업일 + offset_days. 시기(group_label)는 규칙 묶음이 항목마다 정한다."""
         ...
 
     def date_info(self, opening_date: date, due_date: date) -> dict:
-        """마감일처럼 날짜가 이미 정해진 항목용. checklist_dates와 같은 형태로 돌려준다."""
-        ...
-
-    def site_cost_delta(self, base_listing: dict, other_listing: dict) -> dict | None:
-        """{"initial_delta_krw": int, "monthly_delta_krw": int}. 입력이 모자라면 None."""
+        """마감일처럼 날짜가 이미 정해진 항목용(지원사업). {"due_date", "dday", "group_label"}.
+        group_label은 dday로 정한다 (-29 이하 계약 전, -28~-15 개업 4주 전, -14~-1 개업 직전, 0 이상 개업 후)."""
         ...
 
 

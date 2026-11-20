@@ -1,4 +1,4 @@
-"""데모 시나리오 S1~S4 (docs/mvp.md 5장). 입력·기대 결과는 같은 폴더의 JSON에 고정되어 있다.
+"""데모 시나리오 S1~S4 (docs/mvp.md 5장. S3 메뉴 광고 문구는 마지막에 구현이라 지금은 카드가 없다). 입력·기대 결과는 같은 폴더의 JSON에 고정되어 있다.
 
 기본 실행은 LLM 응답을 JSON에 적힌 값으로 대체한다 (결정적).
 실제 LLM으로 확인하려면 RUN_LLM_TESTS=1 pytest tests/scenarios -m llm  (키·모델이 .env에 있어야 한다).
@@ -44,17 +44,17 @@ def check(sc: dict, res) -> None:
             assert [o.remedy for o in item.options] == e["remedies"], cid
         if "user_action" in e:
             assert item.user_action and item.user_action.type == e["user_action"], cid
-        if "prepared_kinds" in e:
-            assert [p.kind for p in item.prepared] == e["prepared_kinds"], cid
+        if "contact" in e:
+            assert item.contact and item.contact.agency == e["contact"], cid
         if "evidence_contains" in e:
             assert any(e["evidence_contains"] in (ev.value or "") for ev in item.evidence), cid
         if item.verdict != "ok":
             assert item.evidence or item.verdict == "unknown", f"{cid}: 근거 없는 판정"
     if exp.get("no_cards"):
-        assert all(not i.options and not i.prepared and i.user_action is None for i in res.items)
-    for task, cid in exp.get("checklist_linked", {}).items():
-        linked = next(c for c in res.checklist if c.task == task)
-        assert linked.report_item_id == by[cid].item_id
+        assert all(not i.options for i in res.items)  # 선택지가 있는 결과 카드가 없다
+    for task_id, cid in exp.get("checklist_linked", {}).items():
+        linked = next(c for c in res.checklist if c.item_id == task_id)
+        assert by[cid].item_id in linked.report_item_ids
     assert len(res.checklist) >= exp.get("checklist_min", 6)
     assert res.guardrail_changes == []  # 가드레일이 고칠 일이 없어야 한다
 
@@ -88,5 +88,5 @@ def test_scenario_with_real_llm(path):
     sc = load(path)
     res = analyze(sc, make_llm())
     check({**sc, "expect": {**sc["expect"], "items": {
-        k: {kk: vv for kk, vv in v.items() if kk not in ("remedies", "prepared_kinds", "user_action")}
+        k: {kk: vv for kk, vv in v.items() if kk not in ("remedies", "user_action", "contact")}
         for k, v in sc["expect"]["items"].items()}}}, res)

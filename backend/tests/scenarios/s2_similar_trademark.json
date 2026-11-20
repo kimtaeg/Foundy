@@ -53,9 +53,9 @@
     "business_type": "휴게음식점",
     "summary": {
       "high": 0,
-      "low": 1,
+      "low": 2,
       "unknown": 0,
-      "ok": 2
+      "ok": 3
     },
     "items": {
       "building_use": {
@@ -74,11 +74,16 @@
         ],
         "evidence_contains": "4000000000001",
         "user_action": "decide"
+      },
+      "permit_docs": {
+        "verdict": "low"
       }
     },
     "absent": [
-      "alcohol_vs_type",
       "ad_claims"
-    ]
+    ],
+    "checklist_linked": {
+      "c-02": "trademark_similar"
+    }
   }
 }

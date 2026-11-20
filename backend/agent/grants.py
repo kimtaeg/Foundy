@@ -154,9 +154,13 @@ def judge_grants(llm: LLM, store: StoreInput, res: ToolResult, today: date | Non
 
 
 def grant_checklist_items(
-    result: GrantsResult, calc: Calc, opening_date: date, start_index: int, today: date | None = None
+    result: GrantsResult, calc: Calc, opening_date: date, start_index: int = 0, today: date | None = None
 ) -> list[ChecklistItem]:
-    """신청 가능성이 있는(eligible·partial) 공고의 마감일을 체크리스트(정책)에 추가한다."""
+    """신청 가능성이 있는(eligible·partial) 공고의 마감일을 체크리스트(정책)에 추가한다.
+
+    항목 id는 g-<공고 id>다 (c-NN은 규칙 묶음의 기본 항목). 제출서류는 서류함이 아니라 지원사업 상세에서 보여 준다.
+    start_index는 예전 호출 형태와 맞추려고 남겨 둔 인자로 쓰지 않는다.
+    """
     today = today or date.today()
     out: list[ChecklistItem] = []
     for m in result.items:
@@ -164,9 +168,9 @@ def grant_checklist_items(
             continue
         d = calc.date_info(opening_date, m.deadline)
         out.append(ChecklistItem(
-            item_id=f"c-{start_index + len(out):02d}", task=f"{m.title} 신청 마감", category="정책",
+            item_id=f"g-{m.grant_id}", task=f"{m.title} 신청 마감", category="정책",
             due_date=d["due_date"], dday=d["dday"], group_label=d["group_label"], agency=m.source,
-            documents=m.summary.what_to_submit, source="grant",
+            source="grant",
             evidence=[Evidence(type="notice", source=m.source, text=f"신청 기간: ~{m.deadline.isoformat()}", url=m.url)]))
         m.added_to_checklist = True
     return out

@@ -21,7 +21,7 @@ ask:
     text: 준비된 자금은 얼마인가요?
     type: number
     optional: true
-    why: 지원사업 안내와 매물 비교의 버틸 수 있는 기간 계산에 씁니다.
+    why: 지원사업 안내와 비용 계산에 씁니다.
 
 # 규칙으로 정하는 값 (AI가 판단하지 않는다)
 derive:
@@ -39,52 +39,174 @@ building_use:
     일반음식점: [제2종근린생활시설]
     휴게음식점: [제1종근린생활시설, 제2종근린생활시설]
 
-# 점검 리포트 항목. remedies=선택지로 만들 수 있는 대응 유형, drafts=대신 만들 초안 유형
+# 점검 리포트 항목 (foundy 확정). 순서가 카드 번호(r-01…)를 정한다.
+# - remedies: 선택지로 만들 수 있는 대응 유형 (AI는 이 범위 안에서만 선택지를 만든다)
+# - contact: contacts의 키 (카드에 기관 전화번호를 붙인다). 번호는 AI가 만들지 않는다
+# - call_questions: 통화 준비 질문. {biz}는 신고 업종으로 채운다
+# - consequence·action: 선택지가 없는 카드의 "안 하면 생기는 일"과 사용자 할 일 (AI 호출 없음)
 checks:
   - id: building_use
     stage: 계약 전
     decided_by: rule
-    remedies: [change_business_type, change_site, request_use_change]
-    drafts: [inquiry_message, contract_clause]
-    checklist_task: 건물 확인·임대차 계약   # 이 항목이 걸리면 연결되는 체크리스트 기본 항목
+    remedies: [change_business_type, request_use_change, find_other_site]
+    contact: build
+    checklist_task: c-01   # 이 항목이 걸리면 연결되는 체크리스트 기본 항목 id
     titles:
       high: "이 자리에서는 {business_type} 신고가 어려워요"
       ok: "이 건물에서 {business_type} 신고가 가능해요"
       unknown: "건물 용도를 확인할 수 없어요"
-  - id: building_violation
-    stage: 계약 전
-    decided_by: rule
-    remedies: []
-    drafts: [inquiry_message]
-    checklist_task: 건물 확인·임대차 계약
-    titles:
-      high: "위반건축물로 표기된 건물이에요"
-      ok: "위반건축물 표기가 없어요"
-      unknown: "위반건축물인지 확인할 수 없어요"
-  - id: alcohol_vs_type
-    stage: 개업 전
-    decided_by: rule
-    remedies: [change_business_type]
-    drafts: []
-    titles:
-      ok: "일반음식점으로 신고하면 술을 팔 수 있어요"
+    call_questions:
+      - "이 건물 해당 층의 용도가 {biz} 영업신고에 적합한가요?"
+      - "위반건축물로 등재돼 있지는 않은가요?"
+      - "용도가 맞지 않는다면 용도변경이 가능한지, 필요한 서류와 절차가 무엇인가요?"
+      - "답변을 문자나 공문으로도 받을 수 있을까요?"
   - id: trademark_similar
     stage: 계약 전
     decided_by: ai
     remedies: [rename_store, proceed]
-    drafts: []
-  - id: ad_claims
+    checklist_task: c-02
+  - id: building_violation
+    stage: 계약 전
+    decided_by: rule
+    remedies: []
+    contact: build
+    checklist_task: c-01
+    titles:
+      high: "위반건축물로 표기된 건물이에요"
+      ok: "위반건축물 표기가 없어요"
+      unknown: "위반건축물인지 확인할 수 없어요"
+    consequence: "위반건축물이면 영업신고가 반려될 수 있어요."
+    action: { type: send, text: 구청 건축과에 전화로 문의하기, est_minutes: 3 }
+    call_questions:
+      - "이 건물(해당 층)이 위반건축물로 등재돼 있나요?"
+      - "등재돼 있다면 시정 후 영업신고가 가능한가요?"
+      - "건축물대장에서 직접 확인하려면 어떻게 하나요?"
+      - "답변을 문자나 공문으로도 받을 수 있을까요?"
+  - id: permit_docs          # 영업신고 서류 (규칙이 정한 안내 카드, 근거는 식품위생법 조문)
+    stage: 개업 전
+    decided_by: rule
+    remedies: []
+    contact: hyg
+    checklist_task: c-04
+    title: "영업신고 서류를 개업 전에 준비해야 해요"
+    reason: "영업 형태에 따라 위생교육 수료와 건강진단 등이 요구될 수 있어요."
+    consequence: "서류가 준비되지 않으면 신고 일정이 지연될 수 있어요."
+    action: { type: sign, text: 영업신고서 확인·서명하기, est_minutes: 10 }
+    call_questions:
+      - "{biz} 영업신고에 필요한 서류 목록을 알려 주세요."
+      - "위생교육은 언제, 어디서 받아야 하나요?"
+      - "건강진단결과서는 어느 시점 것까지 인정되나요?"
+      - "신고 후 영업신고증을 받기까지 얼마나 걸리나요? (구청 안내 기준)"
+  - id: labeling             # 운영 중 일반 안내. 점검 결과가 아니라서 근거 없이 ok로 둔다
+    stage: 운영 중
+    decided_by: rule
+    remedies: []
+    allow_empty_evidence: true
+    title: "기본 표시 의무 점검 항목"
+    reason: "운영 단계의 일반적인 점검 항목입니다. 실제 점검 결과가 아닙니다."
+  - id: ad_claims            # 메뉴·광고 문구 점검: 마지막에 구현 (입력란이 생길 때 deferred를 지운다)
+    deferred: true
     stage: 개업 전
     decided_by: ai
     remedies: [rewrite_copy]
-    drafts: []
 
-# 개업 체크리스트 기본 항목. week는 개업일 기준 주 단위 (음수=개업 전), 날짜는 계산 도구가 계산한다.
+# 선택지로 생기는 체크리스트 항목. from = [점검 항목 id, 선택지 유형]. 점검 카드를 되돌리면 사라진다.
+extra_tasks:
+  - { id: x-0, task: 용도가 맞는 다른 후보 자리 알아보기, category: 건물·시설, group: 계약 전, offset_days: -70, agency: 본인 확인, from: [building_use, find_other_site] }
+  - { id: x-1, task: 구청 건축과에 용도변경 가능 여부 문의, category: 건물·시설, group: 계약 전, offset_days: -60, agency: 관할 구청 건축과, contact: build, from: [building_use, request_use_change] }
+  - { id: x-2, task: 간판 제작 전 상표 최종 확인 (KIPRIS), category: 간판·광고, group: 계약 전, offset_days: -30, agency: KIPRIS, from: [trademark_similar, proceed] }
+
+# 개업 체크리스트 기본 항목 (foundy 확정). group과 offset_days는 항목마다 고정이다.
+# 날짜 = 개업일 + offset_days (계산 도구). 직원이 없으면 when 항목은 숨긴다.
 checklist:
-  - { task: 건물 확인·임대차 계약, category: 건물·시설, week: -8 }
-  - { task: 위생교육 신청, category: 영업 인허가, week: -6 }
-  - { task: 건강진단, category: 영업 인허가, week: -5 }
-  - { task: 영업신고, category: 영업 인허가, week: -4 }
-  - { task: 사업자등록, category: 세무, week: -3 }
-  - { task: 간판 신고·카드 단말기, category: 간판·광고, week: -2 }
-  - { task: 근로계약서·4대보험, category: 고용, week: -1, when: has_employees }
+  - { id: c-01, task: 건축물대장 확인 및 임대차 계약 검토, category: 건물·시설, group: 계약 전, offset_days: -56, agency: 관할 구청 건축과, contact: build }
+  - { id: c-02, task: 상호·상표 유사 여부 추가 확인, category: 간판·광고, group: 계약 전, offset_days: -49, agency: KIPRIS }
+  - { id: c-03, task: 사업자등록 신청, category: 세무, group: 개업 4주 전, offset_days: -28, agency: 홈택스 또는 세무서, contact: tax }
+  - { id: c-04, task: 영업 신고에 필요한 서류 준비, category: 영업 인허가, group: 개업 4주 전, offset_days: -28, agency: 관할 구청 위생과, contact: hyg, title_prefix_business_type: true }
+  - { id: c-05, task: 식품위생교육 이수, category: 영업 인허가, group: 개업 4주 전, offset_days: -22, agency: 관련 교육기관 }
+  - { id: c-06, task: 건강진단결과서 준비, category: 영업 인허가, group: 개업 직전, offset_days: -10, agency: 보건소 등 }
+  - { id: c-07, task: 간판 설치 관련 기준 확인, category: 간판·광고, group: 개업 직전, offset_days: -6, agency: 관할 구청, contact: build }
+  - { id: c-08, task: 근로계약서 및 고용 관련 사항 확인, category: 고용, group: 개업 직전, offset_days: -3, agency: 고용노동부 안내, contact: labor, when: has_employees }
+  - { id: c-09, task: 운영 중 표시 의무 사항 점검, category: 표시 의무, group: 개업 후, offset_days: 7, agency: 관할 기관 }
+
+# 점검 카드 ↔ 체크리스트 자동 체크: 연결된 카드가 모두 완료되면 항목이 자동 체크된다.
+report_links:
+  c-01: [building_use, building_violation]
+  c-02: [trademark_similar]
+  c-04: [permit_docs]
+  x-0: [building_use]
+  x-1: [building_use]
+  x-2: [trademark_similar]
+
+# 마이페이지에서 바꾼 필드 → 다시 할 일(run) → 선택을 초기화할 카드(reset). 코드가 정하며 AI는 관여하지 않는다.
+# market은 상권 분석을 붙일 때(마지막에 구현) 추가한다.
+impacts:
+  opening_date: { run: [dates], reset: [] }
+  name: { run: [trademark], reset: [trademark_similar] }
+  address: { run: [building, law, checklist], reset: [building_use, building_violation, permit_docs] }
+  address_detail: { run: [building], reset: [building_use, building_violation] }
+  business_type_input: { run: [building, law, checklist], reset: [building_use, building_violation, permit_docs] }
+  sells_alcohol: { run: [building, law, checklist], reset: [building_use, building_violation, permit_docs] }
+  uses_terrace: { run: [law, checklist], reset: [building_use, permit_docs] }
+  has_employees: { run: [checklist], reset: [] }
+  owner_birth_year: { run: [grants], reset: [] }
+  funds_krw: { run: [costs], reset: [] }
+
+# 서류함: 체크리스트 항목 id별 필요 서류 = 어디서 받는지 안내 (서류를 만들어 주지 않는다).
+# 링크는 sites의 검증된 공식 사이트 첫 화면만 쓴다. 세부 신청 페이지 주소는 바뀌기 쉬워 쓰지 않는다.
+documents:
+  c-01:
+    - { id: bldg, name: 건축물대장 (일반·집합), agency: 정부24 · 세움터, sites: [gov24, eais],
+        guide: "정부24에서 “건축물대장 열람/발급”을 검색하거나, 세움터의 건축물대장 발급·열람 메뉴에서 주소로 조회해요" }
+  c-02:
+    - { id: tm, name: 상표 검색 결과, agency: KIPRIS, sites: [kipris],
+        guide: "KIPRIS에서 상표 검색 → 가게 이름을 넣고 유사 상표의 지정 서비스(제43류)를 확인해요" }
+  c-03:
+    - { id: bizapply, name: 사업자등록 신청, agency: 홈택스, sites: [hometax],
+        guide: "홈택스 로그인 → 신청/제출 → 사업자등록 신청 (영업신고증 사본 첨부)" }
+  c-04:
+    - { id: apply, name: 영업신고 접수, agency: 정부24 · 관할 구청 위생과, sites: [gov24], contact: hyg,
+        guide: "정부24에서 “영업신고”를 검색해 신청하거나, 관할 구청 위생과에 직접 제출해요. 신고 업종과 필요 서류는 구청에 먼저 확인하세요" }
+  c-07:
+    - { id: signapply, name: 옥외광고물 신고·허가 안내, agency: 정부24 · 관할 구청, sites: [gov24], contact: build,
+        guide: "정부24에서 “옥외광고물”을 검색하고, 신고·허가 대상인지 관할 구청에 확인하세요" }
+  c-08:
+    - { id: contract, name: 표준 근로계약서 양식, agency: 고용노동부, sites: [moel],
+        guide: "고용노동부 누리집의 자료실·정책자료에서 “표준근로계약서”를 찾아 받아요" }
+    - { id: insure, name: 4대보험 취득 신고, agency: 4대사회보험 정보연계센터, sites: [insure],
+        guide: "근로자를 고용하면 4대사회보험 정보연계센터에서 취득 신고를 해요" }
+  c-09:
+    - { id: label, name: 원산지·가격 표시 안내, agency: 국립농산물품질관리원, sites: [naqs],
+        guide: 원산지 표시 대상과 방법은 국립농산물품질관리원 안내를 확인하세요 }
+  x-0:
+    - { id: bldg0, name: 후보 자리 건축물대장, agency: 정부24 · 세움터, sites: [gov24, eais],
+        guide: 후보 주소의 건축물대장에서 해당 층 용도를 확인해요 }
+  x-2:
+    - { id: tm2, name: 상표 최종 확인, agency: KIPRIS, sites: [kipris],
+        guide: 간판 제작 전에 KIPRIS에서 다시 검색해요 }
+
+# 공식 사이트 (사람이 확인한 첫 화면 주소만. 배포 전에 한 번씩 눌러 확인한다)
+sites:
+  gov24: { label: 정부24, url: "https://www.gov.kr/" }
+  hometax: { label: 홈택스, url: "https://www.hometax.go.kr/" }
+  eais: { label: 세움터 (건축행정시스템), url: "https://www.eais.go.kr/" }
+  kipris: { label: KIPRIS (특허정보검색서비스), url: "https://www.kipris.or.kr/" }
+  moel: { label: 고용노동부, url: "https://www.moel.go.kr/" }
+  insure: { label: 4대사회보험 정보연계센터, url: "https://www.4insure.or.kr/" }
+  naqs: { label: 국립농산물품질관리원, url: "https://www.naqs.go.kr/" }
+
+# 기관 연락처 (AI가 만들지 않는다). 관할 구청 번호는 주소의 시군구 코드(address_codes.sigungu_cd)로 고르고,
+# 표에 없는 지역은 fallback(정부민원안내콜센터 110)으로 대체한다. verified: false는 "예시 번호·걸기 전 확인"으로 표시한다.
+# 시군구를 늘리려면 by_sigungu에 한 줄만 추가한다. 번호는 사람이 확인한 것만 넣는다.
+contacts:
+  build:
+    by_sigungu:
+      "11200": { agency: 성동구청 건축과, phone: "02-2286-5114", verified: false }   # TODO: 시연 전에 직접 확인
+    fallback: { agency: 정부민원안내콜센터, phone: "110", verified: true, tip: "관할 구청 건축과로 연결해 달라고 말씀하세요" }
+  hyg:
+    by_sigungu:
+      "11200": { agency: 성동구청 위생과, phone: "02-2286-5114", verified: false }   # TODO: 시연 전에 직접 확인
+    fallback: { agency: 정부민원안내콜센터, phone: "110", verified: true, tip: "관할 구청 위생과로 연결해 달라고 말씀하세요" }
+  tax: { agency: 국세상담센터, phone: "126", verified: true }
+  labor: { agency: 고용노동부 상담센터, phone: "1350", verified: true }
+  gen: { agency: 정부민원안내콜센터, phone: "110", verified: true }

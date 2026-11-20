@@ -25,7 +25,7 @@
     "business_type": "일반음식점",
     "summary": {
       "high": 0,
-      "low": 0,
+      "low": 1,
       "unknown": 0,
       "ok": 4
     },
@@ -36,14 +36,14 @@
       "building_violation": {
         "verdict": "ok"
       },
-      "alcohol_vs_type": {
-        "verdict": "ok"
-      },
       "trademark_similar": {
         "verdict": "ok"
+      },
+      "permit_docs": {
+        "verdict": "low"
       }
     },
     "no_cards": true,
-    "checklist_min": 7
+    "checklist_min": 8
   }
 }

@@ -52,9 +52,11 @@ class Estimate(BaseModel):
 
 
 class ApplyAction(BaseModel):
-    type: Literal["update_store", "set_main_site", "none"] = "none"
+    type: Literal["update_store", "none"] = "none"
     payload: dict = Field(default_factory=dict)
     needs_reanalyze: bool = False
+    # 이 선택지를 고르면 체크리스트에 새로 생기는 항목 id (규칙 묶음 extra_tasks). 선택을 되돌리면 다시 빠진다.
+    adds_checklist: list[str] = Field(default_factory=list)
 
 
 class Option(BaseModel):
@@ -64,7 +66,6 @@ class Option(BaseModel):
     time: Estimate = Field(default_factory=Estimate)
     cost: Estimate = Field(default_factory=Estimate)
     apply: ApplyAction = Field(default_factory=ApplyAction)
-    site_id: str | None = None
     # 규칙 묶음의 remedies 값. 허용된 대응 유형만 선택지로 만들었는지 검증할 때 쓴다.
     remedy: str | None = None
 
@@ -74,22 +75,30 @@ class Recommendation(BaseModel):
     reason: str
 
 
-class Prepared(BaseModel):
-    """대신 만들어 둔 결과물. 가게 정보와 조회 데이터로 채운 초안이며 모르는 칸은 [확인 필요]."""
+class Contact(BaseModel):
+    """문의할 기관 연락처. 번호는 규칙 묶음 contacts에서만 가져오고 AI가 만들지 않는다."""
 
-    prepared_id: str
-    kind: Literal["inquiry_message", "contract_clause", "document_draft", "link"]
-    title: str
-    body: str | None = None
-    url: str | None = None
-    editable: bool = False
+    agency: str
+    phone: str | None = None  # 확인하지 못한 번호는 None → 화면에서 "확인 필요"
+    is_example: bool = False
+    tip: str | None = None  # 대체 번호일 때 안내 ("관할 구청 건축과로 연결해 달라고 말씀하세요")
+
+
+class Document(BaseModel):
+    """체크리스트 항목에 필요한 서류. 서류를 만들어 주지 않고 어디서 받는지만 안내한다."""
+
+    doc_id: str
+    name: str
+    agency: str = ""
+    guide: str = ""
+    links: list[dict] = Field(default_factory=list)  # [{label, url}] 규칙 묶음 sites의 검증된 첫 화면 주소만
+    contact: Contact | None = None
 
 
 class UserAction(BaseModel):
     type: Literal["send", "sign", "visit", "decide"]
     text: str
     est_minutes: int | None = None
-    prepared_id: str | None = None
 
 
 class ReportItem(BaseModel):
@@ -103,9 +112,14 @@ class ReportItem(BaseModel):
     consequence: str = ""
     options: list[Option] = Field(default_factory=list)
     recommendation: Recommendation | None = None
-    prepared: list[Prepared] = Field(default_factory=list)
+    contact: Contact | None = None
     user_action: UserAction | None = None
     chosen_option: str | None = None
+    # 사용자 진행 상태 (결정 → 실행 → 완료). 백엔드가 DB에서 읽어 채운다 (DB 명세서 2-4)
+    action_status: Literal["pending", "sent", "done"] = "pending"
+    action_reply: str | None = None
+    applied_effects: dict = Field(default_factory=dict)  # 유효 값에 덧씌울 효과 {sells_alcohol|name}
+    applied_changes: list[str] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     added_to_checklist: list[str] = Field(default_factory=list)
 
@@ -114,16 +128,29 @@ class ChecklistItem(BaseModel):
     item_id: str
     task: str
     category: Category
-    group_label: GroupLabel | None = None  # 계산 도구가 dday로 정한다
+    group_label: GroupLabel | None = None  # 기본 항목은 규칙 묶음의 고정 값, 지원사업 마감만 dday로 정한다
     dday: int | None = None  # 계산 도구가 계산한다 (AI는 날짜를 계산하지 않는다)
     due_date: date | None = None
-    documents: list[str] = Field(default_factory=list)
+    rule_key: str | None = None  # 규칙 묶음의 항목 id (서류 목록을 찾는 키)
+    documents: list[Document] = Field(default_factory=list)
     agency: str | None = None
+    contact: Contact | None = None
     source: Literal["rule", "report", "grant"] = "rule"
-    report_item_id: str | None = None
+    report_item_ids: list[str] = Field(default_factory=list)  # report_links로 연결된 점검 카드
     evidence: list[Evidence] = Field(default_factory=list)
-    prepared: list[Prepared] = Field(default_factory=list)
     done: bool = False
+    auto_checked: bool = False  # 점검 카드 완료로 자동 체크됐는지 (직접 한 체크는 False)
+    origin_item_id: str | None = None  # source="report": 이 항목을 만든 점검 카드
+    origin_option: str | None = None  # source="report": 이 항목을 만든 선택지
+
+
+class NextStep(BaseModel):
+    """다음으로 할 일 (코드가 정렬한다. API 명세서 2장 NextStep)."""
+
+    kind: Literal["new", "decide", "do", "task"]
+    title: str
+    sub: str = ""
+    go: dict = Field(default_factory=dict)  # {page, item_id}
 
 
 class Question(BaseModel):
@@ -140,13 +167,27 @@ class ChatAction(BaseModel):
     type: Literal["update_store", "choose_option", "check_item", "navigate"]
     label: str
     payload: dict = Field(default_factory=dict)
+    summary: list[str] = Field(default_factory=list)  # 적용하면 바뀌는 내용 (전→후 미리보기). 코드가 만든다
     requires_confirm: bool = True
 
 
+class CallPrep(BaseModel):
+    """통화 준비 도우미. 번호는 규칙 묶음에서, 질문은 규칙 묶음 call_questions에서 코드가 만든다."""
+
+    item_id: str | None = None
+    contact: Contact
+    steps: list[str] = Field(default_factory=list)
+    questions: list[str] = Field(default_factory=list)
+
+
 class ChatReply(BaseModel):
+    kind: Literal["grounded", "change", "oos", "chitchat"] = "chitchat"
     answer: str
     evidence: list[Evidence] = Field(default_factory=list)
     actions: list[ChatAction] = Field(default_factory=list)
+    contacts: list[Contact] = Field(default_factory=list)  # 범위 밖 질문에 문의할 기관 (규칙 묶음)
+    call_prep: CallPrep | None = None
+    follow_up: list[str] = Field(default_factory=list)
     note: str = ""
 
 
@@ -188,26 +229,3 @@ class GrantsResult(BaseModel):
     items: list[GrantMatch] = Field(default_factory=list)
     excluded_count: int = 0  # 조건이 명확히 맞지 않아 뺀 공고
     closed_count: int = 0  # 마감이 지나 뺀 공고
-
-
-class ListingResult(BaseModel):
-    initial_cost_krw: int | None = None
-    monthly_fixed_krw: int | None = None
-    rent_per_m2_krw: int | None = None
-    vs_area_average: dict = Field(default_factory=lambda: {"available": False})
-    runway_months: dict = Field(default_factory=lambda: {"available": False})
-    site_questions: list[str] = Field(default_factory=list)
-
-
-class SiteCompareItem(BaseModel):
-    site_id: str
-    label: str
-    building_check: dict = Field(default_factory=dict)  # {"verdict": ok|high|unknown, "summary": ...}
-    area_metrics: dict | None = None
-    listing_result: ListingResult
-
-
-class CompareResult(BaseModel):
-    sites: list[SiteCompareItem]
-    summary: str
-    summary_by: Literal["ai", "rule"] = "ai"  # AI 요약이 숫자 검증을 통과하지 못하면 규칙 요약

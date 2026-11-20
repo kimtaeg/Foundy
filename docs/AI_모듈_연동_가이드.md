@@ -238,7 +238,7 @@ threading.Thread(target=run, args=(store, run_id, q), daemon=True).start()   # �
 | 필요 서류 목록 | 규칙 묶음 `documents` (체크리스트 항목 id별). 가게 상태(직원 여부, 선택지 적용)로 항목이 숨겨지면 서류도 뺀다 |
 | 받는 곳 링크 | 규칙 묶음 `sites`의 검증된 공식 사이트 첫 화면 주소만 (정부24·홈택스·세움터·KIPRIS·고용노동부·4대사회보험 정보연계센터·국립농산물품질관리원) |
 | 찾는 방법 `guide` | 규칙 묶음의 고정 문구 |
-| 기관 전화번호 `contact` | 규칙 묶음 `contacts`에서 고름 (영업신고 → 위생과, 간판 → 건축과) |
+| 기관 전화번호 `contact` | 규칙 묶음 `contacts`에서 고름. 관할 구청은 주소의 시군구 코드(`address_codes.sigungu_cd`)의 번호를, 표에 없는 지역은 정부민원안내콜센터(110)와 `tip`을 쓴다 (영업신고 → 위생과, 간판 → 건축과) |
 
 - `GET /documents`(서류함)는 체크리스트를 서류 기준으로 다시 묶고, `완료한 항목의 서류`·`남은 서류` 숫자는 항목의 `done`으로 센다. 서류를 따로 저장하지 않는다.
 - 링크 목록은 배포 전에 사람이 확인해야 한다 (아키텍처 8장 확인 목록).
@@ -284,18 +284,21 @@ return reply.model_dump(mode="json")      # answer, evidence, actions, note (+ �
 - 사실을 묻는데 근거가 없으면 "이 가게의 점검 결과로는 알 수 없어요…"로 답한다 (세금 같은 범위 밖 질문 포함). 오류가 아니라 정상 응답이다.
 - LLM이 실패하면 "지금은 답변을 만들지 못했어요"라는 기본 답변이 `200`으로 나간다.
 
-**프로토타입 AI 상담과 현재 `agent/chat.py`의 차이 (추가 구현 필요)**
+**프로토타입 AI 상담 기능의 구현 상태 (`agent/chat.py`, 2026-11-20 구현)**
 
-| 프로토타입 기능 | 현재 AI 모듈 | 구현 방법 |
+| 프로토타입 기능 | 구현 | 동작 |
 | --- | --- | --- |
-| 응답 `kind` (`grounded`/`change`/`oos`/`chitchat`) | `ChatLLMReply.kind`는 `grounded/change_request/chitchat/out_of_scope` | 이름만 API 명세서 값으로 맞춰 매핑 (`change_request → change`, `out_of_scope → oos`) |
-| 변경 제안의 전→후 미리보기 `summary[]` | 없음 | 코드가 `actions`의 값에서 만든다 (개업일: 새 날짜로 계산한 체크리스트 3건, 선택지: 그 선택지의 `applied_changes`) |
-| 범위 밖 질문의 기관 전화번호 `contacts[]` | 없음 (안내 문장만) | 코드가 질문 주제(세금·4대보험·건물 등)로 규칙 묶음 `contacts`에서 고른다. AI는 번호를 쓰지 않는다 |
-| 통화 준비 `call_prep` (번호·진행 순서·물어볼 질문) | 없음 | 규칙 묶음 `call_questions`(점검 항목 `check_id`별 질문 목록, `{biz}` 같은 칸은 가게 정보로 채움)와 카드의 `contact`로 **코드가** 만든다. 모르는 칸은 `[확인 필요]`. 통화 메모는 카드의 `action_reply`에 저장한다 |
-| "오늘 뭐부터 하죠?" 요약 + 추천 선택지 적용 제안 | 없음 | 선택·정렬은 `next_steps` 코드, 문장만 LLM (또는 템플릿) |
-| 추천 질문 `GET /chat/suggestions` | 없음 | 코드 (결정 대기 카드, 개업까지 남은 일수, `focus`로 고름) |
-| 항목 고정 `focus`로 다른 주제 질문 시 고정에 갇히지 않기 | `focus`를 우선 근거로 사용 | 프롬프트에서 "다른 주제면 전체 근거에서 답하라"를 명시 |
+| 응답 `kind` (`grounded`/`change`/`oos`/`chitchat`) | 완료 | `ChatLLMReply.kind`를 명세서 값으로 매핑 (`change_request → change`, `out_of_scope → oos`) |
+| 변경 제안의 전→후 미리보기 `summary[]` | 완료 | 코드가 `actions` 값에서 만든다 (개업일: 새 날짜로 계산한 체크리스트 예시, 선택지: 추가되는 체크리스트 항목, 답변 변경: 전→후) |
+| 범위 밖 질문의 기관 전화번호 `contacts[]` | 완료 | 코드가 질문 주제(세금·4대보험·건물·위생)로 규칙 묶음 `contacts`에서 고르고 모르면 정부민원안내콜센터(110). AI는 번호를 쓰지 않는다 |
+| 통화 준비 `call_prep` | 완료 | AI 없이 코드가 만든다: 카드의 `contact`, 규칙 묶음 `call_questions`(`{biz}`는 신고 업종), 통화 순서 템플릿. 대상은 고정된 카드 → 아직 안 한 문의 카드 순 |
+| "오늘 뭐부터 하죠?" | 완료 | AI 없이 `calc/next_steps.py`로 결정할 것·직접 할 일을 정리하고 추천 선택지를 `choose_option` 제안으로 붙인다 |
+| 추천 질문 `GET /chat/suggestions` | 완료 | `suggestions(ctx, focus)` (결정 대기 카드·문의할 카드 유무, `focus`가 있으면 후속 질문) |
+| 항목 고정 `focus` | 완료 | 고정된 항목이 있어도 통화·서류·오늘 질문은 별도 처리하고, 후속 질문(`follow_up`)을 준다 |
+| 서류 질문 | 완료 | 규칙 묶음 `documents`로 코드가 답한다 (아래) |
 
+- **AI를 부르지 않는 질문**: 통화 준비·오늘 뭐부터·서류 질문은 키워드로 감지해 코드가 답한다 (LLM 호출·비용 없음). 전화번호·링크·질문 목록은 규칙 묶음에서만 가져온다.
+- 이동 `navigate`의 `payload`는 `{ "page": ... }`다 (`dashboard`/`report`/`checklist`/`docs`/`grants`/`mypage`, 상권 분석을 붙일 때 `market` 추가).
 - **서류 질문**("영업신고에 필요한 서류가 뭐예요?")은 해당 항목의 `documents[]`를 `ChatContext`에 넣어 답하게 한다. 항목은 질문의 키워드로 코드가 고르고(없으면 다음 미완료 항목), 받는 곳 링크·찾는 방법·전화번호는 규칙 묶음 값만 인용한다. 서류 작성이나 대신 제출은 하지 않는다고 안내한다. 근거가 없으면 판단 불가로 안내한다.
 - 제안 `actions`의 `check_item`은 `payload.item_id`를 쓴다 (`payload.done` 아님). 요청 값과 id는 코드가 검증하고 `requires_confirm: true`를 붙인다.
 

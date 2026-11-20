@@ -109,7 +109,7 @@ def required_question_ids(pack: dict) -> set[str]:
 def base_checklist(pack: dict, answers: dict) -> list[dict]:
     """개업 체크리스트 기본 항목. when 조건이 있으면 답이 참일 때만 포함한다.
 
-    날짜 계산(week → due_date, dday, group_label)은 계산 도구(calc/dates.py)가 한다.
+    날짜는 계산 도구(calc/dates.py)가 개업일 + offset_days로 계산하고, 시기(group)는 항목에 적힌 값을 쓴다.
     """
     items = []
     for it in pack["checklist"]:
@@ -118,3 +118,51 @@ def base_checklist(pack: dict, answers: dict) -> list[dict]:
             continue
         items.append({k: v for k, v in it.items() if k != "when"})
     return items
+
+
+def active_checks(pack: dict) -> list[dict]:
+    """점검 항목 중 지금 만드는 것 (deferred: true는 마지막에 구현할 항목이라 건너뛴다)."""
+    return [c for c in pack["checks"] if not c.get("deferred")]
+
+
+def contact_of(pack: dict, key: str | None, sigungu: str | None = None) -> dict | None:
+    """기관 연락처. 관할 구청은 시군구 코드의 번호를 쓰고, 표에 없는 지역은 fallback(110)으로 대체한다."""
+    c = (pack.get("contacts") or {}).get(key or "")
+    if not c:
+        return None
+    if "by_sigungu" in c:
+        c = (c["by_sigungu"] or {}).get(str(sigungu or "")) or c["fallback"]
+    return {"agency": c["agency"], "phone": c.get("phone"), "is_example": not c.get("verified", False),
+            "tip": c.get("tip")}
+
+
+def documents_of(pack: dict, task_id: str, sigungu: str | None = None) -> list[dict]:
+    """체크리스트 항목의 필요 서류(받는 곳 안내). 링크는 sites의 검증된 첫 화면만 담는다."""
+    out = []
+    for d in (pack.get("documents") or {}).get(task_id, []):
+        sites = pack.get("sites") or {}
+        out.append({
+            "doc_id": d["id"], "name": d["name"], "agency": d.get("agency", ""), "guide": d.get("guide", ""),
+            "links": [{"label": sites[k]["label"], "url": sites[k]["url"]} for k in d.get("sites", []) if k in sites],
+            "contact": contact_of(pack, d.get("contact"), sigungu),
+        })
+    return out
+
+
+def call_questions(pack: dict, check_id: str, business_type: str | None) -> list[str]:
+    """통화 준비 질문. {biz}는 신고 업종으로 채우고 모르면 [확인 필요]."""
+    biz = business_type or "[확인 필요]"
+    return [q.replace("{biz}", biz) for q in check_spec(pack, check_id).get("call_questions", [])]
+
+
+def impact_of(pack: dict, changed_fields: list[str]) -> dict:
+    """마이페이지에서 바꾼 필드 → 다시 할 일(run)과 초기화할 카드(reset). 규칙 묶음 impacts로 코드가 정한다."""
+    run: list[str] = []
+    reset: list[str] = []
+    for f in changed_fields:
+        rule = (pack.get("impacts") or {}).get(f)
+        if not rule:
+            continue
+        run += [r for r in rule["run"] if r not in run]
+        reset += [r for r in rule["reset"] if r not in reset]
+    return {"run": run, "reset": reset}

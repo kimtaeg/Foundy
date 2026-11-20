@@ -648,7 +648,7 @@ sync_links(store):
 | `report_links` | 체크리스트 항목 ↔ 점검 카드 연결 (자동 체크) |
 | `impacts` | 바꾼 필드 → `impacts` → 초기화할 카드 |
 | `documents`, `sites` | 체크리스트 항목별 필요 서류와 받는 곳(공식 사이트 첫 화면 링크·찾는 방법). **서류함의 원천** |
-| `contacts` | 기관 이름·전화번호 (`build`, `hyg`, `tax`, `labor`, `gen`). 관할 구청 번호는 주소의 시군구 기준이고 확인하지 못하면 `phone: null` |
+| `contacts` | 기관 이름·전화번호 (`build`, `hyg`, `tax`, `labor`, `gen`). 관할 구청(`build`, `hyg`)은 `by_sigungu[stores.address_codes.sigungu_cd]`의 번호를 쓰고, 표에 없는 지역은 `fallback`(정부민원안내콜센터 110, 확인된 번호)과 안내 `tip`을 쓴다. 번호는 **응답을 만들 때** 규칙 묶음에서 채우고 DB에는 `contact_key`만 저장한다 |
 | `derive` | 업종 결정 (술 판매 → 일반음식점) |
 
 서류함 응답은 이렇게 만든다: `checklist_items`(가게의 항목, 숨김 제외) → 각 `rule_key`로 `documents` 조회 → `sites`로 링크 채움 → `contacts`로 전화번호 채움 → 완료한 항목의 서류 수를 센다.
@@ -719,6 +719,6 @@ sync_links(store):
 - [ ] `alerts`의 `decision` 알림을 저장할지, 결정 대기 카드에서 응답 때 계산할지 (이 문서는 저장 + `dedupe_key`). 계산 방식으로 가면 `decision` 행은 만들지 않는다.
 - [ ] 챗봇 비용 기록(`cost_logs`)을 `runs(trigger='chat')`에 연결할지 `store_id`로 직접 연결할지 (2-10).
 - [ ] 소셜 로그인의 `provider_user_id` 필드(카카오 `id`, 구글 `sub`, 네이버 `id`) 매핑.
-- [ ] 관할 구청 전화번호를 규칙 묶음에 시군구별로 채우는 방법 (`contacts.phone_by_sigungu`). 확인하지 못한 번호는 `phone: null`.
+- [ ] 관할 구청 전화번호는 규칙 묶음 `contacts.*.by_sigungu`에 사람이 확인한 지역만 채운다 (표에 없는 지역은 `fallback` 110). 시연 주소(성동구) 번호를 시연 전에 직접 확인한다.
 - [ ] 서류 받는 곳 링크(`sites`)를 배포 전에 사람이 확인한다.
 - [ ] 데모 시드 파일 `seoyeon.json`에 `report_items`·`checklist_items`·`alerts`가 이 스키마 형태로 들어 있는지.
