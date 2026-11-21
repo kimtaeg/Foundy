@@ -1,6 +1,5 @@
 import { EMPTY_STORE, MPF } from "@/data/store";
 import { iso, realToday } from "@/lib/date";
-import { createInitialChatState } from "@/lib/chat/chat-state";
 import type { ProfileWorkflowDependencies } from "@/types/dependencies";
 
 /** Explicit dependencies keep this feature independent from application wiring. */
@@ -131,7 +130,6 @@ export function createProfileWorkflow(context: ProfileWorkflowDependencies) {
     context.put("nextlog", context.NEXTLOG);
     context.put("chglog", context.CHGLOG);
     context.put("tasksdone", {});
-    context.CH = createInitialChatState();
     context.MP = null;
     context.closeModal();
     context.W = { step: "choose", path: null, done: [], timers: [] };

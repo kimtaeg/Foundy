@@ -1,4 +1,3 @@
-export * from "./useChat";
 export * from "./useChatElapsed";
 export * from "./useChecklist";
 export * from "./useDashboard";

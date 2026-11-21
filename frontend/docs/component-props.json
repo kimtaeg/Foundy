@@ -419,7 +419,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ChatViewData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ChatViewData> | undefined",
         "callback": false
       },
       {
@@ -439,6 +439,12 @@
         "optional": true,
         "type": "(() => void) | undefined",
         "callback": true
+      },
+      {
+        "name": "notice",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
       }
     ]
   },
@@ -601,15 +607,21 @@
         "callback": false
       },
       {
+        "name": "notice",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ChatViewData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ChatViewData> | undefined",
         "callback": false
       },
       {
@@ -649,6 +661,12 @@
     "nativeHtmlProps": false,
     "connected": false,
     "props": [
+      {
+        "name": "questions",
+        "optional": true,
+        "type": "FavoriteQuestion[] | undefined",
+        "callback": false
+      },
       {
         "name": "busy",
         "optional": true,
@@ -918,13 +936,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ChecklistViewData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ChecklistViewData> | undefined",
         "callback": false
       },
       {
@@ -1028,13 +1046,13 @@
       {
         "name": "task",
         "optional": false,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/checklist\").ChecklistTask",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/checklist\").ChecklistTask",
         "callback": false
       },
       {
         "name": "contact",
         "optional": false,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/checklist\").ChecklistContact | null",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/checklist\").ChecklistContact | null",
         "callback": false
       },
       {
@@ -1239,13 +1257,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<DashboardViewData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<DashboardViewData> | undefined",
         "callback": false
       },
       {
@@ -1457,13 +1475,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<DocsViewData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<DocsViewData> | undefined",
         "callback": false
       },
       {
@@ -2670,13 +2688,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<GrantsViewData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<GrantsViewData> | undefined",
         "callback": false
       },
       {
@@ -2732,13 +2750,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ApplicationFeedbackData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ApplicationFeedbackData> | undefined",
         "callback": false
       },
       {
@@ -2781,7 +2799,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<NavbarData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<NavbarData> | undefined",
         "callback": false
       },
       {
@@ -2811,7 +2829,7 @@
       {
         "name": "onOpenNotification",
         "optional": false,
-        "type": "(notification: import(\"/Users/daon/Desktop/foundy/src/types/notifications\").NotificationSummary) => void",
+        "type": "(notification: import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/notifications\").NotificationSummary) => void",
         "callback": true
       },
       {
@@ -2907,7 +2925,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<Props> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<Props> | undefined",
         "callback": false
       },
       {
@@ -2953,7 +2971,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<T> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<T> | undefined",
         "callback": false
       },
       {
@@ -3158,6 +3176,49 @@
     ]
   },
   {
+    "component": "PasswordLoginForm",
+    "source": "src/components/login/PasswordLoginForm/PasswordLoginForm.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "SignupCard",
+    "source": "src/components/login/SignupCard/SignupCard.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "SignupForm",
+    "source": "src/components/login/SignupForm/SignupForm.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "SignupView",
+    "source": "src/components/login/SignupView/SignupView.tsx",
+    "propsType": "SignupViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "ViewEventHandler | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
     "component": "SocialLoginButton",
     "source": "src/components/login/SocialLoginButton/SocialLoginButton.tsx",
     "propsType": "SocialLoginButtonProps",
@@ -3299,7 +3360,7 @@
       {
         "name": "changes",
         "optional": false,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/profile\").StoreChange[]",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/profile\").StoreChange[]",
         "callback": false
       },
       {
@@ -3311,7 +3372,7 @@
       {
         "name": "resetCards",
         "optional": false,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/profile\").ResetCard[]",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/profile\").ResetCard[]",
         "callback": false
       }
     ]
@@ -3352,13 +3413,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ProfileViewModel> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ProfileViewModel> | undefined",
         "callback": false
       },
       {
@@ -3606,7 +3667,7 @@
       {
         "name": "onOpenNotification",
         "optional": false,
-        "type": "(notification: import(\"/Users/daon/Desktop/foundy/src/types/notifications\").NotificationSummary) => void",
+        "type": "(notification: import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/notifications\").NotificationSummary) => void",
         "callback": true
       },
       {
@@ -3630,13 +3691,13 @@
       {
         "name": "notifications",
         "optional": false,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/notifications\").NotificationSummary[]",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/notifications\").NotificationSummary[]",
         "callback": false
       },
       {
         "name": "destinations",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/navigation\").NavigationDestination[] | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/navigation\").NavigationDestination[] | undefined",
         "callback": false
       },
       {
@@ -4008,13 +4069,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<OnboardingViewModel> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<OnboardingViewModel> | undefined",
         "callback": false
       },
       {
@@ -4522,13 +4583,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ReportViewData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ReportViewData> | undefined",
         "callback": false
       },
       {
@@ -5190,7 +5251,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<SitesViewData> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<SitesViewData> | undefined",
         "callback": false
       },
       {
@@ -5220,13 +5281,13 @@
       {
         "name": "footTrafficData",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/foot-traffic\").FootTrafficDataset | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/foot-traffic\").FootTrafficDataset | undefined",
         "callback": false
       },
       {
         "name": "footTrafficSource",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/foot-traffic\").FootTrafficDataSource | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/foot-traffic\").FootTrafficDataSource | undefined",
         "callback": false
       },
       {
@@ -5250,31 +5311,31 @@
       {
         "name": "populationData",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationDataset | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationDataset | undefined",
         "callback": false
       },
       {
         "name": "populationSource",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationInsightsDataSource | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationInsightsDataSource | undefined",
         "callback": false
       },
       {
         "name": "populationInsights",
         "optional": true,
-        "type": "DataState<import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationInsights | null> | undefined",
+        "type": "DataState<import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationInsights | null> | undefined",
         "callback": false
       },
       {
         "name": "onAnalysisChange",
         "optional": true,
-        "type": "((selection: import(\"/Users/daon/Desktop/foundy/src/types/market\").SitesAnalysisSelection) => void) | undefined",
+        "type": "((selection: import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/market\").SitesAnalysisSelection) => void) | undefined",
         "callback": true
       },
       {
         "name": "onPriceChange",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
         "callback": true
       },
       {
@@ -5308,13 +5369,13 @@
       {
         "name": "footTrafficData",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/foot-traffic\").FootTrafficDataset | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/foot-traffic\").FootTrafficDataset | undefined",
         "callback": false
       },
       {
         "name": "footTrafficSource",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/foot-traffic\").FootTrafficDataSource | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/foot-traffic\").FootTrafficDataSource | undefined",
         "callback": false
       },
       {
@@ -5338,31 +5399,31 @@
       {
         "name": "populationData",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationDataset | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationDataset | undefined",
         "callback": false
       },
       {
         "name": "populationSource",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationInsightsDataSource | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationInsightsDataSource | undefined",
         "callback": false
       },
       {
         "name": "populationInsights",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").DataState<import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationInsights | null> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").DataState<import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationInsights | null> | undefined",
         "callback": false
       },
       {
         "name": "onAnalysisChange",
         "optional": true,
-        "type": "((selection: import(\"/Users/daon/Desktop/foundy/src/types/market\").SitesAnalysisSelection) => void) | undefined",
+        "type": "((selection: import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/market\").SitesAnalysisSelection) => void) | undefined",
         "callback": true
       },
       {
         "name": "onPriceChange",
         "optional": true,
-        "type": "import(\"/Users/daon/Desktop/foundy/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
+        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
         "callback": true
       },
       {

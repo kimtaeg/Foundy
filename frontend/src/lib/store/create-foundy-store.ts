@@ -1,4 +1,3 @@
-import { ACTLBL, CALLQ } from "@/data/chat";
 import { CATCOLOR, GROUPS, OFFS, TASK_LINKS, X_DEFS } from "@/data/checklist";
 import { CONTACT, contactOfAgency } from "@/data/contacts";
 import { GRANTS, GRANT_EXCLUDED, RES } from "@/data/grants";
@@ -28,9 +27,6 @@ import { createProfileActions } from "@/lib/actions/profile";
 import { createReportActions } from "@/lib/actions/report";
 import { documentsOf } from "@/data/documents";
 import { createAlertSelectors } from "@/lib/alerts/alert-selectors";
-import { createReplyModel } from "@/lib/chat/reply-model";
-import { createChatRequest } from "@/lib/chat/chat-request";
-import { createInitialChatState } from "@/lib/chat/chat-state";
 import { createTasks } from "@/lib/checklist/tasks";
 import { D, addDays, dday, diffDays, iso, pad, realToday } from "@/lib/date";
 import { copyDocumentText } from "@/lib/documents/browser";
@@ -156,7 +152,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     tasks.forEach((t: any) => {
       t.done = !!td[t.id];
     });
-    chat = createInitialChatState();
     calendar = { y: null, m: null, sel: null };
     market = { sel: null, r: 300, cat: "all" };
     grantFilters = { res: "all", cat: "all", sort: "deadline", view: "card" };
@@ -443,9 +438,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       saveS,
     });
 
-  /* ---------- AI 상담 (예시 응답: 규칙 기반 시뮬레이션) ---------- */
-  let chat = createInitialChatState();
-  let replyFocus: string | null | undefined;
+  /* ---------- AI 상담: 서버 상담 API를 붙이기 전까지 비활성 (열면 준비 중 안내만 보인다) ---------- */
   let chatOpen = false;
   const cardShort: any = (c: any) =>
     (
@@ -457,104 +450,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         labeling: "표시 의무",
       }) as any
     )[c.check] || c.title.slice(0, 12);
-  const A: any = (o: any) =>
-    Object.assign(
-      {
-        role: "a",
-        kind: "grounded",
-        text: "",
-        cites: [],
-        acts: [],
-        follow: [],
-        contacts: [],
-        call: null,
-      },
-      o,
-    );
-  const optList: any = (c: any) =>
-    c.options
-      .map((o: any, i: any) => "①②③④"[i] + " " + o.label + ": " + o.summary)
-      .join("\n");
-  const bizName: any = () =>
-    effectiveStore().alcohol ? "일반음식점" : "휴게음식점";
-  function callSteps(c: any): any {
-    const addr: any = store.address + " " + store.detail,
-      qs: any = (
-        CALLQ[c.check] || ["문의 내용을 확인하고 싶습니다. [확인 필요]"]
-      ).map((q: any) => q.replace("{biz}", bizName()));
-    const who: any = CONTACT[c.contact] ? CONTACT[c.contact].name : "담당 부서";
-    return {
-      who,
-      qs,
-      steps: [
-        "“안녕하세요, 카페 창업을 준비 중인 예비 창업자입니다. " +
-          who +
-          " 담당자를 연결해 주실 수 있을까요?”",
-        "“" +
-          addr +
-          " 건물과 관련해 확인하고 싶은 게 있어 전화드렸습니다.” (건물 주소를 먼저 말하면 담당자가 조회하기 쉬워요)",
-        "아래 “꼭 물어볼 것”을 위에서부터 하나씩 묻고, 답을 메모하세요.",
-        "마지막에 “담당자 성함과 직통번호를 알려 주시겠어요?”라고 묻고, 서면 회신이 가능한지 확인하세요.",
-      ],
-    };
-  }
-  const { reply, suggestions } = createReplyModel({
-    get S() {
-      return store;
-    },
-    get RS() {
-      return reportStates;
-    },
-    optList,
-    A,
-    pendingDecisions,
-    curAction: actionFor,
-    allTasks,
-    tasks,
-    cardShort,
-    buildCards,
-    get CH() {
-      return replyFocus === undefined ? chat : { ...chat, focus: replyFocus };
-    },
-  });
-  const { send: sendChat, stop: stopChat, retry: retryChat } = createChatRequest({
-    getState: () => chat,
-    reply: (question, focus) => {
-      replyFocus = focus;
-      try {
-        return reply(question);
-      } finally {
-        replyFocus = undefined;
-      }
-    },
-    schedule: setTimeout,
-    cancelTimer: clearTimeout,
-  });
-  function applyAct(mi: any, ai: any): any {
-    const a: any = chat.msgs[mi]?.acts?.[ai];
-    if (!a || a.state) return;
-    if (a.type === "update_store") {
-      const before: any = store.opening;
-      a.state = "applied";
-      a.result = [
-        "개업일 " + before + " → " + a.payload.date,
-        "체크리스트 " + allTasks().length + "개 항목의 날짜를 다시 계산했어요",
-      ];
-      store.opening = a.payload.date;
-      saveS();
-      recalc();
-      calendar.y = null;
-      toast("개업일이 변경됐어요 · 체크리스트가 다시 계산됐어요");
-    } else if (a.type === "choose_option") {
-      a.state = "applied";
-      a.result = ["점검 리포트 카드에 반영했어요 (카드에서 되돌릴 수 있어요)"];
-      applyChoice(a.payload.id, a.payload.o);
-    } else if (a.type === "check_item") {
-      a.state = "applied";
-      a.result = ["“" + a.payload.task + "”를 완료로 표시했어요"];
-      setTaskDone(a.payload.id, true);
-    }
-  }
   /* ---------- 계정 · 마이페이지 · 다음 할 일 ---------- */
   const profile: any = () => take("profile", { name: "", provider: "" });
   function login(uid: any, name: any, provider: any): any {
@@ -792,12 +687,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       currentPrice = value;
     },
     tasks,
-    get CH() {
-      return chat;
-    },
-    set CH(value) {
-      chat = value;
-    },
     closeModal,
   });
 
@@ -989,25 +878,9 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       put,
     }),
     ...createChatActions({
-      get CH() {
-        return chat;
-      },
-      goto: navigateTo,
       setChatOpen: (open: boolean | "toggle") => {
         chatOpen = open === "toggle" ? !chatOpen : open;
       },
-      sendChat,
-      stopChat,
-      retryChat,
-      applyAct,
-      buildCards,
-      get RS() {
-        return reportStates;
-      },
-      put,
-      A,
-      logNext,
-      toast,
     }),
   };
   listen("click", (event: any) => {
@@ -1027,16 +900,8 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       getProfileDraft()[t.dataset.mp] = t.value;
       return;
     }
-    if (t.id === "chatIn") chat.draft = t.value;
-    else if (t.id && t.id.indexOf("callmemo-") === 0)
-      chat.memo[t.id.slice(9)] = t.value;
   });
   listen("submit", (e: any) => {
-    if (e.target.id === "nxChat") {
-      e.preventDefault();
-      sendChat(findElement("chatIn").value);
-      return;
-    }
     if (e.target.id === "nxPwLogin") {
       e.preventDefault();
       void passwordAuth.login();
@@ -1240,21 +1105,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         W: onboarding,
         STEPS_UNDECIDED,
         STEPS_DECIDED,
-      };
-    },
-    chat: () => {
-      return {
-        S: store,
-        CH: chat,
-        buildCards,
-        eff: effectiveStore,
-        cardShort,
-        VL,
-        ev: verdictFor,
-        suggestions,
-        callSteps,
-        CONTACT,
-        ACTLBL,
       };
     },
     mypage: () => {

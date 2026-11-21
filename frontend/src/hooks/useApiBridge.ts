@@ -51,6 +51,8 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
   const [attempt, setAttempt] = useState(0);
   const sessionRef = useRef<ApiSession | null>(null);
   const starting = useRef(false);
+  /** 세션 준비를 시작·취소할 때마다 늘린다. 늦게 끝난 옛 준비 작업이 새 세션 상태를 덮어쓰지 않게 한다. */
+  const generation = useRef(0);
 
   const [loading, setLoading] = useState(false);
   const account = isAccountUid(uid);
@@ -60,11 +62,16 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
   const refresh = useCallback(async (): Promise<ApiModel | null> => {
     const session = sessionRef.current;
     if (!session?.storeId) return null;
+    // 응답을 기다리는 사이 로그아웃·계정 전환으로 세션이 바뀌었으면, 옛 세션의 응답(성공·401 모두)은 버린다.
+    // 버리지 않으면 폐기된 토큰의 401 이 새로 들어온 계정(예: 예시 계정)까지 로그아웃시킨다.
+    const stale = () => sessionRef.current !== session;
     try {
       const next = createApiModel(await createStoreApi(session).loadBundle());
+      if (stale()) return null;
       setModel(next);
       return next;
     } catch (error) {
+      if (stale()) return null;
       if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
         sessionRef.current = null;
         starting.current = false;
@@ -91,6 +98,7 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
     if (!apiEnabled() || !engine) return;
     if (uid !== "demo" && !account) {
       if (uid === null) clearSession();
+      generation.current += 1;
       sessionRef.current = null;
       starting.current = false;
       setModel(null);
@@ -104,6 +112,8 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
       return;
     }
     starting.current = true;
+    const gen = ++generation.current;
+    const current = () => gen === generation.current;
     void (async () => {
       try {
         if (account) {
@@ -118,17 +128,22 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
           if (!saved.storeId) return; // 가게 등록 전: 등록 화면은 서버 호출 없이 시작한다
           setLoading(true);
         } else {
-          sessionRef.current = loadSession("demo") ?? (await startDemoSession());
+          const demo = loadSession("demo") ?? (await startDemoSession());
+          if (!current()) return; // 기다리는 사이 로그아웃됐다
+          sessionRef.current = demo;
         }
         const loaded = await refresh();
         // 다른 기기·이전 방문에서 등록한 가게: 로컬 가게 정보를 서버 값으로 맞춘다.
-        if (loaded && account) engine.adoptServerStore(loaded.S);
+        if (loaded && account && current()) engine.adoptServerStore(loaded.S);
       } catch {
+        if (!current()) return;
         setFailed(true);
         engine.showToast("서버에 연결하지 못해 예시 데이터로 보여 드려요");
       } finally {
-        setLoading(false);
-        starting.current = false;
+        if (current()) {
+          setLoading(false);
+          starting.current = false;
+        }
       }
     })();
   }, [engine, uid, account, failed, attempt, refresh]);

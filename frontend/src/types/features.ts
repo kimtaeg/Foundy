@@ -1,4 +1,3 @@
-import { type ChatContext } from "@/types/chat";
 import { type ChecklistContext } from "@/types/checklist";
 import { type DashboardContext } from "@/types/dashboard";
 import { type DocsContext } from "@/types/documents";
@@ -16,7 +15,6 @@ export interface FeatureContextMap {
   docs: DocsContext;
   grants: GrantsContext;
   sites: SitesContext;
-  chat: ChatContext;
   mypage: ProfileContext;
   register: OnboardingContext;
 }
