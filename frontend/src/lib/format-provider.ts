@@ -3,6 +3,7 @@ export const PROV: Record<string, string> = {
   google: "Google",
   naver: "네이버",
   demo: "예시",
+  local: "아이디",
 };
 
 export const provLabel = (p: string) =>

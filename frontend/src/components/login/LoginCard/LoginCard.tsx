@@ -14,8 +14,7 @@ export function LoginCard() {
       </Element>
       <LoginActions />
       <Element className="nx-muted" style={{ marginTop: 6 }}>
-        시연용 화면이에요. 실제 소셜 로그인과 연결되어 있지 않고, 입력한 이름과
-        가게 정보는 이 브라우저에만 저장돼요.
+        “예시 계정으로 둘러보기”는 가입 없이 이서연 씨의 사례를 보여 주는 시연 화면이에요.
       </Element>
     </Element>
   );

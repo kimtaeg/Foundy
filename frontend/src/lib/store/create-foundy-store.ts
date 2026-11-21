@@ -15,6 +15,8 @@ import { STEPS_DECIDED, STEPS_UNDECIDED } from "@/data/onboarding";
 import { VL } from "@/data/report";
 import { DEMO_STORE, EMPTY_STORE, IMP, MPF, REGIONS } from "@/data/store";
 import { createAuthActions } from "@/lib/actions/auth";
+import { logoutServer } from "@/lib/api/auth";
+import { createPasswordAuth } from "@/lib/auth/password-auth";
 import { createChatActions } from "@/lib/actions/chat";
 import { createChecklistActions } from "@/lib/actions/checklist";
 import { createDocumentsActions } from "@/lib/actions/documents";
@@ -577,6 +579,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     browserWindow.scrollTo(0, 0);
   }
   function logout(): any {
+    void logoutServer();
     cancelPending();
     clearTimers();
     storage.del("foundy-session");
@@ -820,6 +823,12 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     toast("체크리스트 상태가 변경되었습니다");
   };
   /* ---------- 이벤트 ---------- */
+  const passwordAuth = createPasswordAuth({
+    $: findElement,
+    login,
+    toast,
+    notify,
+  });
   listen("submit", (e: any) => {
     if (e.target.id === "nxForm") {
       e.preventDefault();
@@ -1026,6 +1035,16 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     if (e.target.id === "nxChat") {
       e.preventDefault();
       sendChat(findElement("chatIn").value);
+      return;
+    }
+    if (e.target.id === "nxPwLogin") {
+      e.preventDefault();
+      void passwordAuth.login();
+      return;
+    }
+    if (e.target.id === "nxPwSignup") {
+      e.preventDefault();
+      void passwordAuth.signup();
       return;
     }
     if (e.target.id === "nxSocial") {
