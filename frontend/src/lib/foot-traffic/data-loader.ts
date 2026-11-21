@@ -1,0 +1,29 @@
+import type { PopFile, Quality } from "@/types/foot-traffic";
+
+export const DATA_ROOT = "/data/foot-traffic";
+
+export async function fetchData<T>(relativePath: string): Promise<T> {
+  const response = await fetch(`${DATA_ROOT}/${relativePath}`);
+  if (!response.ok) throw new Error(`생활인구 데이터를 불러오지 못했어요. (${response.status})`);
+  return response.json() as Promise<T>;
+}
+
+const populationCache = new Map<string, Promise<PopFile>>();
+
+export function loadPop(name: string): Promise<PopFile> {
+  const cached = populationCache.get(name);
+  if (cached) return cached;
+  const request = fetchData<PopFile>(`pop-${name}.json`).catch((error: unknown) => {
+    populationCache.delete(name);
+    throw error;
+  });
+  populationCache.set(name, request);
+  return request;
+}
+
+export async function loadQuality(): Promise<Quality | null> {
+  const response = await fetch(`${DATA_ROOT}/quality.json`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`데이터 기준 정보를 불러오지 못했어요. (${response.status})`);
+  return response.json() as Promise<Quality>;
+}

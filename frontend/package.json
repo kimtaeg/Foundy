@@ -1,0 +1,43 @@
+{
+  "name": "foundy",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test:parity:capture": "node tests/capture-parity.mjs migrated",
+    "test:parity:baseline": "node tests/capture-parity.mjs baseline",
+    "test:functional": "node tests/functional-parity.mjs migrated",
+    "test:architecture": "node tests/architecture.mjs",
+    "test:navigation": "node tests/navbar-regression.mjs",
+    "test:chat:data": "node tests/chat-request.mjs",
+    "test:chat": "node tests/chat-widget.mjs",
+    "test:api-props": "node tests/api-view-contracts.mjs",
+    "docs:props": "node scripts/generate-component-contracts.mjs",
+    "test:market:data": "node tests/market-calculations.mjs && node tests/foot-traffic-data.mjs && node tests/population-insights.mjs && node tests/population-scale.mjs && node tests/road-gradient.mjs",
+    "test:market": "node tests/market-map.mjs",
+    "test:market:loading": "node tests/market-loading.mjs"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "proj4": "^2.23.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-kakao-maps-sdk": "^1.2.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.0.0",
+    "kakao.maps.d.ts": "^0.1.40",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
