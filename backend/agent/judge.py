@@ -163,6 +163,14 @@ class PermitJudgment(BaseModel):
 
 MAX_ARTICLE_CHARS = 3000
 
+# 실제 모드에서 실제 조문(저장된 법령 검색·법령 API·그 캐시)을 확보하지 못한 법령 조회 결과의 error 접두어 (#68)
+REAL_LAW_UNAVAILABLE = "REAL_LAW_UNAVAILABLE"
+REAL_LAW_REASON = "판단에 필요한 실제 법령 조문을 찾지 못해 판정을 보류했어요. 관할 기관에 직접 확인해 주세요."
+
+
+def real_law_missing(res: ToolResult) -> bool:
+    return not res.ok and (res.error or "").startswith(REAL_LAW_UNAVAILABLE)
+
 
 def _squash(text: str) -> str:
     return "".join((text or "").split())
@@ -180,9 +188,10 @@ def _static_permit(spec: dict, item_id: str, res: ToolResult, fallback: bool = F
     arts = (res.data or {}).get("articles", []) if res.ok else []
     evidence = [_law_evidence(res, a) for a in arts]
     verdict = "low" if evidence else "unknown"
+    reason = REAL_LAW_REASON if real_law_missing(res) else spec["reason"]
     return ReportItem(
         item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="rule", ai_fallback=fallback,
-        verdict=verdict, title=spec["title"], reason=spec["reason"], evidence=evidence)
+        verdict=verdict, title=spec["title"], reason=reason, evidence=evidence)
 
 
 def judge_law_card(
@@ -322,6 +331,15 @@ def judge_building_use_ai(
     rr.facts["ok_business_types"] = rr_ok_types
     if not uses or business_type is None:
         return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=False, bi=bi)
+    if real_law_missing(law):
+        # 실제 모드에서 실제 조문이 없다. 건축물대장 용도만으로는 신고 가능 여부를 단정하지 않는다 (AI·규칙표 판정 모두 보류)
+        from rules.engine import render_title
+
+        reason = "건축물대장 용도는 확인했지만, " + REAL_LAW_REASON
+        return (ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"],
+                           title=render_title(spec, "unknown") or "건물 용도를 확인해야 해요", verdict="unknown",
+                           decided_by="rule", reason=reason, evidence=[_building_evidence(b, bi, uses)]),
+                {"floor_uses": uses, "ok_business_types": []})
 
     arts = [a for a in ((law.data or {}).get("articles", []) if law.ok else []) if a.get("text")]
     by_key = {f"{a.get('law_name')} {a.get('article')}": a for a in arts}
