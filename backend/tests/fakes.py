@@ -54,6 +54,9 @@ class FakeTools:
         if check_id == "permit_docs":
             return ToolResult(ok=True, source="국가법령정보", data={"articles": [
                 {"law_name": "식품위생법", "article": "제37조", "text": ARTICLE_37, "url": "https://www.law.go.kr/법령/식품위생법"}]})
+        if check_id == "labor_contract":
+            return ToolResult(ok=True, source="국가법령정보", data={"articles": [
+                {"law_name": "근로기준법", "article": "제17조", "text": LABOR_17, "url": LABOR_17_URL}]})
         return ToolResult(ok=True, source="국가법령정보", data={"articles": [
             {"law_name": "건축법 시행령", "article": "별표 1", "text": "...", "url": "https://www.law.go.kr/x"}]})
 
@@ -104,6 +107,17 @@ AI_JUDGES = {"judge_building_use": building_ai, "judge_violation": violation_ai}
 # 식품위생법 제37조 제4항 (mocks/law_article37.json의 실제 조문 일부)
 ARTICLE_37 = ("④ 제36조제1항 각 호에 따른 영업 중 대통령령으로 정하는 영업을 하려는 자는 대통령령으로 정하는 바에 따라 영업 종류별 또는 "
               "영업소별로 식품의약품안전처장 또는 특별자치시장ㆍ특별자치도지사ㆍ시장ㆍ군수ㆍ구청장에게 신고하여야 한다.")
+
+# 근로기준법 제17조(근로조건의 명시) 원문. 2026-11-21 법제처 국가법령정보 공동활용 API(lawService, 현행)에서 받은 그대로다.
+# 테스트 중에는 법령 API를 부르지 않도록 고정 픽스처로 둔다.
+LABOR_17_URL = "https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=285279"
+LABOR_17 = (
+    "① 사용자는 근로계약을 체결할 때에 근로자에게 다음 각 호의 사항을 명시하여야 한다. 근로계약 체결 후 다음 각 호의 사항을 변경하는 경우에도 또한 같다. <개정 2010.5.25>\n"
+    "1. 임금\n2. 소정근로시간\n3. 제55조에 따른 휴일\n4. 제60조에 따른 연차 유급휴가\n5. 그 밖에 대통령령으로 정하는 근로조건\n"
+    "② 사용자는 제1항제1호와 관련한 임금의 구성항목ㆍ계산방법ㆍ지급방법 및 제2호부터 제4호까지의 사항이 명시된 서면(「전자문서 및 전자거래 기본법」 "
+    "제2조제1호에 따른 전자문서를 포함한다)을 근로자에게 교부하여야 한다. 다만, 본문에 따른 사항이 단체협약 또는 취업규칙의 변경 등 대통령령으로 정하는 "
+    "사유로 인하여 변경되는 경우에는 근로자의 요구가 있으면 그 근로자에게 교부하여야 한다. <신설 2010.5.25, 2021.1.5>\n"
+    "제17조(근로조건의 명시)")
 
 PERMIT_JUDGMENT = PermitJudgment(
     verdict="low", title="영업신고를 개업 전에 해야 해요",
