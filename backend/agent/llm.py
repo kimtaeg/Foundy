@@ -78,6 +78,45 @@ class OpenAILLM:
         raise LLMError(f"LLM 호출 실패 (step={step}): {last}") from last
 
 
+    def stream_tools(self, *, step: str, tier: Tier, messages: list[dict], tools: list[dict], require_tool: bool = False):
+        """도구 호출을 허용한 대화 응답을 스트리밍한다 (AI 상담용).
+
+        ("delta", 글자) 를 차례로 내보내고, 마지막에 ("final", {"content": 전체 글, "tool_calls": [...]}) 를 낸다.
+        tool_calls 는 OpenAI 메시지 형식 [{"id", "type": "function", "function": {"name", "arguments"}}] 이다.
+        """
+        model = model_for(tier)
+        try:
+            extra = {"tools": tools, "tool_choice": "required" if require_tool else "auto"} if tools else {}
+            stream = self.client.chat.completions.create(
+                model=model, messages=messages, stream=True, stream_options={"include_usage": True}, **extra)
+        except Exception as e:  # noqa: BLE001
+            raise LLMError(f"LLM 호출 실패 (step={step}): {e}") from e
+        content: list[str] = []
+        calls: dict[int, dict] = {}
+        try:
+            for chunk in stream:
+                usage = getattr(chunk, "usage", None)
+                if usage is not None:
+                    self.cost.record(step, model, usage.prompt_tokens, usage.completion_tokens)
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    content.append(delta.content)
+                    yield "delta", delta.content
+                for tc in delta.tool_calls or []:
+                    slot = calls.setdefault(tc.index, {"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
+                    if tc.id:
+                        slot["id"] = tc.id
+                    if tc.function and tc.function.name:
+                        slot["function"]["name"] += tc.function.name
+                    if tc.function and tc.function.arguments:
+                        slot["function"]["arguments"] += tc.function.arguments
+        except Exception as e:  # noqa: BLE001
+            raise LLMError(f"LLM 응답 중단 (step={step}): {e}") from e
+        yield "final", {"content": "".join(content), "tool_calls": [calls[i] for i in sorted(calls)]}
+
+
 class GeminiLLM:
     """Google Gemini API (google-genai). 무료 티어는 입력이 Google 제품 개선에 쓰일 수 있다."""
 

@@ -447,3 +447,57 @@ class LawForm(Base):
     promulgated_on: Mapped[date | None] = mapped_column(Date)
     collected_at: Mapped[datetime] = _ts()
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+
+
+# 0008: AI 상담
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[uuid.UUID] = _id()
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    store_id: Mapped[uuid.UUID] = _store_fk()
+    title: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _ts()
+    updated_at: Mapped[datetime] = _ts()
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[uuid.UUID] = _id()
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str] = mapped_column(Text, nullable=False)  # user | assistant | tool
+    content: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    tool_calls: Mapped[list | None] = _jsonb(nullable=True)  # assistant 가 요청한 도구 호출 (OpenAI 형식)
+    tool_call_id: Mapped[str | None] = mapped_column(Text)  # tool 메시지가 답하는 호출 id
+    actions: Mapped[list] = _jsonb()
+    created_at: Mapped[datetime] = _ts()
+
+
+class ChatToolCall(Base):
+    __tablename__ = "chat_tool_calls"
+
+    id: Mapped[uuid.UUID] = _id()
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False)
+    message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_messages.id", ondelete="CASCADE"))
+    tool_name: Mapped[str] = mapped_column(Text, nullable=False)
+    arguments: Mapped[dict] = _jsonb(EMPTY_OBJECT)
+    result: Mapped[Any] = _jsonb(nullable=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False)  # done | failed | denied
+    created_at: Mapped[datetime] = _ts()
+
+
+class ChatCitation(Base):
+    __tablename__ = "chat_citations"
+
+    id: Mapped[uuid.UUID] = _id()
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=False)
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)  # law | checklist | document | report | grant | profile
+    source_id: Mapped[str | None] = mapped_column(Text)
+    source_title: Mapped[str] = mapped_column(Text, nullable=False)
+    source_url: Mapped[str | None] = mapped_column(Text)
+    article_number: Mapped[str | None] = mapped_column(Text)
