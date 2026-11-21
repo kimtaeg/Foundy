@@ -87,7 +87,7 @@ Foundy/
     ├── main.py               # FastAPI 앱 (CORS, 라우터 등록, 시작 시 중단된 runs 정리)
     ├── config.py             # 환경변수 설정 (pydantic-settings)
     ├── railway.json          # Railway 배포 설정 (preDeploy: alembic upgrade head)
-    ├── api/                  # 라우터 (health, demo, auth, me, stores, checklist, documents, alerts, runs[분석·SSE], laws[내부 갱신])
+    ├── api/                  # 라우터 (health, demo, auth, me, stores, checklist, documents, alerts, grants, runs[분석·SSE], laws[내부 갱신])
     ├── services/             # 분석 저장, 유효 값, 카드 상태 변경, 응답 조립(serializers), 서류함(documents), 가게 등록·수정, 로그인
     ├── calc/                 # 코드가 하는 계산: 날짜, 선택지 효과, 카드↔체크리스트 연결, 다음 할 일, 법령→체크리스트 작업(obligation_tasks)
     ├── db/                   # 엔진·세션, ORM 모델, 예시 계정 시드, migrations/ (0001~0006)
@@ -166,6 +166,7 @@ Foundy/
 | 건축물대장 (국토부 건축HUB) | 건물·층별·호별 용도와 면적 | `tools/providers.py` |
 | 국가법령정보 (법제처) | 법령 수집·조문 링크·공식 서식 링크 (OC 등록 IP 제한 있음) | `law_rag/collector.py`, `law_rag/forms.py` |
 | KIPRIS Plus (특허청) | 유사 등록 상표 검색 | `tools/providers.py` |
+| K-Startup 사업공고 (창업진흥원, 공공데이터포털 `DATA_GO_KR_KEY`) | 모집 중 지원사업 공고 → AI 자격 판정 (`grant_matches`) | `tools/kstartup.py`, `agent/grants.py`, `services/grants.py` |
 | LLM API | 판정·해결 방안·챗봇·되묻기 (`LLM_PROVIDER`: openai \| gemini) | `agent/llm.py` |
 | 임베딩 API | 법령 조각 임베딩 (기본 OpenAI `text-embedding-3-large`, 768차원) | `law_rag/embedder.py` |
 

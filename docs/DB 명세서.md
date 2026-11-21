@@ -54,7 +54,7 @@ erDiagram
 | `checklist_items` | 개업 체크리스트 (기본 항목 + 선택으로 생긴 항목 + 지원사업 마감) | `tasksdone`, `xdone`, `autochk` | 핵심 |
 | `alerts` | 알림 (결정 필요·다음 할 일·마감·변경·지원사업) | `nextlog`, `alertread` | 핵심 |
 | `change_logs` | 마이페이지 변경 기록 | `chglog` | 핵심 |
-| `grant_matches` | 지원사업 자격 판정 결과 | (정적 카탈로그 `GRANTS`) | 시간되면 |
+| `grant_matches` | 지원사업 자격 판정 결과 (K-Startup 실제 공고) | (정적 카탈로그 `GRANTS`, 예시 계정 시연용으로만 남음) | 구현 |
 | `api_cache` | 외부 API 응답 캐시 | — | 핵심 |
 | `cost_logs` | LLM 토큰·비용 (점검 1회 단위) | — | 핵심 |
 
@@ -425,9 +425,9 @@ CREATE TABLE oauth_states (             -- 소셜 로그인 시작 때 발급한
 - 인증 확인: 토큰 서명·만료 → `revoked_tokens`에 없음 → `users`에 있음. 하나라도 아니면 `401`.
 - 만료된 행은 서버 시작·로그인 시작·로그아웃 때 지운다.
 
-### 2-8. `grant_matches` [시간되면]
+### 2-8. `grant_matches` [구현]
 
-지원사업 자격 판정 결과 (가게별). 공고 N건에 LLM 호출이 N번 나가므로 판정 결과를 저장하고 `GET /grants`는 저장본을 읽는다. 새로 판정하는 때는 분석 실행, 다시 조회, `owner_birth_year`·`address`·`business_type_input` 변경 후다.
+지원사업 자격 판정 결과 (가게별). 공고 N건에 LLM 호출이 N번 나가므로 판정 결과를 저장하고 `GET /grants`는 저장본을 읽는다. 새로 판정하는 때는 `POST /grants/refresh`(화면이 처음 열 때 한 번 자동 호출)다. 다시 판정하면 그 가게의 행을 모두 지우고 새로 넣는다. 조건이 명확히 맞지 않거나 마감이 지난 공고는 `excluded=true`, `result='unknown'`으로 남겨 개수만 알린다. 공고 기관 이름은 `summary.org`에 둔다. 마이그레이션 변경은 없다.
 
 ```sql
 CREATE TABLE grant_matches (
