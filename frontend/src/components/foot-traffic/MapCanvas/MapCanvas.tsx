@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Circle, CustomOverlayMap, Map, useKakaoLoader } from "react-kakao-maps-sdk";
 import { useFootTrafficLocation } from "@/hooks/useFootTrafficLocation";
 import { useFootTrafficResize } from "@/hooks/useFootTrafficResize";
+import { useNearbyShops } from "@/hooks/useNearbyShops";
 import { toLevel, type CellStat, type HourSel, type LatLng, type PopulationCuts, type PopulationRoad } from "@/lib/foot-traffic";
-import type { Shop } from "@/types/market";
+import type { NearbyShopsState, Shop } from "@/types/market";
 import { MapAvailability } from "../MapAvailability";
 import { PopulationTooltip } from "../PopulationTooltip";
 import { RoadPopulationLayer } from "../RoadPopulationLayer";
@@ -30,6 +31,8 @@ export interface MapCanvasProps {
   onLevelChange: (level: number) => void;
   onRegionChange: (region: string) => void;
   onAddressStatusChange: (status: string) => void;
+  /** 지도 중심·반경 안의 실제 점포 조회 상태가 바뀔 때 */
+  onNearbyShopsChange?: (state: NearbyShopsState) => void;
 }
 
 export function MapCanvas(props: MapCanvasProps) {
@@ -52,7 +55,11 @@ export function MapCanvas(props: MapCanvasProps) {
   }, [onLevelChange]);
   useFootTrafficResize(map, props.center);
   const ready = !loading && !error;
-  const { region, addressStatus, selectCenter } = useFootTrafficLocation(ready, props.center, props.address, props.onCenterChange);
+  const { region, addressStatus, selectCenter, resolved } = useFootTrafficLocation(ready, props.center, props.address, props.onCenterChange);
+  // 주소를 찾은 뒤(또는 찾지 못한 게 확정된 뒤)에만 점포를 조회한다. 그 전의 중심은 가게 위치가 아니다.
+  const nearby = useNearbyShops(ready && resolved, props.center, props.radius);
+  const { onNearbyShopsChange } = props;
+  useEffect(() => { onNearbyShopsChange?.(nearby); }, [nearby, onNearbyShopsChange]);
   const { onRegionChange, onAddressStatusChange } = props;
   useEffect(() => { onRegionChange(region); }, [region, onRegionChange]);
   useEffect(() => { onAddressStatusChange(addressStatus); }, [addressStatus, onAddressStatusChange]);
@@ -64,7 +71,7 @@ export function MapCanvas(props: MapCanvasProps) {
   useEffect(() => { setHover(null); }, [props.lines]);
 
   if (error || (loading && timedOut)) return <MapAvailability state="error" />;
-  if (loading) return <MapAvailability state="loading" />;
+  if (loading || !resolved) return <MapAvailability state="loading" />;
   const hoverValue = hover ? props.cells.get(hover.cell) : undefined;
 
   return (

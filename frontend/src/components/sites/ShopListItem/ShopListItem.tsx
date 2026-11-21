@@ -22,7 +22,7 @@ export function ShopListItem({ shop, selected, onSelect }: ShopListItemProps) {
         </span>
       </span>
       <span className="mt-1 block text-sm text-neutral-600">
-        {shop.cat} · {shop.sub} · 예시
+        {shop.cat} · {shop.sub}{shop.ex ? " · 예시" : ""}
       </span>
     </button>
   );

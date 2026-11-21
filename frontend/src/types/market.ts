@@ -11,7 +11,10 @@ export interface Shop {
   lat: number;
   sub: string;
   cat: string;
+  /** true 면 시연용 예시 점포, false 면 카카오 지도에서 조회한 실제 점포 */
   ex: boolean;
+  /** 카카오맵 장소 페이지 (실제 점포만) */
+  url?: string;
 }
 export interface MarketSelection {
   sel: string | null;
@@ -63,7 +66,19 @@ export interface MarketPoint {
 }
 export type MarketCategory = "all" | "카페" | "음식점";
 export type MarketPanelTab = "summary" | "population" | "shops" | "planning";
+/** 주변 점포 조회 상태. idle: 아직 시작 전, loading: 조회 중, ready: 조회됨, error: 조회하지 못함 */
+export type NearbyShopsStatus = "idle" | "loading" | "ready" | "error";
+export interface NearbyShopsState {
+  status: NearbyShopsStatus;
+  shops: Shop[];
+  /** 카카오가 한 번에 주는 양(그룹당 45곳)보다 실제 점포가 더 많아 가까운 일부만 받았을 때 true */
+  truncated: boolean;
+}
 export interface MarketAnalysis {
+  /** 시연용 예시 점포로 분석했는지 (지도 키가 없어 실제 조회를 쓰지 못할 때만) */
+  example?: boolean;
+  status?: NearbyShopsStatus;
+  truncated?: boolean;
   nearby: Shop[];
   count: number;
   density: number | null;
