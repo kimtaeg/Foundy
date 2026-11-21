@@ -107,10 +107,9 @@ def dashboard(store: Store = Depends(owned_store), db: Session = Depends(get_db)
     cards, items = card_service.load_state(db, store)
     alerts = list(db.scalars(select(Alert).where(Alert.store_id == store.id)))
     pack = get_pack(store)
-    requirements = document_service.sync_requirements(db, pack, store, cards, items)  # 서류 진행률은 서류 상태로 센다
-    body = serializers.dashboard(pack, store, cards, items, alerts, latest_run(db, store), requirements)
-    db.commit()
-    return body
+    # 서류 진행률은 서류 상태로 센다. 읽기만 하고 동기화는 서류함 조회·분석 저장이 한다 (동시 요청이 겹치지 않게)
+    requirements = document_service.read_requirements(db, store)
+    return serializers.dashboard(pack, store, cards, items, alerts, latest_run(db, store), requirements)
 
 
 @router.get("/report")

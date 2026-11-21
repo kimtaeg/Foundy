@@ -71,16 +71,22 @@ def get_document(doc_key: str, store: Store = Depends(owned_store), db: Session 
 class StatusBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: str
+    status: str | None = None
     note: str | None = Field(default=None, max_length=500)
+    review_ack: bool | None = None  # true: 법령·서식 개정 등으로 표시된 "다시 확인" 안내를 확인했다
 
 
 @router.patch("/{doc_key}")
 def patch_document(doc_key: str, body: StatusBody, store: Store = Depends(owned_store),
                    db: Session = Depends(get_db)) -> dict:
+    if body.status is None and not body.review_ack:
+        raise invalid_input("status 또는 review_ack 가 필요합니다.")
     pack, items, row = _row(db, store, doc_key)
     try:
-        docs.set_status(db, row, body.status, body.note)
+        if body.status is not None:
+            docs.set_status(db, row, body.status, body.note)
+        if body.review_ack:
+            row.review_needed, row.review_reason = False, None
     except docs.DocumentError as e:
         raise _wrap(e)
     db.commit()
