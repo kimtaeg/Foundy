@@ -1,0 +1,110 @@
+{
+  "builtAt": "2026-11-19T15:57:11.002Z",
+  "boundary": {
+    "file": "grid-250m-wgs84.geojson",
+    "cells": 10125
+  },
+  "types": {
+    "local": {
+      "label": "내국인",
+      "source": "250_LOCAL_RESD_20261115.zip",
+      "delimiter": ",",
+      "headerColumns": 33,
+      "extraColumnsAllEmpty": 0,
+      "extraColumnsNonEmpty": 0,
+      "shortRows": 0,
+      "detailCheck": {
+        "fullyPublicRows": 47437,
+        "sumMatchesSpop": 47437
+      },
+      "rows": 253323,
+      "duplicateKeys": 0,
+      "suppressedRows": 14167,
+      "zeroRows": 0,
+      "badValues": 0,
+      "badHours": 0,
+      "uniqueCells": 8563,
+      "uniqueDongs": 427,
+      "dates": [
+        "20261115"
+      ],
+      "hours": 24,
+      "publicSumRaw": 253374227.8,
+      "publicSumJoined": 253374227.8,
+      "publicSumUnjoined": 0,
+      "publicSumCheck": "일치",
+      "joinMissing": [
+        {
+          "cell": "다사47256125",
+          "allSuppressed": true
+        }
+      ],
+      "groups": [
+        "male",
+        "female",
+        "a00",
+        "a10",
+        "a20",
+        "a30",
+        "a40",
+        "a50",
+        "a60",
+        "a70"
+      ]
+    },
+    "fornLong": {
+      "label": "장기외국인",
+      "source": "250_FORN_LONG_20261115.zip",
+      "delimiter": ",",
+      "headerColumns": 26,
+      "extraColumnsAllEmpty": 136643,
+      "extraColumnsNonEmpty": 0,
+      "shortRows": 0,
+      "rows": 136643,
+      "duplicateKeys": 0,
+      "suppressedRows": 15835,
+      "zeroRows": 0,
+      "badValues": 0,
+      "badHours": 0,
+      "uniqueCells": 5607,
+      "uniqueDongs": 427,
+      "dates": [
+        "20261115"
+      ],
+      "hours": 24,
+      "publicSumRaw": 8093334.36,
+      "publicSumJoined": 8093334.36,
+      "publicSumUnjoined": 0,
+      "publicSumCheck": "일치",
+      "joinMissing": []
+    },
+    "fornTemp": {
+      "label": "단기외국인",
+      "source": "250_FORN_TEMP_20261115.zip",
+      "delimiter": ",",
+      "headerColumns": 24,
+      "extraColumnsAllEmpty": 140896,
+      "extraColumnsNonEmpty": 0,
+      "shortRows": 0,
+      "rows": 140896,
+      "duplicateKeys": 0,
+      "suppressedRows": 28112,
+      "zeroRows": 0,
+      "badValues": 0,
+      "badHours": 0,
+      "uniqueCells": 5361,
+      "uniqueDongs": 427,
+      "dates": [
+        "20261115"
+      ],
+      "hours": 24,
+      "publicSumRaw": 4114402.75,
+      "publicSumJoined": 4114402.75,
+      "publicSumUnjoined": 0,
+      "publicSumCheck": "일치",
+      "joinMissing": []
+    }
+  },
+  "ymd": "20261115",
+  "ymdConsistent": true
+}

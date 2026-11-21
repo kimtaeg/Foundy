@@ -1,0 +1,20 @@
+﻿screen_requirement,field_or_source,storage_decision,response_contract,review_note
+가게 주소 좌표,stores.address_codes.coord,기존 JSONB,lat/lng WGS84; 주소 revision과 geocode 성공 여부,원본 가게 주소 변경 때만 교체
+탐색 중심,center.lat/center.lng,프론트 상태; 선택적 store_market_preferences,지도클릭 위치; centerSource,가게 주소 좌표와 별개
+탐색 반경,radiusM,프론트 상태; 선택적 store_market_preferences.radius_m,"250–2000m, 250m 간격",인구/점포가 같은 값 사용
+집단 필터,category/group,프론트 상태; 선택적 store_market_preferences,type/sex/age 조합 검증,성별·연령은 내국인만
+시각,hour,프론트 상태; 선택적 selected_hour,KST 0–23 또는 avg,선택 날짜와 서버타임존 구분
+인구 기준일,populationDate,공용 manifest; 선택적 market_data_releases,"YYYY-MM-DD, 현재2026-11-15",파일 간 동일 날짜
+경계/도로/집계 버전,boundaryVersion/roadsVersion/aggregationVersion,공용 manifest; 선택적 market_data_releases,원본 해시·알고리즘 버전,도로날짜 미확인이면 null
+원본 인구값,HourValue,"공용 pop JSON, 분석DB는 선택사항",number / partial tuple / * / null,공개0·비식별·미제공 구분
+반경 집계값,value/metric,선택 조건에서 파생,public_hourly_sum 또는 sum_of_cell_observed_hour_means,도로조각 합계 금지
+격자 관측 상태,gridCount/observedGridCount/suppressedOnlyGridCount,응답 파생,제공행/공개값/전부비식별 구분,미제공을0명으로 표시금지
+평균의 분모,observedHours,응답 파생,공개값 있는 시간 수 0–24,전부비식별 시간 제외
+도로 레이어,roadPieces,공용 도로타일,"cell/rank/path; lat,lng 순서",생활인구를 그리는 기하; 보행량관측 아님
+공통 인원 등급,POPULATION_CUTS,서비스 표시 정책,250m 격자당 1000/2000/4000명+표시기준버전,집단·시간·반경 불변; 공식 혼잡도 아님
+점포목록,places/items,현재 예시; 외부API+api_cache 후보,"providerId,name,lat,lng,category,distanceM,source,asOf,mode",조회완전성·pagination 표시
+점포 밀도,density,목록/반경 파생,count/(π*(radiusM/1000)^2),예시 표본을 전체상권밀도라 단정금지
+가격범위,priceRange,현재 PRICE_EX 예시,item/unit/currency/sampleSize/asOf/source/mode,실측가격/수집표본 없으면 demo
+내 목표 가격,targetPriceKrw,현재 myprice localStorage; 선택적 preferences,"빈값null, 유효0은0, 원단위",주변가격관측과 별개
+품질/출처,quality/sources,공용 manifest; 선택적 market_data_releases,조인누락/중복/기준일/라이선스/출처,API키·인증정보 넣지 않음
+외부조회캐시,api_cache.key/payload,기존 api_cache,공급자+canonical query+데이터/집계버전 해시,개인정보 포함응답 공용캐시금지

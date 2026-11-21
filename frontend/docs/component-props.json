@@ -1,0 +1,5493 @@
+[
+  {
+    "component": "DonutChart",
+    "source": "src/components/charts/DonutChart/DonutChart.tsx",
+    "propsType": "DonutChartProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "rows",
+        "optional": false,
+        "type": "readonly { label: string; value: number | null; unavailableLabel?: string; }[]",
+        "callback": false
+      },
+      {
+        "name": "unit",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "centerLabel",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "formatValue",
+        "optional": true,
+        "type": "((value: number) => string) | undefined",
+        "callback": true
+      },
+      {
+        "name": "showPercent",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "HorizontalBarChart",
+    "source": "src/components/charts/HorizontalBarChart/HorizontalBarChart.tsx",
+    "propsType": "HorizontalBarChartProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "rows",
+        "optional": false,
+        "type": "readonly { label: string; value: number | null; detail?: string; unavailableLabel?: string; }[]",
+        "callback": false
+      },
+      {
+        "name": "unit",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "formatValue",
+        "optional": true,
+        "type": "((value: number) => string) | undefined",
+        "callback": true
+      },
+      {
+        "name": "maxValue",
+        "optional": true,
+        "type": "number | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "HourlyPopulationChart",
+    "source": "src/components/charts/HourlyPopulationChart/HourlyPopulationChart.tsx",
+    "propsType": "HourlyPopulationChartProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "points",
+        "optional": false,
+        "type": "readonly Point[]",
+        "callback": false
+      },
+      {
+        "name": "selectedHour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      },
+      {
+        "name": "onSelectHour",
+        "optional": false,
+        "type": "(hour: number) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "RangeChart",
+    "source": "src/components/charts/RangeChart/RangeChart.tsx",
+    "propsType": "RangeChartProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "min",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "median",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "max",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "value",
+        "optional": true,
+        "type": "number | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "format",
+        "optional": true,
+        "type": "((value: number) => string) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "CallPreparation",
+    "source": "src/components/chat/CallPreparation/CallPreparation.tsx",
+    "propsType": "CallPreparationProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "cardId",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "guide",
+        "optional": false,
+        "type": "CallGuide",
+        "callback": false
+      },
+      {
+        "name": "contact",
+        "optional": true,
+        "type": "Contact | undefined",
+        "callback": false
+      },
+      {
+        "name": "memo",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatActionCard",
+    "source": "src/components/chat/ChatActionCard/ChatActionCard.tsx",
+    "propsType": "ChatActionCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "action",
+        "optional": false,
+        "type": "ChatAction",
+        "callback": false
+      },
+      {
+        "name": "messageIndex",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "actionIndex",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "typeLabel",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatComposer",
+    "source": "src/components/chat/ChatComposer/ChatComposer.tsx",
+    "propsType": "ChatComposerProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "draft",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "busy",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatConversation",
+    "source": "src/components/chat/ChatConversation/ChatConversation.tsx",
+    "propsType": "ChatConversationProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "storeName",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "undecided",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "messages",
+        "optional": false,
+        "type": "ChatMessageModel[]",
+        "callback": false
+      },
+      {
+        "name": "busy",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "request",
+        "optional": false,
+        "type": "ChatProcessingModel | null",
+        "callback": false
+      },
+      {
+        "name": "cards",
+        "optional": false,
+        "type": "ConsultationCard[]",
+        "callback": false
+      },
+      {
+        "name": "contacts",
+        "optional": false,
+        "type": "Record<string, Contact>",
+        "callback": false
+      },
+      {
+        "name": "actionLabels",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      },
+      {
+        "name": "callGuides",
+        "optional": false,
+        "type": "Record<string, CallGuide>",
+        "callback": false
+      },
+      {
+        "name": "memo",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatHeader",
+    "source": "src/components/chat/ChatHeader/ChatHeader.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "ChatLauncher",
+    "source": "src/components/chat/ChatLauncher/ChatLauncher.tsx",
+    "propsType": "ChatLauncherProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "open",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatMessage",
+    "source": "src/components/chat/ChatMessage/ChatMessage.tsx",
+    "propsType": "ChatMessageProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "message",
+        "optional": false,
+        "type": "ChatMessageModel",
+        "callback": false
+      },
+      {
+        "name": "index",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "last",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "busy",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "cards",
+        "optional": false,
+        "type": "ConsultationCard[]",
+        "callback": false
+      },
+      {
+        "name": "contacts",
+        "optional": false,
+        "type": "Record<string, Contact>",
+        "callback": false
+      },
+      {
+        "name": "actionLabels",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      },
+      {
+        "name": "callGuides",
+        "optional": false,
+        "type": "Record<string, CallGuide>",
+        "callback": false
+      },
+      {
+        "name": "memo",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatPanel",
+    "source": "src/components/chat/ChatPanel/ChatPanel.tsx",
+    "propsType": "ChatPanelProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ChatViewData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "ChatPanelContent",
+    "source": "src/components/chat/ChatPanelContent/ChatPanelContent.tsx",
+    "propsType": "ChatPanelContentProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": false,
+        "type": "ChatViewData",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatProcessing",
+    "source": "src/components/chat/ChatProcessing/ChatProcessing.tsx",
+    "propsType": "ChatProcessingProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "processing",
+        "optional": false,
+        "type": "Processing",
+        "callback": false
+      },
+      {
+        "name": "actions",
+        "optional": true,
+        "type": "ChatAction[] | undefined",
+        "callback": false
+      },
+      {
+        "name": "messageIndex",
+        "optional": true,
+        "type": "number | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatProcessingStep",
+    "source": "src/components/chat/ChatProcessingStep/ChatProcessingStep.tsx",
+    "propsType": "ChatProcessingStepProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "detail",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "state",
+        "optional": false,
+        "type": "\"complete\" | \"active\" | \"waiting\" | \"muted\" | \"error\"",
+        "callback": false
+      },
+      {
+        "name": "last",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatSubmitButton",
+    "source": "src/components/chat/ChatSubmitButton/ChatSubmitButton.tsx",
+    "propsType": "ChatSubmitButtonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "busy",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "disabled",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatSupportIcon",
+    "source": "src/components/chat/ChatSupportIcon/ChatSupportIcon.tsx",
+    "propsType": "ChatSupportIconProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "className",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatWelcome",
+    "source": "src/components/chat/ChatWelcome/ChatWelcome.tsx",
+    "propsType": "ChatWelcomeProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "storeName",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "undecided",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChatWidget",
+    "source": "src/components/chat/ChatWidget/ChatWidget.tsx",
+    "propsType": "ChatWidgetProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "open",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "onboarded",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ChatViewData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "ConnectedChatWidget",
+    "source": "src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "FavoriteQuestions",
+    "source": "src/components/chat/FavoriteQuestions/FavoriteQuestions.tsx",
+    "propsType": "FavoriteQuestionsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "busy",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MessageCitations",
+    "source": "src/components/chat/MessageCitations/MessageCitations.tsx",
+    "propsType": "MessageCitationsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "citations",
+        "optional": false,
+        "type": "CitationItem[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MessageText",
+    "source": "src/components/chat/MessageText/MessageText.tsx",
+    "propsType": "MessageTextProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "text",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "PinnedQuestion",
+    "source": "src/components/chat/PinnedQuestion/PinnedQuestion.tsx",
+    "propsType": "PinnedQuestionProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "verdict",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "verdictLabel",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "QuestionSuggestions",
+    "source": "src/components/chat/QuestionSuggestions/QuestionSuggestions.tsx",
+    "propsType": "QuestionSuggestionsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "questions",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      },
+      {
+        "name": "busy",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "CalendarAgendaCard",
+    "source": "src/components/checklist/CalendarAgendaCard/CalendarAgendaCard.tsx",
+    "propsType": "CalendarAgendaCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "selected",
+        "optional": false,
+        "type": "string | null",
+        "callback": false
+      },
+      {
+        "name": "events",
+        "optional": false,
+        "type": "CalendarEvent[]",
+        "callback": false
+      },
+      {
+        "name": "colors",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "CalendarDayCell",
+    "source": "src/components/checklist/CalendarDayCell/CalendarDayCell.tsx",
+    "propsType": "CalendarDayCellProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "day",
+        "optional": false,
+        "type": "CalendarDay | null",
+        "callback": false
+      },
+      {
+        "name": "colors",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "CalendarEventRow",
+    "source": "src/components/checklist/CalendarEventRow/CalendarEventRow.tsx",
+    "propsType": "CalendarEventRowProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "event",
+        "optional": false,
+        "type": "CalendarEvent",
+        "callback": false
+      },
+      {
+        "name": "color",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "CalendarLegend",
+    "source": "src/components/checklist/CalendarLegend/CalendarLegend.tsx",
+    "propsType": "CalendarLegendProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "colors",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "CalendarMonthCard",
+    "source": "src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx",
+    "propsType": "CalendarMonthCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "year",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "month",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "days",
+        "optional": false,
+        "type": "(CalendarDay | null)[]",
+        "callback": false
+      },
+      {
+        "name": "colors",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChecklistHeader",
+    "source": "src/components/checklist/ChecklistHeader/ChecklistHeader.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "ChecklistPage",
+    "source": "src/components/checklist/ChecklistPage/ChecklistPage.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "ChecklistProgress",
+    "source": "src/components/checklist/ChecklistProgress/ChecklistProgress.tsx",
+    "propsType": "ChecklistProgressProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "opening",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "done",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "total",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ChecklistView",
+    "source": "src/components/checklist/ChecklistView.tsx",
+    "propsType": "ChecklistViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ChecklistViewData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "ChecklistViewTabs",
+    "source": "src/components/checklist/ChecklistViewTabs/ChecklistViewTabs.tsx",
+    "propsType": "ChecklistViewTabsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "view",
+        "optional": false,
+        "type": "\"timeline\" | \"category\" | \"calendar\"",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "OpeningDateDialog",
+    "source": "src/components/checklist/OpeningDateDialog/OpeningDateDialog.tsx",
+    "propsType": "OpeningDateDialogProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "opening",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "TaskGroupCard",
+    "source": "src/components/checklist/TaskGroupCard/TaskGroupCard.tsx",
+    "propsType": "TaskGroupCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "group",
+        "optional": false,
+        "type": "TaskGroup",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "TaskMetadata",
+    "source": "src/components/checklist/TaskMetadata/TaskMetadata.tsx",
+    "propsType": "TaskMetadataProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "task",
+        "optional": false,
+        "type": "ChecklistTask",
+        "callback": false
+      },
+      {
+        "name": "contact",
+        "optional": false,
+        "type": "ChecklistContact | null",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "TaskRow",
+    "source": "src/components/checklist/TaskRow/TaskRow.tsx",
+    "propsType": "TaskRowProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "task",
+        "optional": false,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/checklist\").ChecklistTask",
+        "callback": false
+      },
+      {
+        "name": "contact",
+        "optional": false,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/checklist\").ChecklistContact | null",
+        "callback": false
+      },
+      {
+        "name": "deadline",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "documentCount",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "AnalysisStatusItem",
+    "source": "src/components/common/AnalysisStatusItem/AnalysisStatusItem.tsx",
+    "propsType": "AnalysisStatusItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "index",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "complete",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "running",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "completeLabel",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MetricCard",
+    "source": "src/components/common/MetricCard/MetricCard.tsx",
+    "propsType": "MetricCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "value",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "caption",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "PageHeader",
+    "source": "src/components/common/PageHeader/PageHeader.tsx",
+    "propsType": "PageHeaderProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "eyebrow",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "description",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "actions",
+        "optional": true,
+        "type": "ReactNode",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "PhoneContact",
+    "source": "src/components/common/PhoneContact/PhoneContact.tsx",
+    "propsType": "PhoneContactProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "contact",
+        "optional": true,
+        "type": "Contact | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ActionItem",
+    "source": "src/components/dashboard/ActionItem/ActionItem.tsx",
+    "propsType": "ActionItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "item",
+        "optional": false,
+        "type": "DashboardAction",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DashboardMetrics",
+    "source": "src/components/dashboard/DashboardMetrics/DashboardMetrics.tsx",
+    "propsType": "DashboardMetricsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "undecided",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "decisions",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "tasks",
+        "optional": false,
+        "type": "{ done: number; total: number; }",
+        "callback": false
+      },
+      {
+        "name": "unread",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DashboardPage",
+    "source": "src/components/dashboard/DashboardPage/DashboardPage.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "DashboardView",
+    "source": "src/components/dashboard/DashboardView.tsx",
+    "propsType": "DashboardViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<DashboardViewData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "DecisionItem",
+    "source": "src/components/dashboard/DecisionItem/DecisionItem.tsx",
+    "propsType": "DecisionItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "card",
+        "optional": false,
+        "type": "ReportCardData",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DecisionList",
+    "source": "src/components/dashboard/DecisionList/DecisionList.tsx",
+    "propsType": "DecisionListProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "cards",
+        "optional": false,
+        "type": "ReportCardData[]",
+        "callback": false
+      },
+      {
+        "name": "undecided",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "StoreSummary",
+    "source": "src/components/dashboard/StoreSummary/StoreSummary.tsx",
+    "propsType": "StoreSummaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "store",
+        "optional": false,
+        "type": "DashboardStore",
+        "callback": false
+      },
+      {
+        "name": "name",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "days",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "undecided",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "TaskItem",
+    "source": "src/components/dashboard/TaskItem/TaskItem.tsx",
+    "propsType": "TaskItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "task",
+        "optional": false,
+        "type": "DashboardTask",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "TaskList",
+    "source": "src/components/dashboard/TaskList/TaskList.tsx",
+    "propsType": "TaskListProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "actions",
+        "optional": false,
+        "type": "DashboardAction[]",
+        "callback": false
+      },
+      {
+        "name": "tasks",
+        "optional": false,
+        "type": "DashboardTask[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DocRow",
+    "source": "src/components/docs/DocRow/DocRow.tsx",
+    "propsType": "DocRowProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "document",
+        "optional": false,
+        "type": "DocumentViewData",
+        "callback": false
+      },
+      {
+        "name": "contact",
+        "optional": true,
+        "type": "Contact | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DocsHeader",
+    "source": "src/components/docs/DocsHeader/DocsHeader.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "DocsPage",
+    "source": "src/components/docs/DocsPage/DocsPage.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "DocsSummary",
+    "source": "src/components/docs/DocsSummary/DocsSummary.tsx",
+    "propsType": "DocsSummaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "total",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "finished",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "remaining",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DocsView",
+    "source": "src/components/docs/DocsView/DocsView.tsx",
+    "propsType": "DocsViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<DocsViewData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "DocTaskCard",
+    "source": "src/components/docs/DocTaskCard/DocTaskCard.tsx",
+    "propsType": "DocTaskCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "row",
+        "optional": false,
+        "type": "DocumentTaskViewData",
+        "callback": false
+      },
+      {
+        "name": "contacts",
+        "optional": false,
+        "type": "Record<string, Contact>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "Modal",
+    "source": "src/components/feedback/Modal/Modal.tsx",
+    "propsType": "ModalProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "onClose",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "Toast",
+    "source": "src/components/feedback/Toast/Toast.tsx",
+    "propsType": "ToastProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "message",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "FootTrafficMap",
+    "source": "src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx",
+    "propsType": "FootTrafficMapProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "appKey",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "dataSource",
+        "optional": true,
+        "type": "FootTrafficDataSource | undefined",
+        "callback": false
+      },
+      {
+        "name": "dataset",
+        "optional": true,
+        "type": "FootTrafficDataset | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "center",
+        "optional": false,
+        "type": "LatLng",
+        "callback": false
+      },
+      {
+        "name": "onCenterChange",
+        "optional": false,
+        "type": "(center: LatLng) => void",
+        "callback": true
+      },
+      {
+        "name": "radius",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "onRadiusChange",
+        "optional": false,
+        "type": "(radius: number) => void",
+        "callback": true
+      },
+      {
+        "name": "shops",
+        "optional": false,
+        "type": "Shop[]",
+        "callback": false
+      },
+      {
+        "name": "selectedShopId",
+        "optional": false,
+        "type": "string | null",
+        "callback": false
+      },
+      {
+        "name": "onSelectShop",
+        "optional": false,
+        "type": "(id: string) => void",
+        "callback": true
+      },
+      {
+        "name": "address",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "settingsOpen",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "onSettingsOpenChange",
+        "optional": false,
+        "type": "(open: boolean) => void",
+        "callback": true
+      },
+      {
+        "name": "hour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      },
+      {
+        "name": "lastHour",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "onHourChange",
+        "optional": false,
+        "type": "(hour: HourSel) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "MapAvailability",
+    "source": "src/components/foot-traffic/MapAvailability/MapAvailability.tsx",
+    "propsType": "MapAvailabilityProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "state",
+        "optional": false,
+        "type": "\"error\" | \"loading\" | \"missing-key\"",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MapCanvas",
+    "source": "src/components/foot-traffic/MapCanvas/MapCanvas.tsx",
+    "propsType": "MapCanvasProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "appKey",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "center",
+        "optional": false,
+        "type": "LatLng",
+        "callback": false
+      },
+      {
+        "name": "radius",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "level",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "lines",
+        "optional": false,
+        "type": "PopulationRoad[]",
+        "callback": false
+      },
+      {
+        "name": "cells",
+        "optional": false,
+        "type": "Map<string, CellStat>",
+        "callback": false
+      },
+      {
+        "name": "cuts",
+        "optional": false,
+        "type": "PopulationCuts",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "hour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      },
+      {
+        "name": "shops",
+        "optional": false,
+        "type": "Shop[]",
+        "callback": false
+      },
+      {
+        "name": "selectedShopId",
+        "optional": false,
+        "type": "string | null",
+        "callback": false
+      },
+      {
+        "name": "address",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "onSelectShop",
+        "optional": false,
+        "type": "(id: string) => void",
+        "callback": true
+      },
+      {
+        "name": "onCenterChange",
+        "optional": false,
+        "type": "(center: LatLng) => void",
+        "callback": true
+      },
+      {
+        "name": "onLevelChange",
+        "optional": false,
+        "type": "(level: number) => void",
+        "callback": true
+      },
+      {
+        "name": "onRegionChange",
+        "optional": false,
+        "type": "(region: string) => void",
+        "callback": true
+      },
+      {
+        "name": "onAddressStatusChange",
+        "optional": false,
+        "type": "(status: string) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "MapControls",
+    "source": "src/components/foot-traffic/MapControls/MapControls.tsx",
+    "propsType": "MapControlsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "open",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "onOpenChange",
+        "optional": false,
+        "type": "(open: boolean) => void",
+        "callback": true
+      },
+      {
+        "name": "category",
+        "optional": false,
+        "type": "Category",
+        "callback": false
+      },
+      {
+        "name": "sub",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "hour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      },
+      {
+        "name": "lastHour",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "radius",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "shown",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "region",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "onCategoryChange",
+        "optional": false,
+        "type": "(category: Category) => void",
+        "callback": true
+      },
+      {
+        "name": "onSubChange",
+        "optional": false,
+        "type": "(sub: string) => void",
+        "callback": true
+      },
+      {
+        "name": "onHourChange",
+        "optional": false,
+        "type": "(hour: HourSel) => void",
+        "callback": true
+      },
+      {
+        "name": "onRadiusChange",
+        "optional": false,
+        "type": "(radius: number) => void",
+        "callback": true
+      },
+      {
+        "name": "onToggle",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "MapDataStatus",
+    "source": "src/components/foot-traffic/MapDataStatus/MapDataStatus.tsx",
+    "propsType": "MapDataStatusProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "loading",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "addressStatus",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "retry",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "MapZoomControls",
+    "source": "src/components/foot-traffic/MapZoomControls/MapZoomControls.tsx",
+    "propsType": "MapZoomControlsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "level",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "onChange",
+        "optional": false,
+        "type": "(level: number) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PopulationCategory",
+    "source": "src/components/foot-traffic/PopulationCategory/PopulationCategory.tsx",
+    "propsType": "PopulationCategoryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "category",
+        "optional": false,
+        "type": "Category",
+        "callback": false
+      },
+      {
+        "name": "sub",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "onSubChange",
+        "optional": false,
+        "type": "(sub: string) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PopulationCategoryTabs",
+    "source": "src/components/foot-traffic/PopulationCategoryTabs/PopulationCategoryTabs.tsx",
+    "propsType": "PopulationCategoryTabsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "category",
+        "optional": false,
+        "type": "Category",
+        "callback": false
+      },
+      {
+        "name": "onChange",
+        "optional": false,
+        "type": "(category: Category) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PopulationLegend",
+    "source": "src/components/foot-traffic/PopulationLegend/PopulationLegend.tsx",
+    "propsType": "PopulationLegendProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "category",
+        "optional": false,
+        "type": "Category",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "hour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      },
+      {
+        "name": "date",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "radius",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "cuts",
+        "optional": false,
+        "type": "PopulationCuts",
+        "callback": false
+      },
+      {
+        "name": "summary",
+        "optional": false,
+        "type": "{ sum: number; total: number; observed: number; suppressed: number; } | null",
+        "callback": false
+      },
+      {
+        "name": "quality",
+        "optional": false,
+        "type": "Quality | null",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "hasPublicValues",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "settingsOpen",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "PopulationRadius",
+    "source": "src/components/foot-traffic/PopulationRadius/PopulationRadius.tsx",
+    "propsType": "PopulationRadiusProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "radius",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "onChange",
+        "optional": false,
+        "type": "(radius: number) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PopulationTime",
+    "source": "src/components/foot-traffic/PopulationTime/PopulationTime.tsx",
+    "propsType": "PopulationTimeProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "hour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      },
+      {
+        "name": "lastHour",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "onChange",
+        "optional": false,
+        "type": "(hour: HourSel) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PopulationTooltip",
+    "source": "src/components/foot-traffic/PopulationTooltip/PopulationTooltip.tsx",
+    "propsType": "PopulationTooltipProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "value",
+        "optional": false,
+        "type": "CellStat",
+        "callback": false
+      },
+      {
+        "name": "level",
+        "optional": false,
+        "type": "CrowdLevel | null",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "hour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "RoadPopulationLayer",
+    "source": "src/components/foot-traffic/RoadPopulationLayer/RoadPopulationLayer.tsx",
+    "propsType": "RoadPopulationLayerProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "lines",
+        "optional": false,
+        "type": "PopulationRoad[]",
+        "callback": false
+      },
+      {
+        "name": "cuts",
+        "optional": false,
+        "type": "PopulationCuts",
+        "callback": false
+      },
+      {
+        "name": "level",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "activeCell",
+        "optional": false,
+        "type": "string | null",
+        "callback": false
+      },
+      {
+        "name": "onHover",
+        "optional": false,
+        "type": "(value: { cell: string; pos: LatLng; } | null) => void",
+        "callback": true
+      },
+      {
+        "name": "onHitTestChange",
+        "optional": true,
+        "type": "((hitTest: ((position: LatLng) => string | null) | null) => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "ShopMapMarkers",
+    "source": "src/components/foot-traffic/ShopMapMarkers/ShopMapMarkers.tsx",
+    "propsType": "ShopMapMarkersProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "shops",
+        "optional": false,
+        "type": "Shop[]",
+        "callback": false
+      },
+      {
+        "name": "selectedId",
+        "optional": false,
+        "type": "string | null",
+        "callback": false
+      },
+      {
+        "name": "onSelect",
+        "optional": false,
+        "type": "(id: string) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "GrantCard",
+    "source": "src/components/grants/GrantCard/GrantCard.tsx",
+    "propsType": "GrantCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "grant",
+        "optional": false,
+        "type": "Grant",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "tone",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "deadline",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantCardActions",
+    "source": "src/components/grants/GrantCardActions/GrantCardActions.tsx",
+    "propsType": "GrantCardActionsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "id",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantConditionQuote",
+    "source": "src/components/grants/GrantConditionQuote/GrantConditionQuote.tsx",
+    "propsType": "GrantConditionQuoteProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "condition",
+        "optional": false,
+        "type": "[string, \"unknown\" | \"pass\", string]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantConditions",
+    "source": "src/components/grants/GrantConditions/GrantConditions.tsx",
+    "propsType": "GrantConditionsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "checks",
+        "optional": false,
+        "type": "[string, \"unknown\" | \"pass\", string][]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantDeadlineRow",
+    "source": "src/components/grants/GrantDeadlineRow/GrantDeadlineRow.tsx",
+    "propsType": "GrantDeadlineRowProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "grant",
+        "optional": false,
+        "type": "Grant",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "tone",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "deadline",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantDetails",
+    "source": "src/components/grants/GrantDetails/GrantDetails.tsx",
+    "propsType": "GrantDetailsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "grant",
+        "optional": false,
+        "type": "Grant",
+        "callback": false
+      },
+      {
+        "name": "deadline",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "result",
+        "optional": false,
+        "type": "{ label: string; tone: string; }",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantDetailSummary",
+    "source": "src/components/grants/GrantDetailSummary/GrantDetailSummary.tsx",
+    "propsType": "GrantDetailSummaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "grant",
+        "optional": false,
+        "type": "Grant",
+        "callback": false
+      },
+      {
+        "name": "result",
+        "optional": false,
+        "type": "{ label: string; tone: string; }",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantEligibility",
+    "source": "src/components/grants/GrantEligibility/GrantEligibility.tsx",
+    "propsType": "GrantEligibilityProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "tone",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "example",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantFiltersBar",
+    "source": "src/components/grants/GrantFiltersBar/GrantFiltersBar.tsx",
+    "propsType": "GrantFiltersBarProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "filters",
+        "optional": false,
+        "type": "GrantFilters",
+        "callback": false
+      },
+      {
+        "name": "categories",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantFilterTabs",
+    "source": "src/components/grants/GrantFilterTabs/GrantFilterTabs.tsx",
+    "propsType": "GrantFilterTabsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "options",
+        "optional": false,
+        "type": "readonly (readonly [string, string])[]",
+        "callback": false
+      },
+      {
+        "name": "filter",
+        "optional": false,
+        "type": "\"res\" | \"cat\" | \"view\"",
+        "callback": false
+      },
+      {
+        "name": "selected",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "style",
+        "optional": true,
+        "type": "CSSProperties | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantListRow",
+    "source": "src/components/grants/GrantListRow/GrantListRow.tsx",
+    "propsType": "GrantListRowProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "grant",
+        "optional": false,
+        "type": "Grant",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "tone",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "deadline",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantMonthCard",
+    "source": "src/components/grants/GrantMonthCard/GrantMonthCard.tsx",
+    "propsType": "GrantMonthCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "group",
+        "optional": false,
+        "type": "GrantMonthViewData",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantPoster",
+    "source": "src/components/grants/GrantPoster/GrantPoster.tsx",
+    "propsType": "GrantPosterProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "grant",
+        "optional": false,
+        "type": "Grant",
+        "callback": false
+      },
+      {
+        "name": "deadline",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "big",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantPosterArtwork",
+    "source": "src/components/grants/GrantPosterArtwork/GrantPosterArtwork.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "GrantResults",
+    "source": "src/components/grants/GrantResults/GrantResults.tsx",
+    "propsType": "GrantResultsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "grants",
+        "optional": false,
+        "type": "GrantViewItem[]",
+        "callback": false
+      },
+      {
+        "name": "months",
+        "optional": false,
+        "type": "GrantMonthViewData[]",
+        "callback": false
+      },
+      {
+        "name": "view",
+        "optional": false,
+        "type": "\"card\" | \"list\" | \"month\"",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantsHeader",
+    "source": "src/components/grants/GrantsHeader/GrantsHeader.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "GrantSortSelect",
+    "source": "src/components/grants/GrantSortSelect/GrantSortSelect.tsx",
+    "propsType": "GrantSortSelectProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "sort",
+        "optional": false,
+        "type": "\"deadline\" | \"fit\"",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantsPage",
+    "source": "src/components/grants/GrantsPage/GrantsPage.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "GrantSummary",
+    "source": "src/components/grants/GrantSummary/GrantSummary.tsx",
+    "propsType": "GrantSummaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "grant",
+        "optional": false,
+        "type": "Grant",
+        "callback": false
+      },
+      {
+        "name": "deadline",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "GrantsView",
+    "source": "src/components/grants/GrantsView.tsx",
+    "propsType": "GrantsViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<GrantsViewData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "ApplicationDialog",
+    "source": "src/components/layout/ApplicationDialog/ApplicationDialog.tsx",
+    "propsType": "ApplicationDialogProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "content",
+        "optional": false,
+        "type": "DialogContent",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ApplicationFeedback",
+    "source": "src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx",
+    "propsType": "ApplicationFeedbackProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onCloseModal",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      },
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ApplicationFeedbackData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "ApplicationLoading",
+    "source": "src/components/layout/ApplicationLoading/ApplicationLoading.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "ApplicationNavigation",
+    "source": "src/components/layout/ApplicationNavigation/ApplicationNavigation.tsx",
+    "propsType": "ApplicationNavigationProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<NavbarData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "onNavigate",
+        "optional": false,
+        "type": "(page: string) => void",
+        "callback": true
+      },
+      {
+        "name": "onOpenNotification",
+        "optional": false,
+        "type": "(notification: import(\"/Users/daon/Desktop/foundy/src/types/notifications\").NotificationSummary) => void",
+        "callback": true
+      },
+      {
+        "name": "onLogout",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "AppShell",
+    "source": "src/components/layout/AppShell/AppShell.tsx",
+    "propsType": "AppShellProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "navigation",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "viewport",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ConnectedApplicationFeedback",
+    "source": "src/components/layout/ConnectedApplicationFeedback/ConnectedApplicationFeedback.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "ConnectedApplicationNavigation",
+    "source": "src/components/layout/ConnectedApplicationNavigation/ConnectedApplicationNavigation.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "FoundyApplication",
+    "source": "src/components/layout/FoundyApplication/FoundyApplication.tsx",
+    "propsType": "FoundyApplicationProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": [
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ComponentBoundary",
+    "source": "src/components/loading/ComponentBoundary/ComponentBoundary.tsx",
+    "propsType": "ComponentBoundaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "component",
+        "optional": false,
+        "type": "ComponentType<Props>",
+        "callback": false
+      },
+      {
+        "name": "fallback",
+        "optional": true,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<Props> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "DataBoundary",
+    "source": "src/components/loading/DataBoundary/DataBoundary.tsx",
+    "propsType": "DataBoundaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "children",
+        "optional": false,
+        "type": "(data: T) => ReactNode",
+        "callback": true
+      },
+      {
+        "name": "fallback",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<T> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "DataContent",
+    "source": "src/components/loading/DataContent/DataContent.tsx",
+    "propsType": "DataContentProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": false,
+        "type": "AsyncData<T>",
+        "callback": false
+      },
+      {
+        "name": "children",
+        "optional": false,
+        "type": "(data: T) => ReactNode",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "DataError",
+    "source": "src/components/loading/DataError/DataError.tsx",
+    "propsType": "DataErrorProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "message",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "DataErrorBoundary",
+    "source": "src/components/loading/DataErrorBoundary/DataErrorBoundary.tsx",
+    "propsType": "DataErrorBoundaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "resetKey",
+        "optional": false,
+        "type": "unknown",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PageSkeleton",
+    "source": "src/components/loading/PageSkeleton/PageSkeleton.tsx",
+    "propsType": "PageSkeletonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "page",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "SectionSkeleton",
+    "source": "src/components/loading/SectionSkeleton/SectionSkeleton.tsx",
+    "propsType": "SectionSkeletonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "variant",
+        "optional": true,
+        "type": "SkeletonVariant | undefined",
+        "callback": false
+      },
+      {
+        "name": "rows",
+        "optional": true,
+        "type": "number | undefined",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "className",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "Skeleton",
+    "source": "src/components/loading/Skeleton/Skeleton.tsx",
+    "propsType": "SkeletonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "className",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "LoginActions",
+    "source": "src/components/login/LoginActions/LoginActions.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "LoginBrand",
+    "source": "src/components/login/LoginBrand/LoginBrand.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "LoginCard",
+    "source": "src/components/login/LoginCard/LoginCard.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "LoginView",
+    "source": "src/components/login/LoginView.tsx",
+    "propsType": "LoginViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "ViewEventHandler | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "SocialLoginButton",
+    "source": "src/components/login/SocialLoginButton/SocialLoginButton.tsx",
+    "propsType": "SocialLoginButtonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "provider",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "SocialSignInDialog",
+    "source": "src/components/login/SocialSignInDialog/SocialSignInDialog.tsx",
+    "propsType": "SocialSignInDialogProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "provider",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "providerLabel",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "AccountCard",
+    "source": "src/components/mypage/AccountCard/AccountCard.tsx",
+    "propsType": "AccountCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "profile",
+        "optional": false,
+        "type": "AccountProfile",
+        "callback": false
+      },
+      {
+        "name": "providerLabel",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "AnalysisProgressDialog",
+    "source": "src/components/mypage/AnalysisProgressDialog/AnalysisProgressDialog.tsx",
+    "propsType": "AnalysisProgressDialogProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "steps",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      },
+      {
+        "name": "completed",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "changes",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "BusinessConditionsCard",
+    "source": "src/components/mypage/BusinessConditionsCard/BusinessConditionsCard.tsx",
+    "propsType": "BusinessConditionsCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "draft",
+        "optional": false,
+        "type": "StoreDraft",
+        "callback": false
+      },
+      {
+        "name": "fields",
+        "optional": false,
+        "type": "FieldDefinitions",
+        "callback": false
+      },
+      {
+        "name": "impacts",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DataManagementCard",
+    "source": "src/components/mypage/DataManagementCard/DataManagementCard.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "ImpactCard",
+    "source": "src/components/mypage/ImpactCard/ImpactCard.tsx",
+    "propsType": "ImpactCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "changes",
+        "optional": false,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/profile\").StoreChange[]",
+        "callback": false
+      },
+      {
+        "name": "affectedLabels",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      },
+      {
+        "name": "resetCards",
+        "optional": false,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/profile\").ResetCard[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ImpactHint",
+    "source": "src/components/mypage/ImpactHint/ImpactHint.tsx",
+    "propsType": "ImpactHintProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "labels",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MypagePage",
+    "source": "src/components/mypage/MypagePage/MypagePage.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "MypageView",
+    "source": "src/components/mypage/MypageView.tsx",
+    "propsType": "MypageViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ProfileViewModel> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "ProfileBooleanField",
+    "source": "src/components/mypage/ProfileBooleanField/ProfileBooleanField.tsx",
+    "propsType": "ProfileBooleanFieldProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "field",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "value",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "hints",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ProfileField",
+    "source": "src/components/mypage/ProfileField/ProfileField.tsx",
+    "propsType": "ProfileFieldProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "hints",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      },
+      {
+        "name": "full",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ProfileHeader",
+    "source": "src/components/mypage/ProfileHeader/ProfileHeader.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "ResetCardNotice",
+    "source": "src/components/mypage/ResetCardNotice/ResetCardNotice.tsx",
+    "propsType": "ResetCardNoticeProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "cards",
+        "optional": false,
+        "type": "ResetCard[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "StoreDetailsCard",
+    "source": "src/components/mypage/StoreDetailsCard/StoreDetailsCard.tsx",
+    "propsType": "StoreDetailsCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "draft",
+        "optional": false,
+        "type": "StoreDraft",
+        "callback": false
+      },
+      {
+        "name": "fields",
+        "optional": false,
+        "type": "FieldDefinitions",
+        "callback": false
+      },
+      {
+        "name": "impacts",
+        "optional": false,
+        "type": "Record<string, string>",
+        "callback": false
+      },
+      {
+        "name": "regions",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "StoreResetDialog",
+    "source": "src/components/mypage/StoreResetDialog/StoreResetDialog.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "AccountActions",
+    "source": "src/components/navigation/AccountActions/AccountActions.tsx",
+    "propsType": "AccountActionsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "storeName",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "notifications",
+        "optional": false,
+        "type": "NotificationSummary[]",
+        "callback": false
+      },
+      {
+        "name": "onOpenNotification",
+        "optional": false,
+        "type": "(notification: NotificationSummary) => void",
+        "callback": true
+      },
+      {
+        "name": "onOpenStore",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      },
+      {
+        "name": "onLogout",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "Logo",
+    "source": "src/components/navigation/Logo/Logo.tsx",
+    "propsType": "LogoProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onHome",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "LogoutButton",
+    "source": "src/components/navigation/LogoutButton/LogoutButton.tsx",
+    "propsType": "LogoutButtonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onLogout",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "Navbar",
+    "source": "src/components/navigation/Navbar/Navbar.tsx",
+    "propsType": "NavbarProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onNavigate",
+        "optional": false,
+        "type": "(page: string) => void",
+        "callback": true
+      },
+      {
+        "name": "onOpenNotification",
+        "optional": false,
+        "type": "(notification: import(\"/Users/daon/Desktop/foundy/src/types/notifications\").NotificationSummary) => void",
+        "callback": true
+      },
+      {
+        "name": "onLogout",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      },
+      {
+        "name": "currentPage",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "storeName",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "notifications",
+        "optional": false,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/notifications\").NotificationSummary[]",
+        "callback": false
+      },
+      {
+        "name": "destinations",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/navigation\").NavigationDestination[] | undefined",
+        "callback": false
+      },
+      {
+        "name": "onboarded",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "NavItem",
+    "source": "src/components/navigation/NavItem/NavItem.tsx",
+    "propsType": "NavItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "destination",
+        "optional": false,
+        "type": "NavigationDestination",
+        "callback": false
+      },
+      {
+        "name": "active",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "onNavigate",
+        "optional": false,
+        "type": "(page: string) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "NavLinks",
+    "source": "src/components/navigation/NavLinks/NavLinks.tsx",
+    "propsType": "NavLinksProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "currentPage",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "onNavigate",
+        "optional": false,
+        "type": "(page: string) => void",
+        "callback": true
+      },
+      {
+        "name": "className",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "destinations",
+        "optional": true,
+        "type": "NavigationDestination[] | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "NotificationButton",
+    "source": "src/components/navigation/NotificationButton/NotificationButton.tsx",
+    "propsType": "NotificationButtonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "unread",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "open",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "panelId",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "buttonRef",
+        "optional": false,
+        "type": "Ref<HTMLButtonElement>",
+        "callback": false
+      },
+      {
+        "name": "onToggle",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      },
+      {
+        "name": "onKeyDown",
+        "optional": false,
+        "type": "KeyboardEventHandler<HTMLButtonElement>",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "NotificationItem",
+    "source": "src/components/navigation/NotificationItem/NotificationItem.tsx",
+    "propsType": "NotificationItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "notification",
+        "optional": false,
+        "type": "NotificationSummary",
+        "callback": false
+      },
+      {
+        "name": "onOpen",
+        "optional": false,
+        "type": "(notification: NotificationSummary) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "NotificationMenu",
+    "source": "src/components/navigation/NotificationMenu/NotificationMenu.tsx",
+    "propsType": "NotificationMenuProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "notifications",
+        "optional": false,
+        "type": "NotificationSummary[]",
+        "callback": false
+      },
+      {
+        "name": "onOpen",
+        "optional": false,
+        "type": "(notification: NotificationSummary) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "NotificationPopover",
+    "source": "src/components/navigation/NotificationPopover/NotificationPopover.tsx",
+    "propsType": "NotificationPopoverProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "id",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "panelRef",
+        "optional": false,
+        "type": "Ref<HTMLElement>",
+        "callback": false
+      },
+      {
+        "name": "unread",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "notifications",
+        "optional": false,
+        "type": "NotificationSummary[]",
+        "callback": false
+      },
+      {
+        "name": "position",
+        "optional": false,
+        "type": "{ top: number; left: number; width: number; }",
+        "callback": false
+      },
+      {
+        "name": "onOpen",
+        "optional": false,
+        "type": "(notification: NotificationSummary) => void",
+        "callback": true
+      },
+      {
+        "name": "onMouseEnter",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      },
+      {
+        "name": "onMouseLeave",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "StoreIdentity",
+    "source": "src/components/navigation/StoreIdentity/StoreIdentity.tsx",
+    "propsType": "StoreIdentityProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "name",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "onOpen",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "AnalysisStep",
+    "source": "src/components/onboarding/AnalysisStep/AnalysisStep.tsx",
+    "propsType": "AnalysisStepProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "storeName",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "steps",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      },
+      {
+        "name": "completed",
+        "optional": false,
+        "type": "number[]",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "BusinessQuestion",
+    "source": "src/components/onboarding/BusinessQuestion/BusinessQuestion.tsx",
+    "propsType": "BusinessQuestionProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "field",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "description",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "value",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "BusinessQuestionsStep",
+    "source": "src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx",
+    "propsType": "BusinessQuestionsStepProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "store",
+        "optional": false,
+        "type": "OnboardingStore",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DemoScenarioBanner",
+    "source": "src/components/onboarding/DemoScenarioBanner/DemoScenarioBanner.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "OnboardingHeader",
+    "source": "src/components/onboarding/OnboardingHeader/OnboardingHeader.tsx",
+    "propsType": "OnboardingHeaderProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "returning",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "userName",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "OnboardingPage",
+    "source": "src/components/onboarding/OnboardingPage/OnboardingPage.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "OnboardingView",
+    "source": "src/components/onboarding/OnboardingView.tsx",
+    "propsType": "OnboardingViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<OnboardingViewModel> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "StoreAddressFields",
+    "source": "src/components/onboarding/StoreAddressFields/StoreAddressFields.tsx",
+    "propsType": "StoreAddressFieldsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "store",
+        "optional": false,
+        "type": "OnboardingStore",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "StoreIdentityFields",
+    "source": "src/components/onboarding/StoreIdentityFields/StoreIdentityFields.tsx",
+    "propsType": "StoreIdentityFieldsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "store",
+        "optional": false,
+        "type": "OnboardingStore",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "StoreInformationForm",
+    "source": "src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx",
+    "propsType": "StoreInformationFormProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "store",
+        "optional": false,
+        "type": "OnboardingStore",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "StoreInformationStep",
+    "source": "src/components/onboarding/StoreInformationStep/StoreInformationStep.tsx",
+    "propsType": "StoreInformationStepProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "store",
+        "optional": false,
+        "type": "OnboardingStore",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "StoreScheduleFields",
+    "source": "src/components/onboarding/StoreScheduleFields/StoreScheduleFields.tsx",
+    "propsType": "StoreScheduleFieldsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "store",
+        "optional": false,
+        "type": "OnboardingStore",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "WizardProgress",
+    "source": "src/components/onboarding/WizardProgress/WizardProgress.tsx",
+    "propsType": "WizardProgressProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "step",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "WizardStep",
+    "source": "src/components/onboarding/WizardStep/WizardStep.tsx",
+    "propsType": "WizardStepProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "number",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "active",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "EvidenceDialog",
+    "source": "src/components/report/EvidenceDialog/EvidenceDialog.tsx",
+    "propsType": "EvidenceDialogProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "items",
+        "optional": false,
+        "type": "EvidenceItemData[]",
+        "callback": false
+      },
+      {
+        "name": "date",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "EvidenceItem",
+    "source": "src/components/report/EvidenceItem/EvidenceItem.tsx",
+    "propsType": "EvidenceItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "item",
+        "optional": false,
+        "type": "EvidenceItemData",
+        "callback": false
+      },
+      {
+        "name": "date",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "LockedReport",
+    "source": "src/components/report/LockedReport/LockedReport.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "NextStepItem",
+    "source": "src/components/report/NextStepItem/NextStepItem.tsx",
+    "propsType": "NextStepItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "step",
+        "optional": false,
+        "type": "NextStep",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "OptionCard",
+    "source": "src/components/report/OptionCard/OptionCard.tsx",
+    "propsType": "OptionCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "cardId",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "option",
+        "optional": false,
+        "type": "ReportOption",
+        "callback": false
+      },
+      {
+        "name": "recommended",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "OptionConfirmDialog",
+    "source": "src/components/report/OptionConfirmDialog/OptionConfirmDialog.tsx",
+    "propsType": "OptionConfirmDialogProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "cardId",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "optionId",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "summary",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "changes",
+        "optional": false,
+        "type": "string[]",
+        "callback": false
+      },
+      {
+        "name": "recommended",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "reason",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "meta",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportCard",
+    "source": "src/components/report/ReportCard/ReportCard.tsx",
+    "propsType": "ReportCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "model",
+        "optional": false,
+        "type": "ReportCardModel",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportCardActions",
+    "source": "src/components/report/ReportCardActions/ReportCardActions.tsx",
+    "propsType": "ReportCardActionsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "cardId",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportCardSummary",
+    "source": "src/components/report/ReportCardSummary/ReportCardSummary.tsx",
+    "propsType": "ReportCardSummaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "card",
+        "optional": false,
+        "type": "ReportCardData",
+        "callback": false
+      },
+      {
+        "name": "state",
+        "optional": false,
+        "type": "ReportState",
+        "callback": false
+      },
+      {
+        "name": "verdict",
+        "optional": false,
+        "type": "Verdict",
+        "callback": false
+      },
+      {
+        "name": "followUpPending",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "status",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportFilters",
+    "source": "src/components/report/ReportFilters/ReportFilters.tsx",
+    "propsType": "ReportFiltersProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "selected",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportFollowUp",
+    "source": "src/components/report/ReportFollowUp/ReportFollowUp.tsx",
+    "propsType": "ReportFollowUpProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "model",
+        "optional": false,
+        "type": "ReportCardModel",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportHeader",
+    "source": "src/components/report/ReportHeader/ReportHeader.tsx",
+    "propsType": "ReportHeaderProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "locked",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportNextSteps",
+    "source": "src/components/report/ReportNextSteps/ReportNextSteps.tsx",
+    "propsType": "ReportNextStepsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "model",
+        "optional": false,
+        "type": "ReportCardModel",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportOptions",
+    "source": "src/components/report/ReportOptions/ReportOptions.tsx",
+    "propsType": "ReportOptionsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "card",
+        "optional": false,
+        "type": "ReportCardData",
+        "callback": false
+      },
+      {
+        "name": "state",
+        "optional": false,
+        "type": "ReportState",
+        "callback": false
+      },
+      {
+        "name": "verdict",
+        "optional": false,
+        "type": "Verdict",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportPage",
+    "source": "src/components/report/ReportPage/ReportPage.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "ReportSummary",
+    "source": "src/components/report/ReportSummary/ReportSummary.tsx",
+    "propsType": "ReportSummaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "counts",
+        "optional": false,
+        "type": "Record<Verdict, number>",
+        "callback": false
+      },
+      {
+        "name": "firstByVerdict",
+        "optional": false,
+        "type": "Partial<Record<Verdict, string>>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ReportView",
+    "source": "src/components/report/ReportView.tsx",
+    "propsType": "ReportViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/events\").ViewEventHandler | undefined",
+        "callback": true
+      },
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<ReportViewData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "VerdictBadge",
+    "source": "src/components/report/VerdictBadge/VerdictBadge.tsx",
+    "propsType": "VerdictBadgeProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "verdict",
+        "optional": false,
+        "type": "Verdict",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "CompetitionCard",
+    "source": "src/components/sites/CompetitionCard/CompetitionCard.tsx",
+    "propsType": "CompetitionCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "analysis",
+        "optional": false,
+        "type": "MarketAnalysis",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "FieldChecklistCard",
+    "source": "src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx",
+    "propsType": "FieldChecklistCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "onOpenReport",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "LocationPickDialog",
+    "source": "src/components/sites/LocationPickDialog/LocationPickDialog.tsx",
+    "propsType": "LocationPickDialogProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "areaId",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MarketAnalysisPanel",
+    "source": "src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx",
+    "propsType": "MarketAnalysisPanelProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "open",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "onClose",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      },
+      {
+        "name": "center",
+        "optional": false,
+        "type": "MarketPoint",
+        "callback": false
+      },
+      {
+        "name": "radius",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "category",
+        "optional": false,
+        "type": "MarketCategory",
+        "callback": false
+      },
+      {
+        "name": "onCategoryChange",
+        "optional": false,
+        "type": "(category: MarketCategory) => void",
+        "callback": true
+      },
+      {
+        "name": "summary",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "population",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "shops",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "planning",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MarketBar",
+    "source": "src/components/sites/MarketBar/MarketBar.tsx",
+    "propsType": "MarketBarProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "value",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "percent",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MarketCategoryFilter",
+    "source": "src/components/sites/MarketCategoryFilter/MarketCategoryFilter.tsx",
+    "propsType": "MarketCategoryFilterProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "value",
+        "optional": false,
+        "type": "MarketCategory",
+        "callback": false
+      },
+      {
+        "name": "onChange",
+        "optional": false,
+        "type": "(value: MarketCategory) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "MarketEmptyState",
+    "source": "src/components/sites/MarketEmptyState/MarketEmptyState.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "MarketMetric",
+    "source": "src/components/sites/MarketMetric/MarketMetric.tsx",
+    "propsType": "MarketMetricProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "label",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "unavailable",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MarketPanelCard",
+    "source": "src/components/sites/MarketPanelCard/MarketPanelCard.tsx",
+    "propsType": "MarketPanelCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "description",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "MarketPanelHeader",
+    "source": "src/components/sites/MarketPanelHeader/MarketPanelHeader.tsx",
+    "propsType": "MarketPanelHeaderProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "center",
+        "optional": false,
+        "type": "MarketPoint",
+        "callback": false
+      },
+      {
+        "name": "radius",
+        "optional": false,
+        "type": "number",
+        "callback": false
+      },
+      {
+        "name": "onClose",
+        "optional": false,
+        "type": "() => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "MarketPanelTabs",
+    "source": "src/components/sites/MarketPanelTabs/MarketPanelTabs.tsx",
+    "propsType": "MarketPanelTabsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "value",
+        "optional": false,
+        "type": "MarketPanelTab",
+        "callback": false
+      },
+      {
+        "name": "onChange",
+        "optional": false,
+        "type": "(value: MarketPanelTab) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "MarketSummaryCard",
+    "source": "src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx",
+    "propsType": "MarketSummaryCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "analysis",
+        "optional": false,
+        "type": "MarketAnalysis",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "NearbyShopsCard",
+    "source": "src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx",
+    "propsType": "NearbyShopsCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "shops",
+        "optional": false,
+        "type": "Shop[]",
+        "callback": false
+      },
+      {
+        "name": "selectedShop",
+        "optional": true,
+        "type": "Shop | undefined",
+        "callback": false
+      },
+      {
+        "name": "onSelect",
+        "optional": false,
+        "type": "(id: string) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PopulationBreakdownCard",
+    "source": "src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx",
+    "propsType": "PopulationBreakdownCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "title",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "description",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "rows",
+        "optional": false,
+        "type": "readonly PopulationBreakdownRow[]",
+        "callback": false
+      },
+      {
+        "name": "chart",
+        "optional": false,
+        "type": "\"donut\" | \"bar\"",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "PopulationDataNote",
+    "source": "src/components/sites/PopulationDataNote/PopulationDataNote.tsx",
+    "propsType": "PopulationDataNoteProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "date",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "PopulationHourlyCard",
+    "source": "src/components/sites/PopulationHourlyCard/PopulationHourlyCard.tsx",
+    "propsType": "PopulationHourlyCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "points",
+        "optional": false,
+        "type": "readonly PopulationHourlyPoint[]",
+        "callback": false
+      },
+      {
+        "name": "hour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      },
+      {
+        "name": "onHourChange",
+        "optional": false,
+        "type": "(hour: HourSel) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PopulationReport",
+    "source": "src/components/sites/PopulationReport/PopulationReport.tsx",
+    "propsType": "PopulationReportProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": true,
+        "type": "AsyncData<PopulationInsights | null> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "retry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "hour",
+        "optional": false,
+        "type": "HourSel",
+        "callback": false
+      },
+      {
+        "name": "onHourChange",
+        "optional": false,
+        "type": "(hour: HourSel) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PopulationSummaryCard",
+    "source": "src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx",
+    "propsType": "PopulationSummaryCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": true,
+        "type": "AsyncData<PopulationInsights | null> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PriceComparison",
+    "source": "src/components/sites/PriceComparison/PriceComparison.tsx",
+    "propsType": "PriceComparisonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "range",
+        "optional": false,
+        "type": "PriceRange",
+        "callback": false
+      },
+      {
+        "name": "position",
+        "optional": false,
+        "type": "PricePosition",
+        "callback": false
+      },
+      {
+        "name": "price",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "format",
+        "optional": false,
+        "type": "(amount: number) => string",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "PricePositionCard",
+    "source": "src/components/sites/PricePositionCard/PricePositionCard.tsx",
+    "propsType": "PricePositionCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "price",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "range",
+        "optional": false,
+        "type": "PriceRange",
+        "callback": false
+      },
+      {
+        "name": "position",
+        "optional": false,
+        "type": "PricePosition",
+        "callback": false
+      },
+      {
+        "name": "format",
+        "optional": true,
+        "type": "((amount: number) => string) | undefined",
+        "callback": true
+      },
+      {
+        "name": "onPriceChange",
+        "optional": true,
+        "type": "((event: ChangeEvent<HTMLInputElement>) => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "SelectedShop",
+    "source": "src/components/sites/SelectedShop/SelectedShop.tsx",
+    "propsType": "SelectedShopProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "shop",
+        "optional": true,
+        "type": "Shop | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ShopListItem",
+    "source": "src/components/sites/ShopListItem/ShopListItem.tsx",
+    "propsType": "ShopListItemProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "shop",
+        "optional": false,
+        "type": "Shop",
+        "callback": false
+      },
+      {
+        "name": "selected",
+        "optional": false,
+        "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "onSelect",
+        "optional": false,
+        "type": "(id: string) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "SitesPage",
+    "source": "src/components/sites/SitesPage/SitesPage.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": true,
+    "props": []
+  },
+  {
+    "component": "SitesView",
+    "source": "src/components/sites/SitesView.tsx",
+    "propsType": "SitesViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").AsyncData<SitesViewData> | undefined",
+        "callback": false
+      },
+      {
+        "name": "loading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "error",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "appKey",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "footTrafficData",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/foot-traffic\").FootTrafficDataset | undefined",
+        "callback": false
+      },
+      {
+        "name": "footTrafficSource",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/foot-traffic\").FootTrafficDataSource | undefined",
+        "callback": false
+      },
+      {
+        "name": "footTrafficLoading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "footTrafficError",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onFootTrafficRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "populationData",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationDataset | undefined",
+        "callback": false
+      },
+      {
+        "name": "populationSource",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationInsightsDataSource | undefined",
+        "callback": false
+      },
+      {
+        "name": "populationInsights",
+        "optional": true,
+        "type": "DataState<import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationInsights | null> | undefined",
+        "callback": false
+      },
+      {
+        "name": "onAnalysisChange",
+        "optional": true,
+        "type": "((selection: import(\"/Users/daon/Desktop/foundy/src/types/market\").SitesAnalysisSelection) => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "onPriceChange",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
+        "callback": true
+      },
+      {
+        "name": "onOpenReport",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "SitesWorkspace",
+    "source": "src/components/sites/SitesWorkspace/SitesWorkspace.tsx",
+    "propsType": "SitesWorkspaceProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": false,
+        "type": "SitesViewData",
+        "callback": false
+      },
+      {
+        "name": "appKey",
+        "optional": true,
+        "type": "string | undefined",
+        "callback": false
+      },
+      {
+        "name": "footTrafficData",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/foot-traffic\").FootTrafficDataset | undefined",
+        "callback": false
+      },
+      {
+        "name": "footTrafficSource",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/foot-traffic\").FootTrafficDataSource | undefined",
+        "callback": false
+      },
+      {
+        "name": "footTrafficLoading",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "footTrafficError",
+        "optional": true,
+        "type": "string | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "onFootTrafficRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "populationData",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationDataset | undefined",
+        "callback": false
+      },
+      {
+        "name": "populationSource",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationInsightsDataSource | undefined",
+        "callback": false
+      },
+      {
+        "name": "populationInsights",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/src/types/data-state\").DataState<import(\"/Users/daon/Desktop/foundy/src/types/population-insights\").PopulationInsights | null> | undefined",
+        "callback": false
+      },
+      {
+        "name": "onAnalysisChange",
+        "optional": true,
+        "type": "((selection: import(\"/Users/daon/Desktop/foundy/src/types/market\").SitesAnalysisSelection) => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "onPriceChange",
+        "optional": true,
+        "type": "import(\"/Users/daon/Desktop/foundy/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
+        "callback": true
+      },
+      {
+        "name": "onOpenReport",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "StrategyCard",
+    "source": "src/components/sites/StrategyCard/StrategyCard.tsx",
+    "propsType": null,
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "StrategyRow",
+    "source": "src/components/sites/StrategyRow/StrategyRow.tsx",
+    "propsType": "StrategyRowProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "text",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "source",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "Input",
+    "source": "src/components/ui/Input/Input.tsx",
+    "propsType": "InputProps",
+    "exportedProps": true,
+    "nativeHtmlProps": true,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "Select",
+    "source": "src/components/ui/Select/Select.tsx",
+    "propsType": "SelectProps",
+    "exportedProps": true,
+    "nativeHtmlProps": true,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "Textarea",
+    "source": "src/components/ui/Textarea/Textarea.tsx",
+    "propsType": "TextareaProps",
+    "exportedProps": true,
+    "nativeHtmlProps": true,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "Element",
+    "source": "src/components/view/Element/Element.tsx",
+    "propsType": "ElementProps",
+    "exportedProps": true,
+    "nativeHtmlProps": true,
+    "connected": false,
+    "props": []
+  },
+  {
+    "component": "EventBoundary",
+    "source": "src/components/view/EventBoundary/EventBoundary.tsx",
+    "propsType": "EventBoundaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "ViewEventHandler | undefined",
+        "callback": true
+      }
+    ]
+  },
+  {
+    "component": "FeatureView",
+    "source": "src/components/view/FeatureView/FeatureView.tsx",
+    "propsType": "FeatureViewProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "page",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "children",
+        "optional": false,
+        "type": "ReactNode",
+        "callback": false
+      },
+      {
+        "name": "onEvent",
+        "optional": true,
+        "type": "ViewEventHandler | undefined",
+        "callback": true
+      }
+    ]
+  }
+]

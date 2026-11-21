@@ -1,0 +1,37 @@
+{
+  "captured_at_utc": "2026-11-20T12:34:08.626865+00:00",
+  "scope": "Read-only metadata, exact table row counts, cache sources and top-level payload field names; no application row values or credentials exported.",
+  "transaction_read_only": "on",
+  "public_tables": [
+    "alembic_version",
+    "alerts",
+    "api_cache",
+    "change_logs",
+    "checklist_items",
+    "cost_logs",
+    "grant_matches",
+    "report_items",
+    "runs",
+    "stores",
+    "users"
+  ],
+  "row_counts": {
+    "alembic_version": 1,
+    "alerts": 11,
+    "api_cache": 0,
+    "change_logs": 0,
+    "checklist_items": 55,
+    "cost_logs": 0,
+    "grant_matches": 0,
+    "report_items": 24,
+    "runs": 6,
+    "stores": 6,
+    "users": 6
+  },
+  "cache_sources": [],
+  "cache_top_level_fields": [],
+  "migration_versions": [
+    "0001_init"
+  ],
+  "success": true
+}
