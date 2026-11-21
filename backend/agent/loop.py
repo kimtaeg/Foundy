@@ -21,7 +21,7 @@ from .advise import advise_item
 from .grants import grant_checklist_items, judge_grants
 from .guardrails import enforce
 from .judge import (
-    judge_ad_claims, judge_building_use_ai, judge_law_card, judge_trademark, judge_violation_ai,
+    REAL_LAW_UNAVAILABLE, judge_ad_claims, judge_building_use_ai, judge_law_card, judge_trademark, judge_violation_ai,
 )
 from .llm import LLM, GuardedLLM
 from .ports import Calc, Emit, StoreInput, ToolResult, Tools
@@ -172,6 +172,15 @@ def run_analysis(
         message = {"done": "조문 조회 완료", "fallback": "캐시·예시 법령 자료로 대체하거나 일부 조문 확인이 필요해요",
                    "failed": "조문을 조회하지 못해 확인이 필요해요"}[law_status]
         step("law", law_status, message)
+    if getattr(tools, "use_mock", None) is False:
+        if "law" not in selected and any(c["id"] == "building_use" for c in checks):
+            # 건물만 다시 반영할 때(층·호 변경 등)도 건물 용도는 조문이 있어야 판정하므로 그 조문만 함께 찾는다
+            laws["building_use"] = _safe("국가법령정보", tools.law, "building_use", store)
+        # 실제 모드에서는 실제 조문(저장된 법령 검색·법령 API·그 캐시)만 근거로 쓴다. 모의 조문으로 대체됐거나
+        # 찾지 못했으면 '실제 조문 없음'으로 표시해 법령에 기대는 판정을 보류하게 한다 (#68). 명시한 모의 모드는 그대로다
+        laws = {cid: r if (r.ok and not r.from_mock) else ToolResult(
+            ok=False, source=r.source, error=f"{REAL_LAW_UNAVAILABLE}:{r.error or 'mock'}", from_mock=r.from_mock)
+            for cid, r in laws.items()}
 
     step("rules", "running", "규칙표 대조 준비 중")
     found: dict[str, tuple[ReportItem, dict]] = {}  # check_id → (항목, 선택지 만들 때 쓰는 부가 정보)
