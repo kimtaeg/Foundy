@@ -56,6 +56,7 @@ export function createOnboardingWorkflow(context: OnboardingDependencies) {
     context.S.type = context.$("fType").value;
     context.S.opening = context.$("fOpen").value || context.S.opening;
     context.S.birth = Number(context.$("fBirth").value) || null;
+    context.S.area = Number(context.$("fArea")?.value) || null;
     if (context.W.path === "undecided") {
       context.S.region = context.$("fRegion").value;
       context.S.location = "undecided";

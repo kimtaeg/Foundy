@@ -17,6 +17,18 @@ export function StoreScheduleFields({ store }: StoreScheduleFieldsProps) {
         />
       </Element>
       <Element as="label" className="nx-f">
+        영업장 면적 (㎡, 선택)
+        <Element
+          as="input"
+          id="fArea"
+          type="number"
+          min="1"
+          step="0.1"
+          value={store.area || ""}
+        />
+        <small>소방 안전시설처럼 면적 기준이 있는 규정을 확인하는 데 써요.</small>
+      </Element>
+      <Element as="label" className="nx-f">
         출생 연도 (선택)
         <Element
           as="input"

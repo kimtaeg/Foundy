@@ -89,6 +89,7 @@ export function useReport(): ReportViewData | null {
     context.ev(card) !== "ok";
   const openId = shown.find(needsDecision)?.id;
   return {
+    obligations: context.obligations ?? [],
     locked: context.S.location === "undecided",
     filter: context.reportFilter,
     counts,

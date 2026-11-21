@@ -207,6 +207,7 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
         event.preventDefault();
         const value = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
         const birth = Number(value("fBirth"));
+        const area = Number(value("fArea"));
         void (async () => {
           try {
             const { store_id } = await createAccountApi(session).registerStore({
@@ -216,6 +217,7 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
               address_detail: value("fDetail").trim(),
               opening_date: value("fOpen"),
               ...(birth ? { owner_birth_year: birth } : {}),
+              ...(area > 0 ? { area_sqm: area } : {}),
             });
             const next: ApiSession = { ...session, storeId: store_id };
             sessionRef.current = next;
@@ -247,6 +249,7 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
       await api.saveAnswers({
         sells_alcohol: register.S.alcohol,
         uses_terrace: register.S.terrace,
+        does_delivery: register.S.delivery,
         has_employees: register.S.employees,
         funds_krw: fundsInput ? Number(fundsInput) : register.S.funds,
       });

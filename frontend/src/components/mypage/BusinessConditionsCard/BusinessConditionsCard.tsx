@@ -38,6 +38,22 @@ export function BusinessConditionsCard({
           value={draft.employees}
           hints={hints("employees")}
         />
+        <ProfileBooleanField
+          field="delivery"
+          label="배달도 하나요?"
+          value={draft.delivery}
+          hints={hints("delivery")}
+        />
+        <ProfileField label="영업장 면적 (㎡)" hints={hints("area")}>
+          <Element
+            as="input"
+            data-mp="area"
+            type="number"
+            min="1"
+            step="0.1"
+            value={draft.area}
+          />
+        </ProfileField>
         <ProfileField label="준비 자금 (원)" hints={hints("funds")}>
           <Element
             as="input"

@@ -5,6 +5,7 @@ export type StoreDraft = Omit<
 > & {
   birth: number | string;
   funds: number | string;
+  area: number | string;
   location: string;
 };
 export interface AccountProfile {

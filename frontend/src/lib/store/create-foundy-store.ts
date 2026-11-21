@@ -581,15 +581,15 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   });
   const num: any = (v: any) => Number(v) || 0;
   const normMp: any = (k: any, v: any) =>
-    k === "birth" || k === "funds"
-      ? k === "funds" && (v == null || String(v).trim() === "")
+    k === "birth" || k === "funds" || k === "area"
+      ? (k === "funds" || k === "area") && (v == null || String(v).trim() === "")
         ? null
         : num(v)
-      : k === "alcohol" || k === "terrace" || k === "employees"
+      : k === "alcohol" || k === "terrace" || k === "employees" || k === "delivery"
         ? !!v
         : String(v == null ? "" : v).trim();
   const formatProfileValue: any = (k: any, v: any) =>
-    k === "alcohol" || k === "terrace" || k === "employees"
+    k === "alcohol" || k === "terrace" || k === "employees" || k === "delivery"
       ? v
         ? "네"
         : "아니요"
@@ -597,7 +597,11 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         ? v === "decided"
           ? "자리 확정"
           : "자리 미정"
-        : k === "funds"
+        : k === "area"
+          ? v == null || String(v).trim() === ""
+            ? "(없음)"
+            : `${v}㎡`
+          : k === "funds"
           ? v == null || String(v).trim() === ""
             ? "(없음)"
             : won(v)
