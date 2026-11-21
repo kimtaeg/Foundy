@@ -1,9 +1,15 @@
 import type { MarketPoint, PriceRange, Shop } from "@/types/market";
 
-/** Illustrative coordinates, not a live Kakao Places response. */
+/** 시연용 예시 점포(SHOPS·EXFOOD)가 모여 있는 성수역 근처 좌표. 실제 조회 결과가 아니다. */
 export const MARKET_DEMO_CENTER: MarketPoint = {
   lat: 37.54515,
   lng: 127.05713,
+};
+
+/** 가게 주소를 찾기 전·찾지 못했을 때의 기본 지도 중심(서울시청). 특정 상권을 가리키지 않는다. */
+export const MARKET_DEFAULT_CENTER: MarketPoint = {
+  lat: 37.5665,
+  lng: 126.978,
 };
 
 /** Demonstration market data and display-independent market calculations. */

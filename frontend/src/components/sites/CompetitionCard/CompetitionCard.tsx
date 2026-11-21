@@ -7,8 +7,9 @@ export interface CompetitionCardProps { analysis: MarketAnalysis }
 
 export function CompetitionCard({ analysis }: CompetitionCardProps) {
   if (!analysis.count) return null;
+  const noun = analysis.example ? "예시 점포" : "점포";
   return (
-    <MarketPanelCard title="거리와 점포 특성" description="선택한 업종의 예시 표본을 거리와 브랜드로 살펴봐요.">
+    <MarketPanelCard title="거리와 점포 특성" description={`선택한 업종의 ${analysis.example ? "예시 표본" : "조회 결과"}를 거리와 브랜드로 살펴봐요.`}>
       <div className="space-y-5">
         <div>
           <HorizontalBarChart title="거리별 누적 점포 수" rows={analysis.distanceRows} unit="곳" maxValue={analysis.count} />
@@ -17,8 +18,8 @@ export function CompetitionCard({ analysis }: CompetitionCardProps) {
         <div className="border-0 border-t border-solid border-neutral-100 pt-4">
           <DonutChart title="브랜드 이름 기준 분류" rows={[
             { label: "프랜차이즈 추정", value: analysis.franchiseCount },
-            { label: "그 외 예시 점포", value: analysis.independentCount },
-          ]} unit="곳" centerLabel="예시 점포" />
+            { label: `그 외 ${noun}`, value: analysis.independentCount },
+          ]} unit="곳" centerLabel={noun} />
         </div>
         <div className="rounded-xl bg-neutral-50 px-3 py-1">
           <MarketMetric label="디저트·베이커리 분류">{analysis.dessertCount}곳</MarketMetric>
