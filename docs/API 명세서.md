@@ -12,6 +12,7 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-17 | 최초 작성 |
+| 2026-11-21 (아이디·비밀번호 로그인) | `POST /auth/signup`(아이디·비밀번호·이름으로 가입 후 바로 로그인)·`POST /auth/login` 추가. 아이디는 영문 소문자·숫자 4~20자, 비밀번호는 8자 이상(72바이트 이하), 비밀번호는 bcrypt 해시로만 저장. 로그인 실패는 아이디 없음·비밀번호 오류 모두 같은 `401 INVALID_CREDENTIALS`, 같은 아이디로 10분에 5번 틀리면 `429 RATE_LIMITED`. 가입 시 중복 아이디는 `409 USERNAME_TAKEN`. `user`에 `username` 추가, `provider`에 `local` 추가. 소셜 로그인 엔드포인트는 그대로 두되 화면에서는 쓰지 않는다 |
 | 2026-11-21 (인증·가게 등록) | 소셜 로그인 시작 `POST /auth/social/start`(state 발급·`redirect_uri` 허용 목록·`browser_hash`) 추가, `POST /auth/social`은 `{provider, code, state, browser_nonce}`로 state와 브라우저 결속 대조(실패 시 제공자 호출 전 `400`, state 유지). 로그아웃은 요청에 쓴 토큰만 폐기(옛 토큰 호환). `PATCH /me` 규칙. 가게 등록 응답에 `address_status`, `422 ADDRESS_NOT_RESOLVED`의 `reason`·`candidates`, 업종은 규칙 묶음 `business_type_inputs`. 되묻기 답변은 `null` = 미답변, 부분 저장(생략 = 유지), 분석 중 `409`·첫 분석 후 `400`. 새 에러 코드 `INVALID_STATE`·`SOCIAL_LOGIN_FAILED`·`SOCIAL_PROVIDER_UNAVAILABLE`·`SOCIAL_LOGIN_UNAVAILABLE` |
 | 2026-11-21 (알림) | 알림 시점 이동 `as_of` 구현 반영: 기한 알림(미완료·기한 지남·14일 이내) 규칙, 개업 후 달력상 6개월 mock 알림, 예시 알림의 `alert_id`(`ex-`)·읽음·`created_at`·필터 규칙 |
 | 2026-11-21 | 마이페이지 수정·카드 선택 구현 반영: 분석 중 `/choose`·`PATCH /stores`는 `409 RUN_IN_PROGRESS`(저장 안 함), 재분석이 필요하면 변경과 run을 한 트랜잭션으로 저장하고 `run_id` 반환. `/choose`의 재분석 여부는 이전 선택을 비우기 전 ↔ 새 선택 후 유효 값 비교로 결정. `address_detail`(층·호수)은 `building`만. 직원 여부만 바꾸면 재분석 없이 고용 항목 생성·숨김. 미리보기 응답에 `dry_run`, `/changes` 항목에 `changed`·`impacts`·`reset_items` 추가 |
@@ -38,6 +39,8 @@
 | 메서드 | 경로 | 설명 | 범위 |
 | --- | --- | --- | --- |
 | POST | `/api/auth/social/start` | 소셜 로그인 시작: state 발급 + 제공자 인가 주소 | 핵심 |
+| POST | `/api/auth/signup` | 회원가입(아이디·비밀번호·이름): 가입 후 바로 세션 토큰 | 핵심 |
+| POST | `/api/auth/login` | 아이디·비밀번호 로그인 → 세션 토큰 | 핵심 |
 | POST | `/api/auth/social` | 소셜 로그인(카카오·Google·네이버): 인가 코드 + state → 세션 토큰 | 핵심 |
 | POST | `/api/auth/logout` | 로그아웃 (요청에 쓴 토큰만 폐기) | 핵심 |
 | GET | `/api/me` | 내 계정과 내 가게(`store_id`, 없으면 `null` → 첫 설정) | 핵심 |
@@ -86,6 +89,8 @@
 | HTTP | code | 상황 |
 | --- | --- | --- |
 | 400 | `INVALID_INPUT` | 필수값 누락, 날짜 형식 오류 |
+| 401 | `INVALID_CREDENTIALS` | 아이디 또는 비밀번호가 틀림 (아이디 없음과 구분하지 않음) |
+| 409 | `USERNAME_TAKEN` | 회원가입 때 이미 쓰는 아이디 |
 | 401 | `UNAUTHORIZED` | 로그인 토큰이 없거나 만료됨 |
 | 403 | `FORBIDDEN` | 다른 계정의 가게에 접근함 |
 | 404 | `STORE_NOT_FOUND`, `RUN_NOT_FOUND`, `ITEM_NOT_FOUND` |  |
@@ -100,6 +105,25 @@
 | 500 | `INTERNAL_ERROR` |  |
 
 ### 인증과 계정 [핵심]
+
+**아이디·비밀번호 로그인** (화면에서 쓰는 방식). 소셜 로그인은 제공자 앱 키가 있어야 해서 키가 없는 환경에서는 쓸 수 없다. 아래 두 엔드포인트는 키 없이 동작한다.
+
+`POST /api/auth/signup` 요청: `{ "username": "foundy01", "password": "password1", "name": "김창업" }`. 응답 `201`은 소셜 로그인과 같은 형식이다.
+
+```json
+{ "access_token": "…", "user": { "user_id": "u-01", "name": "김창업", "provider": "local", "username": "foundy01", "joined_at": "2026-11-21" }, "store_id": null }
+```
+
+`POST /api/auth/login` 요청: `{ "username": "foundy01", "password": "password1" }`. 응답 `200`은 위와 같다.
+
+- 아이디는 영문 소문자·숫자 4~20자(대문자는 소문자로 바꿔 저장·비교), 비밀번호는 8자 이상이고 UTF-8 72바이트 이하, 이름은 1~30자. 어기면 `400 INVALID_INPUT`. 정해지지 않은 필드를 보내도 `400`.
+- 이미 쓰는 아이디는 `409 USERNAME_TAKEN`.
+- 로그인 실패는 아이디가 없든 비밀번호가 틀리든 **같은 `401 INVALID_CREDENTIALS`**다 (계정이 있는지 알리지 않는다). 소셜·예시 계정은 아이디가 없어 이 방식으로 들어올 수 없다.
+- 같은 아이디로 10분 안에 5번 틀리면 이후 시도는 맞는 비밀번호여도 `429 RATE_LIMITED`다 (서버 메모리 기준이라 재시작하면 초기화).
+- 비밀번호는 bcrypt 해시로만 저장하고 응답·로그에 남기지 않는다. 로그아웃·토큰 정책은 아래 소셜 로그인과 같다.
+
+**소셜 로그인** (제공자 앱 키가 설정된 환경에서만)
+
 
 예선 프로토타입은 **소셜 로그인 화면**(카카오·Google·네이버 버튼)으로 계정을 만든다. 실제 서비스에서는 백엔드가 소셜 로그인(OAuth)의 인가 코드를 교환해 사용자를 식별하고 **자체 세션 토큰(JWT)**을 발급하며, 사용자는 PostgreSQL `users`에 저장한다. 백엔드는 토큰의 `user_id`로 가게 소유를 확인한다. 비밀번호는 서비스가 직접 받지 않는다.
 
@@ -1143,7 +1167,8 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 
 | 화면 (경로) | 호출 API | 범위 |
 | --- | --- | --- |
-| 로그인 `/login` (카카오·Google·네이버, 예시 계정) | `POST /auth/social`, `POST /demo`, `GET /me` | 핵심 |
+| 로그인 `/login` (아이디·비밀번호, 예시 계정) | `POST /auth/login`, `POST /demo`, `GET /me` | 핵심 |
+| 회원가입 `/signup` | `POST /auth/signup` | 핵심 |
 | 첫 설정 `/start` (로그인 후 가게가 없을 때. 이름·업종·주소·개업일·출생연도 → 되묻기(술·테라스·직원·준비 자금) → 조사 중) | `POST /stores`, `POST /stores/{id}/answers` | 핵심 |
 | 조사 중 `/stores/{id}/run/{runId}` (첫 설정·마이페이지 재반영 공용) | `POST /stores/{id}/analyze`, `GET /runs/{runId}/stream`, `GET /runs/{runId}` | 핵심 |
 | 내 가게 홈 `/stores/{id}` (결정할 것·직접 할 일·다음 할 일) | `GET /stores/{id}/dashboard`, `POST /report/items/{itemId}/choose` | 핵심 |

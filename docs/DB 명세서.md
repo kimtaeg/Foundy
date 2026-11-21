@@ -11,6 +11,7 @@
 
 | 날짜 | 내용 |
 | --- | --- |
+| 2026-11-21 | 아이디·비밀번호 로그인: `users.username`·`password_hash` 추가, `provider`에 `local` 허용, 마이그레이션 `0003_password_login` |
 | 2026-11-20 | 최초 작성. `foundy` 확정 기능 기준. **상권 분석(상권 테이블·캐시)과 메뉴 광고 문구(`menu_text`)는 마지막에 구현하므로 지금 테이블에 넣지 않고 10장에 추가 방법만 적는다.** 서류함은 규칙 묶음으로 만들어서 테이블이 없다 |
 | 2026-11-20 | 백엔드 착수 결정: `cost_logs`는 `run_id` NULL 허용 + `store_id` 직접 연결로 확정(2-10), `decision` 알림은 저장 방식(`dec-<item_key>`)으로 확정, 로그인은 예시 계정(`provider='demo'`)만 먼저 만들고 소셜 로그인은 Must 이후. 첫 마이그레이션 `backend/db/migrations/versions/0001_init.py` |
 
@@ -71,13 +72,15 @@ erDiagram
 
 ### 2-1. `users`
 
-소셜 로그인 계정. 비밀번호는 저장하지 않는다. 예시 계정(`provider = 'demo'`)은 가입 없이 만든다.
+아이디·비밀번호 계정(`provider = 'local'`)과 소셜 로그인 계정. 비밀번호는 bcrypt 해시(`password_hash`)로만 저장한다. 예시 계정(`provider = 'demo'`)은 가입 없이 만든다.
 
 ```sql
 CREATE TABLE users (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider         text NOT NULL CHECK (provider IN ('kakao','google','naver','demo')),
+  provider         text NOT NULL CHECK (provider IN ('kakao','google','naver','demo','local')),
   provider_user_id text,                        -- 소셜 쪽 사용자 id. demo는 NULL
+  username         text,                        -- 아이디(영문 소문자·숫자 4~20자). local만
+  password_hash    text,                        -- bcrypt 해시. local만
   name             text NOT NULL,               -- 마이페이지에서 바꿀 수 있는 표시 이름
   joined_at        date NOT NULL DEFAULT CURRENT_DATE,
   created_at       timestamptz NOT NULL DEFAULT now(),
@@ -85,11 +88,15 @@ CREATE TABLE users (
 );
 CREATE UNIQUE INDEX users_provider_uid ON users (provider, provider_user_id)
   WHERE provider_user_id IS NOT NULL;
+CREATE UNIQUE INDEX users_username ON users (username) WHERE username IS NOT NULL;
+ALTER TABLE users ADD CONSTRAINT users_local_credentials
+  CHECK ((provider = 'local') = (username IS NOT NULL AND password_hash IS NOT NULL));
 ```
 
 | 컬럼 | 설명 |
 | --- | --- |
-| `provider` | `kakao`·`google`·`naver`·`demo` |
+| `provider` | `kakao`·`google`·`naver`·`demo`·`local`(아이디·비밀번호) |
+| `username`·`password_hash` | `local` 계정만 값이 있다 (`0003_password_login`). 평문 비밀번호는 저장하지 않는다 |
 | `provider_user_id` | OAuth로 얻은 사용자 식별자. 같은 `(provider, provider_user_id)`로 다시 로그인하면 같은 `users` 행을 쓴다 |
 | `name` | `PATCH /api/me`로만 바뀐다. 점검 결과에 영향이 없다 |
 

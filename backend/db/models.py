@@ -49,6 +49,8 @@ class User(Base):
     id: Mapped[uuid.UUID] = _id()
     provider: Mapped[str] = mapped_column(Text, nullable=False)
     provider_user_id: Mapped[str | None] = mapped_column(Text)
+    username: Mapped[str | None] = mapped_column(Text)  # 아이디·비밀번호 로그인(provider='local')
+    password_hash: Mapped[str | None] = mapped_column(Text)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     joined_at: Mapped[date] = mapped_column(Date, nullable=False, server_default=text("CURRENT_DATE"))
     created_at: Mapped[datetime] = _ts()

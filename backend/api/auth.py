@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session
 from api.deps import AuthToken, current_token
 from db.models import Store, User
 from db.session import get_db
-from services import oauth, serializers
+from api.errors import ApiError
+from services import oauth, password as pw, serializers
 from services.auth import issue_token, purge_expired, revoke
 
 router = APIRouter(prefix="/api/auth")
@@ -78,6 +79,59 @@ def social_login(body: SocialBody, db: Session = Depends(get_db)) -> dict:
     store_id = db.scalar(select(Store.id).where(Store.user_id == user.id))
     return {"access_token": issue_token(str(user.id)), "user": serializers.user(user),
             "store_id": str(store_id) if store_id else None}
+
+
+class SignupBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: str
+    password: str
+    name: str
+
+
+class LoginBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: str
+    password: str
+
+
+def _session(db: Session, user: User) -> dict:
+    store_id = db.scalar(select(Store.id).where(Store.user_id == user.id))
+    return {"access_token": issue_token(str(user.id)), "user": serializers.user(user),
+            "store_id": str(store_id) if store_id else None}
+
+
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
+def signup(body: SignupBody, db: Session = Depends(get_db)) -> dict:
+    """아이디·비밀번호로 가입하고 바로 로그인한다."""
+    username = pw.validate_username(body.username)
+    password = pw.validate_password(body.password)
+    name = pw.validate_name(body.name)
+    taken = ApiError(409, "USERNAME_TAKEN", "이미 사용 중인 아이디입니다.")
+    if db.scalar(select(User.id).where(User.username == username)):
+        raise taken
+    user = User(provider="local", username=username, password_hash=pw.hash_password(password), name=name)
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:  # 같은 아이디의 동시 가입
+        db.rollback()
+        raise taken from None
+    return _session(db, user)
+
+
+@router.post("/login")
+def login(body: LoginBody, db: Session = Depends(get_db)) -> dict:
+    """아이디·비밀번호 로그인. 아이디가 없거나 비밀번호가 틀리면 같은 401 이다."""
+    username = (body.username or "").strip().lower()
+    pw.throttle.check(username)
+    user = db.scalar(select(User).where(User.username == username, User.provider == "local"))
+    if not pw.verify_password(body.password or "", user.password_hash if user else None):
+        pw.throttle.fail(username)
+        raise ApiError(401, "INVALID_CREDENTIALS", "아이디 또는 비밀번호가 올바르지 않습니다.")
+    pw.throttle.reset(username)
+    return _session(db, user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
