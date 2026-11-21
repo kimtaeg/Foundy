@@ -59,7 +59,7 @@ export function ChatMessage({
   const citations: CitationItem[] = (message.cites || []).flatMap<CitationItem>(
     (citation) => {
       if (typeof citation !== "string")
-        return [{ page: citation.p, label: citation.label }];
+        return [{ page: citation.p, label: citation.label, url: citation.url }];
       const card = cards.find((item) => item.id === citation);
       return card
         ? card.evidence.slice(0, 3).map((evidence) => ({

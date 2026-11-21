@@ -7,7 +7,18 @@ export function MessageCitations({ citations }: MessageCitationsProps) {
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label="답변 근거">
       <span className="text-xs font-medium text-neutral-600">근거</span>
-      {citations.map((citation, index) => (
+      {citations.map((citation, index) =>
+        citation.url ? (
+          <a
+            key={index}
+            href={citation.url}
+            target="_blank"
+            rel="noreferrer"
+            className="max-w-full rounded-lg border border-solid border-neutral-200 bg-white px-2 py-1 text-left text-xs leading-5 text-neutral-700 no-underline transition-colors [overflow-wrap:anywhere] hover:bg-neutral-100 hover:text-foundy-primary-ink"
+          >
+            {citation.label} <span aria-hidden="true">↗</span>
+          </a>
+        ) : (
         <button
           type="button"
           key={index}
@@ -19,7 +30,8 @@ export function MessageCitations({ citations }: MessageCitationsProps) {
         >
           {citation.label} <span aria-hidden="true">↗</span>
         </button>
-      ))}
+        ),
+      )}
     </div>
   );
 }

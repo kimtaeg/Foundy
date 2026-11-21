@@ -145,7 +145,7 @@ try {
     expect(await saved('myprice')).toBe('4800');
     return { price: await saved('myprice'), priceResult: await page.locator('#priceResult').innerText(), text: await active('sites').innerText() };
   });
-  await check('chat is disabled until the server chat API is connected', async () => {
+  await check('chat shows a notice when the store is not connected to the server', async () => {
     expect(await page.locator('#nav [data-page="chat"]').count()).toBe(0);
     await page.locator('[data-nx="chattoggle"]').first().click();
     await expect(page.locator('#chatPanel')).toBeVisible();
