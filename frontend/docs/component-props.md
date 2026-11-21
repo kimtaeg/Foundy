@@ -3,7 +3,7 @@
 `npm run docs:props`로 실제 TypeScript 선언에서 생성합니다. 데이터와 이벤트 콜백은 별도 필드입니다.
 페이지 데이터 계약과 Promise/스켈레톤 사용법은 [API 연결 가이드](./api-props-and-loading.md)를 참고하세요.
 
-총 210개 컴포넌트. 상세 필드 타입: [component-props.json](./component-props.json).
+총 221개 컴포넌트. 상세 필드 타입: [component-props.json](./component-props.json).
 
 | 컴포넌트 | 공개 Props 타입 | 입력 필드 | 상태 연결 |
 | --- | --- | --- | --- |
@@ -39,12 +39,14 @@
 | [CalendarMonthCard](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx) | `CalendarMonthCardProps` | year, month, days, colors | props / UI 상태 |
 | [ChecklistHeader](../src/components/checklist/ChecklistHeader/ChecklistHeader.tsx) | 없음 | 없음 | props / UI 상태 |
 | [ChecklistPage](../src/components/checklist/ChecklistPage/ChecklistPage.tsx) | 없음 | 없음 | Page / Connected 어댑터 |
-| [ChecklistProgress](../src/components/checklist/ChecklistProgress/ChecklistProgress.tsx) | `ChecklistProgressProps` | opening, done, total | props / UI 상태 |
+| [ChecklistProgress](../src/components/checklist/ChecklistProgress/ChecklistProgress.tsx) | `ChecklistProgressProps` | opening, done, total, kinds?, reviewCount? | props / UI 상태 |
 | [ChecklistView](../src/components/checklist/ChecklistView.tsx) | `ChecklistViewProps` | onEvent? (콜백), data?, loading?, error?, onRetry? (콜백) | props / UI 상태 |
 | [ChecklistViewTabs](../src/components/checklist/ChecklistViewTabs/ChecklistViewTabs.tsx) | `ChecklistViewTabsProps` | view | props / UI 상태 |
 | [OpeningDateDialog](../src/components/checklist/OpeningDateDialog/OpeningDateDialog.tsx) | `OpeningDateDialogProps` | opening | props / UI 상태 |
 | [TaskGroupCard](../src/components/checklist/TaskGroupCard/TaskGroupCard.tsx) | `TaskGroupCardProps` | group | props / UI 상태 |
+| [TaskKindBadge](../src/components/checklist/TaskKindBadge/TaskKindBadge.tsx) | `TaskKindBadgeProps` | kind?, aiAdded? | props / UI 상태 |
 | [TaskMetadata](../src/components/checklist/TaskMetadata/TaskMetadata.tsx) | `TaskMetadataProps` | task, contact | props / UI 상태 |
+| [TaskReason](../src/components/checklist/TaskReason/TaskReason.tsx) | `TaskReasonProps` | task | props / UI 상태 |
 | [TaskRow](../src/components/checklist/TaskRow/TaskRow.tsx) | `TaskRowProps` | task, contact, deadline, documentCount | props / UI 상태 |
 | [AnalysisStatusItem](../src/components/common/AnalysisStatusItem/AnalysisStatusItem.tsx) | `AnalysisStatusItemProps` | label, index, complete, running, completeLabel? | props / UI 상태 |
 | [MetricCard](../src/components/common/MetricCard/MetricCard.tsx) | `MetricCardProps` | label, value, caption? | props / UI 상태 |
@@ -59,12 +61,20 @@
 | [StoreSummary](../src/components/dashboard/StoreSummary/StoreSummary.tsx) | `StoreSummaryProps` | store, name, days, undecided | props / UI 상태 |
 | [TaskItem](../src/components/dashboard/TaskItem/TaskItem.tsx) | `TaskItemProps` | task | props / UI 상태 |
 | [TaskList](../src/components/dashboard/TaskList/TaskList.tsx) | `TaskListProps` | actions, tasks | props / UI 상태 |
+| [DocCard](../src/components/docs/DocCard/DocCard.tsx) | `DocCardProps` | document, contact? | props / UI 상태 |
+| [DocFiles](../src/components/docs/DocFiles/DocFiles.tsx) | `DocFilesProps` | document | props / UI 상태 |
+| [DocOfficialForm](../src/components/docs/DocOfficialForm/DocOfficialForm.tsx) | `DocOfficialFormProps` | form | props / UI 상태 |
 | [DocRow](../src/components/docs/DocRow/DocRow.tsx) | `DocRowProps` | document, contact? | props / UI 상태 |
+| [DocSectionCard](../src/components/docs/DocSectionCard/DocSectionCard.tsx) | `DocSectionCardProps` | section, contacts | props / UI 상태 |
 | [DocsHeader](../src/components/docs/DocsHeader/DocsHeader.tsx) | 없음 | 없음 | props / UI 상태 |
 | [DocsPage](../src/components/docs/DocsPage/DocsPage.tsx) | 없음 | 없음 | Page / Connected 어댑터 |
+| [DocsProgressSummary](../src/components/docs/DocsProgressSummary/DocsProgressSummary.tsx) | `DocsProgressSummaryProps` | data | props / UI 상태 |
 | [DocsSummary](../src/components/docs/DocsSummary/DocsSummary.tsx) | `DocsSummaryProps` | total, finished, remaining | props / UI 상태 |
+| [DocStatusSelect](../src/components/docs/DocStatusSelect/DocStatusSelect.tsx) | `DocStatusSelectProps` | id, name, status | props / UI 상태 |
+| [DocStatusTabs](../src/components/docs/DocStatusTabs/DocStatusTabs.tsx) | `DocStatusTabsProps` | filter, counts, onChange (콜백) | props / UI 상태 |
 | [DocsView](../src/components/docs/DocsView/DocsView.tsx) | `DocsViewProps` | onEvent? (콜백), data?, loading?, error?, onRetry? (콜백) | props / UI 상태 |
 | [DocTaskCard](../src/components/docs/DocTaskCard/DocTaskCard.tsx) | `DocTaskCardProps` | row, contacts | props / UI 상태 |
+| [ManagedDocsBoard](../src/components/docs/ManagedDocsBoard/ManagedDocsBoard.tsx) | `ManagedDocsBoardProps` | data, contacts | props / UI 상태 |
 | [Modal](../src/components/feedback/Modal/Modal.tsx) | `ModalProps` | title, children, onClose (콜백) | props / UI 상태 |
 | [Toast](../src/components/feedback/Toast/Toast.tsx) | `ToastProps` | message | props / UI 상태 |
 | [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) | `FootTrafficMapProps` | appKey?, dataSource?, dataset?, loading?, error?, onRetry? (콜백), center, onCenterChange (콜백), radius, onRadiusChange (콜백), shops, selectedShopId, onSelectShop (콜백), address?, settingsOpen, onSettingsOpenChange (콜백), hour, lastHour, onHourChange (콜백) | props / UI 상태 |
@@ -129,13 +139,13 @@
 | [SocialSignInDialog](../src/components/login/SocialSignInDialog/SocialSignInDialog.tsx) | `SocialSignInDialogProps` | provider, providerLabel | props / UI 상태 |
 | [AccountCard](../src/components/mypage/AccountCard/AccountCard.tsx) | `AccountCardProps` | profile, providerLabel | props / UI 상태 |
 | [AnalysisProgressDialog](../src/components/mypage/AnalysisProgressDialog/AnalysisProgressDialog.tsx) | `AnalysisProgressDialogProps` | steps, completed, changes | props / UI 상태 |
-| [BusinessConditionsCard](../src/components/mypage/BusinessConditionsCard/BusinessConditionsCard.tsx) | `BusinessConditionsCardProps` | draft, fields, impacts | props / UI 상태 |
+| [BusinessConditionsCard](../src/components/mypage/BusinessConditionsCard/BusinessConditionsCard.tsx) | `BusinessConditionsCardProps` | draft, fields, impacts, answered?, notes? | props / UI 상태 |
 | [DataManagementCard](../src/components/mypage/DataManagementCard/DataManagementCard.tsx) | 없음 | 없음 | props / UI 상태 |
-| [ImpactCard](../src/components/mypage/ImpactCard/ImpactCard.tsx) | `ImpactCardProps` | changes, affectedLabels, resetCards | props / UI 상태 |
+| [ImpactCard](../src/components/mypage/ImpactCard/ImpactCard.tsx) | `ImpactCardProps` | changes, affectedLabels, resetCards, preview? | props / UI 상태 |
 | [ImpactHint](../src/components/mypage/ImpactHint/ImpactHint.tsx) | `ImpactHintProps` | labels | props / UI 상태 |
 | [MypagePage](../src/components/mypage/MypagePage/MypagePage.tsx) | 없음 | 없음 | Page / Connected 어댑터 |
 | [MypageView](../src/components/mypage/MypageView.tsx) | `MypageViewProps` | onEvent? (콜백), data?, loading?, error?, onRetry? (콜백) | props / UI 상태 |
-| [ProfileBooleanField](../src/components/mypage/ProfileBooleanField/ProfileBooleanField.tsx) | `ProfileBooleanFieldProps` | field, label, value, hints | props / UI 상태 |
+| [ProfileBooleanField](../src/components/mypage/ProfileBooleanField/ProfileBooleanField.tsx) | `ProfileBooleanFieldProps` | field, label, value, hints, note? | props / UI 상태 |
 | [ProfileField](../src/components/mypage/ProfileField/ProfileField.tsx) | `ProfileFieldProps` | label, hints, full?, children | props / UI 상태 |
 | [ProfileHeader](../src/components/mypage/ProfileHeader/ProfileHeader.tsx) | 없음 | 없음 | props / UI 상태 |
 | [ResetCardNotice](../src/components/mypage/ResetCardNotice/ResetCardNotice.tsx) | `ResetCardNoticeProps` | cards | props / UI 상태 |
@@ -170,6 +180,7 @@
 | [EvidenceItem](../src/components/report/EvidenceItem/EvidenceItem.tsx) | `EvidenceItemProps` | item, date | props / UI 상태 |
 | [LockedReport](../src/components/report/LockedReport/LockedReport.tsx) | 없음 | 없음 | props / UI 상태 |
 | [NextStepItem](../src/components/report/NextStepItem/NextStepItem.tsx) | `NextStepItemProps` | step | props / UI 상태 |
+| [ObligationsSection](../src/components/report/ObligationsSection/ObligationsSection.tsx) | `ObligationsSectionProps` | items | props / UI 상태 |
 | [OptionCard](../src/components/report/OptionCard/OptionCard.tsx) | `OptionCardProps` | cardId, option, recommended | props / UI 상태 |
 | [OptionConfirmDialog](../src/components/report/OptionConfirmDialog/OptionConfirmDialog.tsx) | `OptionConfirmDialogProps` | cardId, optionId, label, summary, changes, recommended, reason?, meta | props / UI 상태 |
 | [ReportCard](../src/components/report/ReportCard/ReportCard.tsx) | `ReportCardProps` | model | props / UI 상태 |
