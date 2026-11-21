@@ -69,19 +69,6 @@ export interface ChatViewData {
   actionLabels: Record<string, string>;
   callGuides: Record<string, CallGuide>;
 }
-export interface ChatContext {
-  S: { location: string };
-  CH: ChatState;
-  buildCards: () => ConsultationCard[];
-  eff: () => { name: string };
-  cardShort: (card: ConsultationCard) => string;
-  VL: Record<string, string>;
-  ev: (card: ConsultationCard) => string;
-  suggestions: () => string[];
-  callSteps: (card: ConsultationCard) => CallGuide;
-  CONTACT: Record<string, Contact>;
-  ACTLBL: Record<string, string>;
-}
 export interface FocusOption {
   id: string;
   label: string;

@@ -3,7 +3,7 @@
 `npm run docs:props`로 실제 TypeScript 선언에서 생성합니다. 데이터와 이벤트 콜백은 별도 필드입니다.
 페이지 데이터 계약과 Promise/스켈레톤 사용법은 [API 연결 가이드](./api-props-and-loading.md)를 참고하세요.
 
-총 206개 컴포넌트. 상세 필드 타입: [component-props.json](./component-props.json).
+총 210개 컴포넌트. 상세 필드 타입: [component-props.json](./component-props.json).
 
 | 컴포넌트 | 공개 Props 타입 | 입력 필드 | 상태 연결 |
 | --- | --- | --- | --- |
@@ -18,16 +18,16 @@
 | [ChatHeader](../src/components/chat/ChatHeader/ChatHeader.tsx) | 없음 | 없음 | props / UI 상태 |
 | [ChatLauncher](../src/components/chat/ChatLauncher/ChatLauncher.tsx) | `ChatLauncherProps` | open | props / UI 상태 |
 | [ChatMessage](../src/components/chat/ChatMessage/ChatMessage.tsx) | `ChatMessageProps` | message, index, last, busy?, cards, contacts, actionLabels, callGuides, memo | props / UI 상태 |
-| [ChatPanel](../src/components/chat/ChatPanel/ChatPanel.tsx) | `ChatPanelProps` | data?, loading?, error?, onRetry? (콜백) | props / UI 상태 |
+| [ChatPanel](../src/components/chat/ChatPanel/ChatPanel.tsx) | `ChatPanelProps` | data?, loading?, error?, onRetry? (콜백), notice? | props / UI 상태 |
 | [ChatPanelContent](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx) | `ChatPanelContentProps` | data | props / UI 상태 |
 | [ChatProcessing](../src/components/chat/ChatProcessing/ChatProcessing.tsx) | `ChatProcessingProps` | processing, actions?, messageIndex? | props / UI 상태 |
 | [ChatProcessingStep](../src/components/chat/ChatProcessingStep/ChatProcessingStep.tsx) | `ChatProcessingStepProps` | label, detail?, state, last | props / UI 상태 |
 | [ChatSubmitButton](../src/components/chat/ChatSubmitButton/ChatSubmitButton.tsx) | `ChatSubmitButtonProps` | busy, disabled | props / UI 상태 |
 | [ChatSupportIcon](../src/components/chat/ChatSupportIcon/ChatSupportIcon.tsx) | `ChatSupportIconProps` | className? | props / UI 상태 |
 | [ChatWelcome](../src/components/chat/ChatWelcome/ChatWelcome.tsx) | `ChatWelcomeProps` | storeName, undecided | props / UI 상태 |
-| [ChatWidget](../src/components/chat/ChatWidget/ChatWidget.tsx) | `ChatWidgetProps` | open, onboarded, onEvent? (콜백), data?, loading?, error?, onRetry? (콜백) | props / UI 상태 |
+| [ChatWidget](../src/components/chat/ChatWidget/ChatWidget.tsx) | `ChatWidgetProps` | open, onboarded, notice?, onEvent? (콜백), data?, loading?, error?, onRetry? (콜백) | props / UI 상태 |
 | [ConnectedChatWidget](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx) | 없음 | 없음 | Page / Connected 어댑터 |
-| [FavoriteQuestions](../src/components/chat/FavoriteQuestions/FavoriteQuestions.tsx) | `FavoriteQuestionsProps` | busy? | props / UI 상태 |
+| [FavoriteQuestions](../src/components/chat/FavoriteQuestions/FavoriteQuestions.tsx) | `FavoriteQuestionsProps` | questions?, busy? | props / UI 상태 |
 | [MessageCitations](../src/components/chat/MessageCitations/MessageCitations.tsx) | `MessageCitationsProps` | citations | props / UI 상태 |
 | [MessageText](../src/components/chat/MessageText/MessageText.tsx) | `MessageTextProps` | text | props / UI 상태 |
 | [PinnedQuestion](../src/components/chat/PinnedQuestion/PinnedQuestion.tsx) | `PinnedQuestionProps` | title, verdict, verdictLabel | props / UI 상태 |
@@ -121,6 +121,10 @@
 | [LoginBrand](../src/components/login/LoginBrand/LoginBrand.tsx) | 없음 | 없음 | props / UI 상태 |
 | [LoginCard](../src/components/login/LoginCard/LoginCard.tsx) | 없음 | 없음 | props / UI 상태 |
 | [LoginView](../src/components/login/LoginView.tsx) | `LoginViewProps` | onEvent? (콜백) | props / UI 상태 |
+| [PasswordLoginForm](../src/components/login/PasswordLoginForm/PasswordLoginForm.tsx) | 없음 | 없음 | props / UI 상태 |
+| [SignupCard](../src/components/login/SignupCard/SignupCard.tsx) | 없음 | 없음 | props / UI 상태 |
+| [SignupForm](../src/components/login/SignupForm/SignupForm.tsx) | 없음 | 없음 | props / UI 상태 |
+| [SignupView](../src/components/login/SignupView/SignupView.tsx) | `SignupViewProps` | onEvent? (콜백) | props / UI 상태 |
 | [SocialLoginButton](../src/components/login/SocialLoginButton/SocialLoginButton.tsx) | `SocialLoginButtonProps` | provider, label | props / UI 상태 |
 | [SocialSignInDialog](../src/components/login/SocialSignInDialog/SocialSignInDialog.tsx) | `SocialSignInDialogProps` | provider, providerLabel | props / UI 상태 |
 | [AccountCard](../src/components/mypage/AccountCard/AccountCard.tsx) | `AccountCardProps` | profile, providerLabel | props / UI 상태 |

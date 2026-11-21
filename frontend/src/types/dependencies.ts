@@ -1,18 +1,4 @@
 /** Dependencies injected into the existing simulation rules and workflows. */
-export interface ReplyDependencies {
-  S: any;
-  RS: any;
-  optList: any;
-  A: any;
-  pendingDecisions: any;
-  curAction: any;
-  allTasks: any;
-  tasks: any;
-  cardShort: any;
-  buildCards: any;
-  CH: any;
-}
-
 export interface AlertDependencies {
   S: any;
   SIM: any;
@@ -53,7 +39,6 @@ export interface ProfileWorkflowDependencies {
   AUTO: any;
   PRICE: any;
   tasks: any;
-  CH: any;
   closeModal: any;
 }
 

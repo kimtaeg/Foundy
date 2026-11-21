@@ -145,15 +145,14 @@ try {
     expect(await saved('myprice')).toBe('4800');
     return { price: await saved('myprice'), priceResult: await page.locator('#priceResult').innerText(), text: await active('sites').innerText() };
   });
-  await check('chat response and confirmed store date action', async () => {
+  await check('chat is disabled until the server chat API is connected', async () => {
     expect(await page.locator('#nav [data-page="chat"]').count()).toBe(0);
     await page.locator('[data-nx="chattoggle"]').first().click();
     await expect(page.locator('#chatPanel')).toBeVisible();
-    await page.locator('#chatIn').fill('개업일을 2027-05-01로 바꿔줘');
-    await page.locator('#nxChat button[type="submit"]').click();
-    await page.locator('[data-nx="cact"]').first().click();
-    expect((await saved('store')).opening).toBe('2027-05-01');
-    return { opening: (await saved('store')).opening, text: await page.locator('#chatBox').innerText() };
+    await expect(page.locator('#chatPanel')).toContainText('AI 상담 준비 중');
+    expect(await page.locator('#chatIn').count()).toBe(0);
+    await page.locator('#chatPanel [data-nx="chattoggle"]').click();
+    return { text: await page.locator('body').innerText().then((t) => t.includes('AI 상담 준비 중')) };
   });
   await check('mypage edit invalidates affected report choice and persists', async () => {
     await nav('mypage');
