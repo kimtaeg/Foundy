@@ -17,7 +17,8 @@ def enforce(
     1. 근거가 없으면 verdict는 unknown (ok·안내 항목 포함, 예외 없음)
     2. AI가 판정한 항목은 high가 될 수 없다 → low. 규칙 묶음이 ai_high_allowed로 허용한 항목(건물 용도·위반건축물)만 예외이고,
        그 항목은 판정 단계에서 근거 검증과 규칙표 대조를 통과해야 high다
-    3. allowed_remedies가 주어지면 그 밖의 대응 유형 선택지는 제거 (remedy가 비어 있는 선택지도 제거)
+    3. allowed_remedies가 주어지면 그 밖의 대응 유형 선택지는 제거 (remedy가 비어 있는 선택지도 제거).
+      단 AI가 제안한 안내형 선택지(remedy="ai_suggested")는 가게 정보를 바꾸지 않으므로 남긴다
     4. 추천은 실제로 남아 있는 선택지를 가리켜야 한다
     """
     changes: list[str] = []
@@ -34,7 +35,7 @@ def enforce(
 
     options = item.options
     if allowed_remedies is not None:
-        kept = [o for o in options if o.remedy in allowed_remedies]
+        kept = [o for o in options if o.remedy in allowed_remedies or o.remedy == "ai_suggested"]
         if len(kept) != len(options):
             changes.append(f"허용되지 않은 선택지 {len(options) - len(kept)}개 제거")
             options = kept

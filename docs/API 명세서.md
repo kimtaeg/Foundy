@@ -12,6 +12,7 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-17 | 최초 작성 |
+| 2026-11-21 (AI 선택지) | 결과 카드의 선택지를 코드가 만드는 유형(`remedies`)에 더해 AI가 최대 2개까지 안내형 선택지(`remedy: ai_suggested`)를 제안할 수 있다. 건물 용도 판정에서 AI가 가능한 업종을 비워도 규칙표가 확인한 업종으로 "술 빼고 시작" 선택지를 남긴다. 규칙 묶음의 `ai_options: true` 항목은 코드 선택지가 없어도 AI가 선택지를 제안한다 |
 | 2026-11-21 (법령 RAG) | 가게 입력에 영업장 면적 `area_sqm`(㎡, 선택)과 배달 여부 `answers.does_delivery` 추가(`POST /stores`·`/answers`·`PATCH /stores`·`GET /stores`, `answers`에 `area_sqm`도 포함). 법령 적용 결과 `GET /stores/{id}/obligations`, 조문 검색 `GET /laws/search`, 법령 재수집·변경 감지 `POST /internal/laws/refresh` 추가. 점검 카드에 `fire_safety`(소방 안전시설)·`labor_contract`(근로계약·최저임금) 추가, `labeling`은 조문이 있으면 AI가 판정. 조문 근거는 저장된 법령에서 하이브리드 검색(키워드+벡터)으로 찾는다. 판정값 4가지는 그대로 |
 | 2026-11-21 (아이디·비밀번호 로그인) | `POST /auth/signup`(아이디·비밀번호·이름으로 가입 후 바로 로그인)·`POST /auth/login` 추가. 아이디는 영문 소문자·숫자 4~20자, 비밀번호는 8자 이상(72바이트 이하), 비밀번호는 bcrypt 해시로만 저장. 로그인 실패는 아이디 없음·비밀번호 오류 모두 같은 `401 INVALID_CREDENTIALS`, 같은 접속 IP에서 같은 아이디로 10분에 5번 틀리면 `429 RATE_LIMITED`(아이디 하나가 여러 IP에서 20번 틀려도 막는다), 한 IP의 회원가입 시도는 10분에 10번까지. 가입 시 중복 아이디는 `409 USERNAME_TAKEN`. `user`에 `username` 추가, `provider`에 `local` 추가. 소셜 로그인 엔드포인트는 그대로 두되 화면에서는 쓰지 않는다 |
 | 2026-11-21 (인증·가게 등록) | 소셜 로그인 시작 `POST /auth/social/start`(state 발급·`redirect_uri` 허용 목록·`browser_hash`) 추가, `POST /auth/social`은 `{provider, code, state, browser_nonce}`로 state와 브라우저 결속 대조(실패 시 제공자 호출 전 `400`, state 유지). 로그아웃은 요청에 쓴 토큰만 폐기(옛 토큰 호환). `PATCH /me` 규칙. 가게 등록 응답에 `address_status`, `422 ADDRESS_NOT_RESOLVED`의 `reason`·`candidates`, 업종은 규칙 묶음 `business_type_inputs`. 되묻기 답변은 `null` = 미답변, 부분 저장(생략 = 유지), 분석 중 `409`·첫 분석 후 `400`. 새 에러 코드 `INVALID_STATE`·`SOCIAL_LOGIN_FAILED`·`SOCIAL_PROVIDER_UNAVAILABLE`·`SOCIAL_LOGIN_UNAVAILABLE` |
@@ -257,7 +258,7 @@
 }
 ```
 
-- `remedy`: 이 선택지가 규칙 묶음의 어떤 대응 유형(`remedies`)인지. 서버가 허용된 유형만 남기는 검증에 쓰고, 화면에는 보여주지 않는다.
+- `remedy`: 이 선택지가 규칙 묶음의 어떤 대응 유형(`remedies`)인지. 서버가 허용된 유형만 남기는 검증에 쓰고, 화면에는 보여주지 않는다. `ai_suggested`는 AI가 제안한 안내형 선택지다: 코드가 만든 선택지 외에 최대 2개(전체 5개 이하)까지 붙고, 가게 정보·체크리스트를 바꾸지 않으며(`apply.type: none`) 기간·금액은 `확인 필요`다. 기간·금액 숫자가 들어간 제안, 이미 있는 선택지와 같은 제안은 서버가 버린다. 추천(`recommendation`)은 이 선택지를 가리킬 수 있다.
 - `apply.type`: `update_store`(가게 정보·답변 수정) | `none`(기록만). 기준 자리를 바꾸는 유형(`set_main_site`)과 후보 자리(`site_id`)는 없다. 이 서비스는 이미 정한 자리 하나를 기준으로 한다.
 - `apply.adds_checklist`: 이 선택지를 고르면 체크리스트에 추가되는 항목 id 목록. 선택을 되돌리면 다시 빠진다.
 - `time`, `cost`: **근거가 있을 때만 숫자를 쓴다.** `basis`는 `rule | calc | data | notice | null`이고, `null`이면 `text`를 "확인 필요"로 내리고 `delta_krw`는 `null`로 둔다. AI가 기간·금액을 추정해서 채우지 않는다.

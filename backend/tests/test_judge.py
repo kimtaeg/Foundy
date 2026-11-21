@@ -221,3 +221,10 @@ def test_violation_without_flag_does_not_call_ai():
     llm = FakeLLM({})
     item = judge_violation_ai(llm, FakeTools(violation=None).building(store()), VIO, "r-03")
     assert llm.calls == [] and item.verdict == "unknown" and item.evidence
+
+
+def test_missing_ai_ok_types_fall_back_to_the_rule_table():
+    """AI가 가능한 업종을 하나도 적지 않아도(판단을 빼먹음) 규칙표가 확인한 업종은 선택지 후보로 남는다."""
+    omit = lambda user: building_ai(user).model_copy(update={"ok_business_types": []})  # noqa: E731
+    (item, extras), _ = bu(j=omit)
+    assert item.verdict == "high" and extras["ok_business_types"] == ["휴게음식점"]
