@@ -42,10 +42,18 @@ pip install -r requirements.txt
 uvicorn main:app --reload        # 개발 서버 (http://localhost:8000)
 pytest                           # 전체 테스트
 pytest tests/scenarios           # 데모 시나리오 S1~S4
-USE_MOCK=true uvicorn main:app --reload   # 외부 API 대신 mocks/ 응답 사용
+USE_MOCK=true uvicorn main:app --reload   # 화면 시연용: 외부 API 대신 mocks/ 응답 사용 (테스트·검증에는 쓰지 않는다)
 ```
 
 외부 API 키가 없거나 승인 전이면 실제 호출 테스트가 실패할 수 있다. API 키·승인·IP 등록 문제로 인한 실패와 코드 문제로 인한 실패를 명확히 구분해서 보고한다.
+
+### Testing Policy
+
+- **테스트와 동작 검증은 목 데이터로 돌리지 않고 실제로만 돌린다.** `USE_MOCK=true`, `mocks/` 응답, `tests/fakes.py` 같은 가짜 조회 도구·가짜 LLM·모의 조문으로 통과한 결과는 검증으로 인정하지 않는다.
+- 실제로 돌린다는 것은 실제 LLM API, 실제 법령 DB(RAG 검색)·법령 API, 실제 건축물대장·상표 API를 호출한다는 뜻이다. 입력과 출력(검색된 조문, 판정, 인용)을 직접 확인해 보고한다.
+- 키·승인·IP 등록·네트워크 때문에 실제 호출이 안 되면 모의로 대체해 통과시키지 말고, 못 돌렸다고 원인과 함께 보고한다.
+- 새 테스트는 실제 호출을 쓰도록 만든다. 기존에 가짜 도구(`tests/fakes.py`)로 쓰던 테스트는 손댈 때 실제 호출로 옮긴다.
+- 모의 응답(`USE_MOCK`, `mocks/`)은 "예시로 해보기" 같은 화면 시연용 런타임 기능으로만 남긴다.
 
 ## Architecture Overview
 
