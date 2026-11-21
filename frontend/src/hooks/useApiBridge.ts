@@ -12,6 +12,7 @@ import { ApiError, apiEnabled } from "@/lib/api/client";
 import type { ApiDocumentStatus } from "@/lib/api/types";
 import { ANALYSIS_STEP_COUNT, finishedIndexes, followRun, stepNote } from "@/lib/api/run-stream";
 import { createApiModel, toEvidence, type ApiModel } from "@/lib/api/contexts";
+import { grantsModel } from "@/lib/api/grants";
 import { useServerProfile } from "@/hooks/useServerProfile";
 import {
   clearSession,
@@ -91,6 +92,34 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
       return null;
     }
   }, [engine]);
+
+  // 지원사업 상세 창·달력도 서버의 실제 공고를 쓰게 한다 (서버 연결이 없으면 예시 공고로 되돌린다)
+  useEffect(() => {
+    engine?.setGrants(model ? model.grants.GRANTS : null);
+  }, [engine, model]);
+
+  // 아직 공고를 대조한 적이 없는 가게는 한 번 조회·판정한다 (AI 호출이 있어 수십 초 걸린다)
+  const grantsRequested = useRef<string | null>(null);
+  const grantsState = model?.grants.GRANT_STATUS.state;
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (grantsState !== "empty" || !session?.storeId || grantsRequested.current === session.storeId) return;
+    grantsRequested.current = session.storeId;
+    const setGrants = (grants: ApiModel["grants"]) => setModel((current) => (current ? { ...current, grants } : current));
+    setModel((current) =>
+      current
+        ? { ...current, grants: { ...current.grants, GRANT_STATUS: { ...current.grants.GRANT_STATUS, state: "loading" } } }
+        : current,
+    );
+    createStoreApi(session)
+      .refreshGrants()
+      .then((grants) => {
+        if (sessionRef.current === session) setGrants(grantsModel(grants));
+      })
+      .catch(() => {
+        if (sessionRef.current === session) setGrants(grantsModel(null));
+      });
+  }, [grantsState]);
 
   // 서버 세션을 준비하고(예시 계정은 만들고, 일반 계정은 로그인 때 저장한 것을 읽고), 나가면 지운다.
   useEffect(() => {

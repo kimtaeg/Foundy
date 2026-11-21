@@ -4,6 +4,7 @@ import {
   type FeatureContextPage,
 } from "@/types/features";
 import type { NotificationSummary } from "./notifications";
+import type { Grant } from "./grants";
 import type { Store } from "./store";
 
 export interface FoundySnapshot {
@@ -41,6 +42,8 @@ export interface FoundyStore {
   setAnalysisProgress(done: number[], notes?: Record<number, string>): void;
   navigateTo(page: string): void;
   logout(): void;
+  /** 지원사업 상세·달력에 쓸 공고 목록. null 이면 예시 공고로 되돌린다 */
+  setGrants(list: Grant[] | null): void;
   openNotification(id: string): void;
   destroy(): void;
 }

@@ -21,7 +21,8 @@
     "test:market:loading": "node tests/market-loading.mjs",
     "test:docs": "node tests/managed-docs.mjs",
     "test:nearby": "node tests/nearby-shops.mjs",
-    "test:progress": "node tests/analysis-progress.mjs"
+    "test:progress": "node tests/analysis-progress.mjs",
+    "test:grants": "node tests/grants-live.mjs"
   },
   "dependencies": {
     "next": "^16.0.0",

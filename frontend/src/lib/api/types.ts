@@ -252,6 +252,32 @@ export interface ApiObligation {
   review_status: "draft" | "reviewed";
 }
 
+/** GET /api/stores/{id}/grants 의 공고 하나 */
+export interface ApiGrant {
+  grant_id: string;
+  title: string;
+  source: string;
+  url: string | null;
+  org: string | null;
+  category: string | null;
+  region: string | null;
+  deadline: string | null;
+  result: "eligible" | "partial" | "unknown";
+  checks: Array<{ condition: string; result: "pass" | "unknown"; note?: string | null; evidence?: { text?: string | null } | null }>;
+  summary: { who: string | null; how_much: string | null; until: string | null; what_to_submit: string[] | null };
+}
+
+/** GET /api/stores/{id}/grants · POST …/grants/refresh */
+export interface ApiGrants {
+  status: "ready" | "empty" | "unavailable";
+  error: string | null;
+  source: string | null;
+  is_example: boolean;
+  judged_at: string | null;
+  excluded_count: number;
+  items: ApiGrant[];
+}
+
 /** 화면 하나를 그리는 데 필요한 응답 묶음. 변경 요청 뒤에는 통째로 다시 받는다. */
 export interface ApiBundle {
   store: ApiStore;
@@ -262,6 +288,8 @@ export interface ApiBundle {
   obligations: ApiObligation[];
   /** 서류함. 못 받아도 화면은 체크리스트에 붙은 서류 안내로 그린다 */
   documents: ApiDocuments | null;
+  /** 지원사업. 못 받으면 null (화면은 '불러오지 못함'으로 표시) */
+  grants: ApiGrants | null;
 }
 
 /** POST /api/auth/signup · /api/auth/login 응답 */

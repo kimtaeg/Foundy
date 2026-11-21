@@ -9,6 +9,7 @@ import type {
   ApiDemoSession,
   ApiDocumentRequirement,
   ApiDocuments,
+  ApiGrants,
   ApiDocumentStatus,
   ApiObligation,
   ApiPatchResult,
@@ -73,7 +74,7 @@ export function createStoreApi(session: ApiSession) {
 
   return {
     async loadBundle(): Promise<ApiBundle> {
-      const [store, dashboard, report, checklist, alerts, obligations, documents] = await Promise.all([
+      const [store, dashboard, report, checklist, alerts, obligations, documents, grants] = await Promise.all([
         call<ApiStore>(""),
         call<ApiDashboard>("/dashboard"),
         call<ApiReport>("/report"),
@@ -83,8 +84,10 @@ export function createStoreApi(session: ApiSession) {
         call<{ items: ApiObligation[] }>("/obligations").catch(() => ({ items: [] as ApiObligation[] })),
         // 서류함은 서류별 상태를 보여 주는 화면이라서, 못 받으면 체크리스트에 붙은 서류 안내로 대신 그린다
         call<ApiDocuments>("/documents").catch(() => null),
+        // 지원사업은 따로 판정해 저장한 결과다. 못 받아도 다른 화면은 그린다
+        call<ApiGrants>("/grants").catch(() => null),
       ]);
-      return { store, dashboard, report, checklist, alerts: alerts.items, obligations: obligations.items, documents };
+      return { store, dashboard, report, checklist, alerts: alerts.items, obligations: obligations.items, documents, grants };
     },
     choose: (itemId: string, optionId: string) =>
       call<{ applied_changes: string[]; added_checklist: string[]; run_id: string | null }>(
@@ -106,6 +109,8 @@ export function createStoreApi(session: ApiSession) {
       call<ApiDocumentRequirement>(`/documents/${docKey}`, "PATCH", { status }),
     ackDocumentReview: (docKey: string) =>
       call<ApiDocumentRequirement>(`/documents/${docKey}`, "PATCH", { review_ack: true }),
+    /** K-Startup 모집 중 공고를 다시 조회해 판정한다 (AI 호출이 있어 수십 초 걸린다) */
+    refreshGrants: () => call<ApiGrants>("/grants/refresh", "POST"),
     readAlert: (alertId: string) => call<unknown>(`/alerts/${alertId}`, "PATCH", { read: true }),
     /** 가게 정보 수정. dryRun 이면 저장하지 않고 영향(impacts·reset_items)만 돌려준다. 미리보기와 저장은 같은 본문을 쓴다. */
     patchStore: (body: Record<string, unknown>, dryRun = false) =>

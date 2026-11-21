@@ -8,18 +8,21 @@ import { PageSkeleton } from "@/components/loading/PageSkeleton";
 import { SectionSkeleton } from "@/components/loading/SectionSkeleton";
 import { Element } from "@/components/view/Element";
 import { FeatureView } from "@/components/view/FeatureView";
+import { grantBadge, grantNote } from "@/lib/grants/grant-status";
 import type { DataViewProps } from "@/types/data-state";
 import type { GrantsViewData } from "@/types/grant-view";
 
 export type GrantsViewProps = DataViewProps<GrantsViewData>;
 
 export function GrantsView({ onEvent, ...state }: GrantsViewProps) {
+  const resolved = state.data && !(state.data instanceof Promise) ? state.data : null;
   return (
     <FeatureView page="grants" onEvent={onEvent}>
-      <GrantsHeader />
+      <GrantsHeader badge={grantBadge(resolved?.status ?? null)} />
       <DataBoundary {...state} fallback={<PageSkeleton page="grants" />}>
         {(model) => (
           <Element className="nx-wrap">
+            {grantNote(model.status) && <Element className="nx-note">{grantNote(model.status)}</Element>}
             <GrantFiltersBar filters={model.filters} categories={model.categories} />
             <Suspense fallback={<SectionSkeleton variant="list" label="지원사업 목록" />}>
               <GrantResults grants={model.grants} months={model.months} view={model.filters.view} />

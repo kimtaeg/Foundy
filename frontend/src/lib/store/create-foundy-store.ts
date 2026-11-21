@@ -48,11 +48,13 @@ import {
   type FeatureContextPage,
 } from "@/types/features";
 import { type FoundySnapshot, type FoundyStore } from "@/types/foundy";
-import { type GrantFilters } from "@/types/grants";
+import { type Grant, type GrantFilters } from "@/types/grants";
 import { type Store } from "@/types/store";
 
 /** Composes account-scoped state and commands; React owns all rendering. */
 export function createFoundyStore(onChange: () => void): FoundyStore {
+  // 지원사업 목록: 서버 연결 모드에서는 실제 공고로 바뀐다 (setGrants)
+  let grantList: Grant[] = GRANTS;
   const realDocument = globalThis.document;
   const document = realDocument;
   const listeners: Record<string, Array<(event: any) => void>> = {};
@@ -266,7 +268,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         kind: "task",
       }),
     );
-    GRANTS.filter((g: any) => g.deadline && g.res !== "unknown").forEach(
+    grantList.filter((g: any) => g.deadline && g.res !== "unknown").forEach(
       (g: any) =>
         add(g.deadline, {
           t: "지원사업 마감 · " + g.title.replace(" (예시 공고)", ""),
@@ -344,7 +346,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     grant: "지원사업",
   };
   function grantModal(id: any): any {
-    const g = GRANTS.find((x: any) => x.id === id);
+    const g = grantList.find((x: any) => x.id === id);
     if (!g) return;
     modal(g.title, {
       kind: "grant",
@@ -1136,6 +1138,10 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   return {
     getViewContext,
     handleEvent,
+    setGrants: (list) => {
+      grantList = list ?? GRANTS;
+      notify();
+    },
     logout: () => {
       logout();
       notify();

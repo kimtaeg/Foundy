@@ -23,5 +23,6 @@ export function useGrants(): GrantsViewData | null {
     })),
     categories: ["all", ...new Set(context.GRANTS.map((grant) => grant.cat))],
     excludedCount: context.GRANT_EXCLUDED,
+    status: context.GRANT_STATUS ?? null,
   };
 }

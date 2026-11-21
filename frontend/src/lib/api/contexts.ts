@@ -5,6 +5,7 @@
  */
 import { CATCOLOR, GROUPS } from "@/data/checklist";
 import { D, dday, dday as dday_, diffDays, iso, realToday } from "@/lib/date";
+import { grantsModel } from "@/lib/api/grants";
 import type {
   ApiBundle,
   ApiChecklistItem,
@@ -268,6 +269,11 @@ export function createApiModel(bundle: ApiBundle) {
       add(task.due, { t: task.task, cat: task.category, id: task.id, done: task.done, kind: "task" }),
     );
     add(S.opening, { t: "개업일", cat: "개업", id: "open", done: false, kind: "open" });
+    // 신청 가능성이 있는 실제 지원사업 공고의 마감일
+    for (const grant of bundle.grants?.items ?? []) {
+      if (grant.deadline && grant.result !== "unknown")
+        add(grant.deadline, { t: `지원사업 마감 · ${grant.title}`, cat: "정책", id: grant.grant_id, done: false, kind: "grant" });
+    }
     return map;
   };
   const documentsOf = (taskId: string): DocumentViewData[] =>
@@ -376,6 +382,7 @@ export function createApiModel(bundle: ApiBundle) {
       documentsOf,
       managedDocuments: () => managedDocs,
     },
+    grants: grantsModel(bundle.grants),
   };
 }
 

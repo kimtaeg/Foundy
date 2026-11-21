@@ -3,7 +3,7 @@ import { useFoundy } from "@/hooks/useFoundy";
 import { type FeatureContextMap, type FeatureContextPage } from "@/types/features";
 
 /** 서버 데이터로 바꾸는 화면. 나머지 화면은 로컬 예시 데이터를 쓴다. */
-const API_PAGES = ["dashboard", "report", "checklist", "docs"] as const;
+const API_PAGES = ["dashboard", "report", "checklist", "docs", "grants"] as const;
 type ApiPage = (typeof API_PAGES)[number];
 const isApiPage = (page: string): page is ApiPage => (API_PAGES as readonly string[]).includes(page);
 
