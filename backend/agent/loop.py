@@ -159,6 +159,10 @@ def run_analysis(
     if "trademark" in selected:
         step("trademark", "running", "상표 검색 중")
         t = _safe("KIPRIS", tools.trademark, store.name)
+        if getattr(tools, "use_mock", None) is False and t.ok and t.from_mock:
+            # 실제 모드에서 KIPRIS 조회가 실패해 모의 상표 목록으로 대체됐다. 모의 목록은 가게 이름과 상관없는 예시라서
+            # 그걸로 "겹치는 상표가 없다"고 판정하면 거짓 안심이 되므로 조회 실패로 두고 판단 불가로 판정하게 한다
+            t = ToolResult(ok=False, source=t.source, error="REAL_TRADEMARK_UNAVAILABLE", from_mock=True)
         n_sim = len((t.data or {}).get("similar", [])) if t.ok else 0
         step("trademark", _status(t), f"비슷한 상표 {n_sim}건" if t.ok else "상표 조회 실패", source=t.source)
 
