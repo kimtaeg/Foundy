@@ -288,5 +288,5 @@ def dashboard(pack: dict, s: Store, cards: list[ReportItem], items: list[Checkli
         "alerts": {"unread": sum(1 for a in alerts if not a.read),
                    "latest": [{"title": a.title, "type": a.type, "is_example": a.is_example} for a in sorted_alerts[:3]]},
         "menus": {"report": demo_or_ready, "checklist": demo_or_ready, "documents": demo_or_ready,
-                  "chat": "unavailable", "grants": "unavailable"},
+                  "chat": "unavailable", "grants": "ready"},
     }

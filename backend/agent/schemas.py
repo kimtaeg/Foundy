@@ -237,6 +237,9 @@ class GrantMatch(BaseModel):
     title: str
     source: str
     url: str | None = None
+    org: str | None = None  # 공고 기관
+    category: str | None = None  # 지원 분야
+    region: str | None = None  # 지원 지역
     deadline: date | None = None
     eligibility: GrantEligibility
     summary: GrantSummary

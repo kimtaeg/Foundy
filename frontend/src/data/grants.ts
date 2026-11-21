@@ -1,7 +1,7 @@
 import { type Grant, type GrantResultLabels } from "@/types/grants";
 
 /** Demonstration grant catalog; not live eligibility data. */
-export const GRANTS: Grant[] = [
+const EXAMPLE_GRANTS: Grant[] = [
   {
     id: "g1",
     title: "청년 예비창업자 사업화 지원 (예시 공고)",
@@ -90,6 +90,9 @@ export const GRANTS: Grant[] = [
     checks: [["사업장 소재지", "unknown", "공고에 소재지 기준 시점이 없어요"]],
   },
 ];
+
+/** Demonstration grant catalog; not live eligibility data. */
+export const GRANTS: Grant[] = EXAMPLE_GRANTS.map((grant) => ({ ...grant, example: true }));
 
 export const GRANT_EXCLUDED = 3;
 

@@ -1080,56 +1080,56 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 
 ---
 
-## 11. 지원사업 [시간되면]
+## 11. 지원사업 [구현: K-Startup 실제 공고]
+
+공고는 창업진흥원 K-Startup 사업공고 API(공공데이터포털, `DATA_GO_KR_KEY`)에서 모집 중(`rcrt_prgs_yn=Y`)인 것만 가져온다. 코드가 먼저 마감·지역(전국 또는 가게 주소의 시·도)·신청 대상(일반인·일반기업·1인 창조기업)·관련도로 걸러 최대 12건을 고르고(`tools/kstartup.py`), 그 공고만 AI가 판정한다(`agent/grants.py`). 같은 날·같은 시·도의 조회 결과는 `api_cache`(1일)로 재사용한다.
 
 ### `GET /api/stores/{store_id}/grants`
 
-쿼리: `filter` (`all | eligible | closing_soon`)
+저장된 판정 결과(`grant_matches`)를 읽는다. AI를 호출하지 않는다.
 
 ```json
 {
-  "fetched_at": "2026-11-20T09:00:00+09:00",
-  "ok": true,
-  "excluded_count": 3,
-  "closed_count": 1,
+  "status": "ready",
+  "error": null,
+  "source": "K-Startup 사업공고",
+  "is_example": false,
+  "judged_at": "2026-11-22T15:00:00+09:00",
+  "excluded_count": 6,
   "items": [
     {
-      "grant_id": "kstartup-000000",
-      "title": "2027 ○○ 청년 창업 지원사업",
-      "source": "K-Startup",
-      "url": "https://...",
-      "poster": { "url": null, "source": "generated", "credit": null },
-      "category": "사업화",
+      "grant_id": "kstartup-179630",
+      "title": "[은행연합회] 청년 소상공인 컨설팅 지원 사업",
+      "source": "K-Startup 사업공고",
+      "url": "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do?schM=view&pbancSn=179630",
+      "org": "한국생산성본부",
+      "category": "멘토링ㆍ컨설팅ㆍ교육",
       "region": "전국",
-      "amount_text": "최대 1,500만원",
-      "deadline": "2027-01-31",
-      "eligibility": {
-        "result": "partial",
-        "decided_by": "ai",
-        "checks": [
-          { "condition": "만 39세 이하", "result": "pass", "evidence": { "type": "notice", "text": "만 39세 이하 예비·초기 창업자", "url": "https://..." } },
-          { "condition": "업력 3년 이내", "result": "pass", "evidence": { "type": "notice", "text": "창업 3년 이내", "url": "https://..." } },
-          { "condition": "서울 소재", "result": "unknown", "note": "공고문에서 지역 조건을 확인하지 못했습니다" }
-        ]
-      },
-      "summary": { "who": "…", "how_much": "…", "until": "2027-01-31", "what_to_submit": ["…"], "by": "ai" },
-      "added_to_checklist": true
+      "deadline": "2026-11-30",
+      "result": "partial",
+      "checks": [
+        { "condition": "만 39세 이하", "result": "pass", "evidence": { "type": "notice", "text": "대상 연령: 만 20세 이상 ~ 만 39세 이하", "url": "https://..." }, "note": "만 나이가 27~28세라 해당돼요" },
+        { "condition": "2025년 매출액 1억원 이하", "result": "unknown", "evidence": null, "note": "공고문과 가게 정보만으로는 확실하지 않아요" }
+      ],
+      "summary": { "who": "…", "how_much": "…", "until": "2026-11-30", "what_to_submit": [] }
     }
   ]
 }
 ```
 
-- 자격 판정은 **AI가 공고문 데이터 안에서** 한다. 조건마다 `pass | unknown`(명확한 `fail`이 있으면 목록에서 제외)과 공고문 인용을 붙이고, 근거가 없는 조건은 `unknown`으로 두고 주관 기관 확인을 안내한다.
-- 나이(`owner_birth_year`)·업력 같은 숫자 조건은 AI가 공고문에서 조건 값을 추출하고, 대조는 **계산 도구**가 한다.
-- `eligibility.result`: `eligible | partial | unknown` (2장)
-- 마감일은 체크리스트에 `source: grant`로 자동 추가된다.
-- `ok: false`면 공고 조회에 실패한 것이다 (`items`는 빈 배열). `closed_count`는 마감이 지나 뺀 공고 수다.
-- 조건을 뽑을 때 AI가 인용한 공고문 문장이 **원문에 실제로 있는지** 서버가 검증하고, 없거나 숫자 조건의 숫자가 인용에 없으면 그 조건은 `unknown`이다. 이 경우 `evidence`는 `null`이다.
-- 나이는 생년만 입력받아서 만 나이가 모호하다. 경계에서는 `fail`이 아니라 `unknown`이고 `note`에 "생일에 따라 달라져요"가 들어간다.
-- 마감일이 지나지 않은 `eligible`·`partial` 공고만 체크리스트에 들어가고(`added_to_checklist: true`), `unknown`은 들어가지 않는다.
-- 화면은 **포스터 카드 그리드**(포스터·신청 가능성 배지·마감 D-day·누가/얼마/언제까지/제출물 요약·조건 칩), 리스트, 마감 달력 세 가지 보기를 갖는다. 상세 창에는 포스터 원본, 조건별 공고문 인용, 제출서류, 신청 링크, 제외된 공고 건수(`excluded_count`)를 보여 준다.
-- `filter`(`all | eligible | closing_soon`)는 백엔드가 저장된 결과에서 거른다. 분야(`category`: 사업화 / 융자 / 공간 / 교육 / 멘토링)·지역·정렬(`sort`: `deadline | fit`)은 프론트가 목록에서 거른다.
-- `poster`: 공고 응답에 이미지가 있으면 `{ "url": "…", "source": "api", "credit": "주관 기관" }`로 내려주고, 없으면 `url: null`, `source: "generated"`로 두어 화면이 제목·기관·마감으로 포스터형 카드를 만든다. 이미지는 출처 표시와 원문 링크를 함께 둔다. K-Startup 응답에 이미지·첨부 필드가 있는지는 프로브로 확인한다.
+- `status`: `ready`(판정 결과 있음) · `empty`(아직 조회 안 함) · `unavailable`(조회 실패, 이전 결과 없음). 화면은 `empty`이면 한 번 `POST …/refresh`를 부른다.
+- `result`: `eligible | partial | unknown` (2장). 조건이 명확히 맞지 않는 공고는 `items`에서 빼고 `excluded_count`로만 알린다.
+- `is_example`: 모의 공고(`USE_MOCK=true` 화면 시연)일 때만 true다. 실제 모드에서 K-Startup 조회가 실패해 모의 응답으로 대체되면 예시 공고를 실제처럼 보여 주지 않도록 조회 실패로 둔다.
+
+### `POST /api/stores/{store_id}/grants/refresh`
+
+K-Startup을 다시 조회하고 판정해 저장한 뒤 `GET`과 같은 형식을 돌려준다. 공고마다 AI 호출이 하나씩이라(최대 12건, 4개씩 동시에) 10~30초 걸린다. 조회에 실패하면 이전 결과를 그대로 두고 `error`를 채운다. AI 비용은 `cost_logs`(`run_id` 없음)에 남긴다.
+
+- 자격 판정은 **AI가 공고문 데이터 안에서** 한다. 공고문은 K-Startup 응답의 필드(공고명·신청 대상·대상 연령·업력·신청 자격·제외 대상·지원 내용·공고 내용·접수 기간)를 라벨을 붙여 합친 것이다.
+- 나이(`owner_birth_year`)·업력·지역은 AI가 공고문에서 조건 값을 뽑고, 대조는 **계산 도구**(`calc/match.py`)가 한다.
+- AI가 인용한 공고문 문장이 **원문에 실제로 있는지** 서버가 검증하고, 없거나 숫자 조건의 숫자가 인용에 없으면 그 조건은 `unknown`이다.
+- 나이는 생년만 입력받아서 만 나이가 모호하다. 경계에서는 `fail`이 아니라 `unknown`이다.
+- 체크리스트 달력에는 마감일이 지나지 않은 `eligible`·`partial` 공고의 마감일을 함께 표시한다 (체크리스트 작업으로 추가하지는 않는다).
 
 ---
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from typing import Literal
 
@@ -96,6 +97,39 @@ def _eligibility(checks: list[GrantCheck]) -> str:
     return "eligible" if passed == len(checks) else "partial"
 
 
+def _meta(g: dict, deadline: date | None) -> dict:
+    return dict(grant_id=g.get("grant_id", ""), title=g.get("title", ""), source=g.get("source", ""),
+                url=g.get("url"), deadline=deadline, org=g.get("org"), category=g.get("category"), region=g.get("region"))
+
+
+def _judge_one(llm: LLM, store: StoreInput, facts: dict, g: dict, deadline: date | None, today: date) -> GrantMatch | None:
+    """공고 하나를 판정한다. 조건이 명확히 맞지 않으면 None (목록에서 뺀다)."""
+    notice = (g.get("text") or "")[:MAX_NOTICE_CHARS]
+    try:
+        ex = llm.parse(
+            step="grants_extract", tier="main", system=prompt.SYSTEM,
+            user=prompt.USER.format(store=json.dumps(facts, ensure_ascii=False), title=g.get("title", ""), notice=notice),
+            schema=GrantExtraction,
+        )
+    except LLMError:
+        return GrantMatch(**_meta(g, deadline), eligibility=GrantEligibility(result="unknown"),
+                          summary=GrantSummary(until=deadline.isoformat() if deadline else None))
+
+    checks: list[GrantCheck] = []
+    seen: set[str] = set()
+    for c in ex.conditions:
+        if _norm(c.text) in seen:
+            continue
+        seen.add(_norm(c.text))
+        check, fail = _check(c, store, notice, g, today)
+        if fail:
+            return None
+        checks.append(check)
+    until = deadline.isoformat() if deadline else (ex.until if _parse_date(ex.until) else None)
+    return GrantMatch(**_meta(g, deadline), eligibility=GrantEligibility(result=_eligibility(checks), checks=checks),
+                      summary=GrantSummary(who=ex.who, how_much=ex.how_much, until=until, what_to_submit=ex.what_to_submit))
+
+
 def judge_grants(llm: LLM, store: StoreInput, res: ToolResult, today: date | None = None) -> GrantsResult:
     today = today or date.today()
     if not res.ok or not res.data:
@@ -104,49 +138,19 @@ def judge_grants(llm: LLM, store: StoreInput, res: ToolResult, today: date | Non
     facts = {"name": store.name, "address": store.address, "opening_date": str(store.opening_date),
              "owner_birth_year": store.owner_birth_year, "business_type": store.business_type_input,
              "answers": store.answers}
-    items: list[GrantMatch] = []
-    excluded = closed = 0
+    open_grants: list[tuple[dict, date | None]] = []
+    closed = 0
     for g in res.data.get("grants", []):
         deadline = _parse_date(g.get("deadline"))
         if deadline and deadline < today:
             closed += 1
             continue
-        notice = (g.get("text") or "")[:MAX_NOTICE_CHARS]
-        try:
-            ex = llm.parse(
-                step="grants_extract", tier="main", system=prompt.SYSTEM,
-                user=prompt.USER.format(store=json.dumps(facts, ensure_ascii=False),
-                                        title=g.get("title", ""), notice=notice),
-                schema=GrantExtraction,
-            )
-        except LLMError:
-            items.append(GrantMatch(
-                grant_id=g.get("grant_id", ""), title=g.get("title", ""), source=g.get("source", ""),
-                url=g.get("url"), deadline=deadline,
-                eligibility=GrantEligibility(result="unknown"),
-                summary=GrantSummary(until=deadline.isoformat() if deadline else None)))
-            continue
-
-        checks: list[GrantCheck] = []
-        failed = False
-        seen: set[str] = set()
-        for c in ex.conditions:
-            if _norm(c.text) in seen:
-                continue
-            seen.add(_norm(c.text))
-            check, fail = _check(c, store, notice, g, today)
-            checks.append(check)
-            failed = failed or fail
-        if failed:
-            excluded += 1
-            continue
-        until = deadline.isoformat() if deadline else (ex.until if _parse_date(ex.until) else None)
-        items.append(GrantMatch(
-            grant_id=g.get("grant_id", ""), title=g.get("title", ""), source=g.get("source", ""),
-            url=g.get("url"), deadline=deadline,
-            eligibility=GrantEligibility(result=_eligibility(checks), checks=checks),
-            summary=GrantSummary(who=ex.who, how_much=ex.how_much, until=until,
-                                 what_to_submit=ex.what_to_submit)))
+        open_grants.append((g, deadline))
+    # 공고마다 AI 호출이 하나씩이라 동시에 보낸다 (결과 순서는 아래에서 다시 정렬한다)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        judged = list(pool.map(lambda pair: _judge_one(llm, store, facts, pair[0], pair[1], today), open_grants))
+    items = [m for m in judged if m is not None]
+    excluded = sum(1 for m in judged if m is None)
 
     order = {"eligible": 0, "partial": 1, "unknown": 2}
     items.sort(key=lambda m: (order[m.eligibility.result], m.deadline or date.max))

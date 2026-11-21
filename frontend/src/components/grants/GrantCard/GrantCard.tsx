@@ -23,7 +23,7 @@ export function GrantCard({
     <Element as="article" className="nx-gcard">
       <GrantPoster grant={grant} deadline={deadline} />
       <Element className="nx-gbody">
-        <GrantEligibility label={label} tone={tone} example />
+        <GrantEligibility label={label} tone={tone} example={grant.example} />
         <h3>{grant.title}</h3>
         <GrantSummary grant={grant} deadline={deadline} />
         <GrantConditions checks={grant.checks} />
