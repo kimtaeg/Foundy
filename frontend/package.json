@@ -14,6 +14,7 @@
     "test:architecture": "node tests/architecture.mjs",
     "test:navigation": "node tests/navbar-regression.mjs",
     "test:api-props": "node tests/api-view-contracts.mjs",
+    "test:profile": "node tests/store-patch.mjs",
     "docs:props": "node scripts/generate-component-contracts.mjs",
     "test:market:data": "node tests/market-calculations.mjs && node tests/foot-traffic-data.mjs && node tests/population-insights.mjs && node tests/population-scale.mjs && node tests/road-gradient.mjs",
     "test:market": "node tests/market-map.mjs",

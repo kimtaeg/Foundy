@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api/client";
 import type {
   ApiAlert,
   ApiBundle,
+  ApiChangeLog,
   ApiChecklist,
   ApiDashboard,
   ApiDemoSession,
@@ -94,7 +95,10 @@ export function createStoreApi(session: ApiSession) {
     setTaskDone: (itemId: string, done: boolean) =>
       call<unknown>(`/checklist/${itemId}`, "PATCH", { done }),
     readAlert: (alertId: string) => call<unknown>(`/alerts/${alertId}`, "PATCH", { read: true }),
-    patchStore: (body: unknown) => call<ApiPatchResult>("", "PATCH", body),
+    /** 가게 정보 수정. dryRun 이면 저장하지 않고 영향(impacts·reset_items)만 돌려준다. 미리보기와 저장은 같은 본문을 쓴다. */
+    patchStore: (body: Record<string, unknown>, dryRun = false) =>
+      call<ApiPatchResult>(dryRun ? "?dry_run=true" : "", "PATCH", body),
+    changes: () => call<{ items: ApiChangeLog[] }>("/changes"),
     saveAnswers: (answers: Record<string, unknown>) => call<unknown>("/answers", "POST", { answers }),
     analyze: () => call<{ run_id: string }>("/analyze", "POST"),
     runStatus: (runId: string) =>
