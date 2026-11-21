@@ -117,7 +117,6 @@ export interface ApiDocumentRequirement {
   agency: string;
   guide: string;
   links: { label: string; url: string }[];
-  contact?: ApiContact | null;
   form: {
     law_name: string;
     form_no: string;
@@ -132,14 +131,6 @@ export interface ApiDocumentRequirement {
   statutory_deadline: string | null;
   review_needed: boolean;
   review_reason: string | null;
-  files: {
-    file_id: string;
-    file_name: string;
-    content_type: string;
-    size_bytes: number;
-    issued_on: string | null;
-    uploaded_at: string;
-  }[];
 }
 
 export interface ApiDocuments {

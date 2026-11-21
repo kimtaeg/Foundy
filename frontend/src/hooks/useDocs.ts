@@ -35,7 +35,6 @@ export function useDocs(): DocsViewData | null {
     total: managed?.total ?? total,
     finished: managed?.finished ?? finished,
     remaining: managed?.remaining ?? total - finished,
-    contacts: context.CONTACT,
     managed,
   };
 }

@@ -9,8 +9,6 @@
  *   가게가 아직 없으면 가게 등록·되묻기·분석(SSE)을 서버로 처리하고, 마이페이지 수정은 PATCH 로 저장한다.
  */
 import { ApiError, apiEnabled } from "@/lib/api/client";
-import { DOC_UPLOAD_MAX_BYTES } from "@/data/documents";
-import { saveBlob } from "@/lib/documents/save-file";
 import type { ApiDocumentStatus } from "@/lib/api/types";
 import { ANALYSIS_STEP_COUNT, finishedIndexes, followRun } from "@/lib/api/run-stream";
 import { createApiModel, toEvidence, type ApiModel } from "@/lib/api/contexts";
@@ -270,44 +268,16 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
   // 마이페이지 가게 정보 수정: 서버 저장값으로 폼을 채우고, 서버 미리보기(dry_run)와 같은 본문으로 저장한다.
   const profile = useServerProfile({ engine, sessionRef, model: active ? model : null, refresh });
 
-  /** 서류함의 상태 선택·파일 올리기 (change 이벤트). 처리했으면 true. */
+  /** 서류함의 상태 선택 (change 이벤트). 처리했으면 true. */
   const handleDocumentChange = (target: HTMLElement): boolean => {
-    if (!engine) return false;
     const statusId = target.dataset?.docStatus;
-    if (statusId && target instanceof HTMLSelectElement) {
-      const status = target.value as ApiDocumentStatus;
-      void run(async (api) => {
-        await api.setDocumentStatus(statusId, status);
-        return "서류 상태를 바꿨어요";
-      });
-      return true;
-    }
-    const uploadId = target.dataset?.docUpload;
-    if (uploadId && target instanceof HTMLInputElement) {
-      const file = target.files?.[0];
-      target.value = ""; // 같은 파일을 다시 골라도 change 가 일어나게 한다
-      if (!file) return true;
-      if (file.size > DOC_UPLOAD_MAX_BYTES) {
-        engine.showToast("파일은 10MB 이하만 올릴 수 있어요");
-        return true;
-      }
-      void run(async (api) => {
-        await api.uploadDocument(uploadId, file);
-        return "파일을 올렸어요";
-      });
-      return true;
-    }
-    return false;
-  };
-
-  /** 서류함 파일 내려받기. 로그인 토큰이 필요해서 링크 대신 받아 와서 저장한다. */
-  const downloadDocument = (docKey: string, fileId: string) => {
-    const session = sessionRef.current;
-    if (!session || !model) return;
-    void createStoreApi(session)
-      .downloadDocumentFile(docKey, fileId)
-      .then((blob) => saveBlob(blob, model.documentFileName(docKey, fileId)))
-      .catch((error) => engine?.showToast(errorMessage(error)));
+    if (!statusId || !(target instanceof HTMLSelectElement)) return false;
+    const status = target.value as ApiDocumentStatus;
+    void run(async (api) => {
+      await api.setDocumentStatus(statusId, status);
+      return "서류 상태를 바꿨어요";
+    });
+    return true;
   };
 
   /** 서버 데이터가 필요한 이벤트만 처리하고 true 를 돌려준다. 나머지(이동·필터·보기 전환)는 로컬 엔진이 처리한다. */
@@ -396,15 +366,6 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
           });
           return true;
         }
-        case "docget":
-          downloadDocument(button.dataset.did ?? "", button.dataset.fid ?? "");
-          return true;
-        case "docdel":
-          void run(async (api) => {
-            await api.deleteDocumentFile(button.dataset.did ?? "", button.dataset.fid ?? "");
-            return "파일을 지웠어요";
-          });
-          return true;
         case "docack":
           void run(async (api) => {
             await api.ackDocumentReview(button.dataset.did ?? "");

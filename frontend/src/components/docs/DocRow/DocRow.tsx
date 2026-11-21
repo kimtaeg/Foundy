@@ -1,13 +1,10 @@
-import { PhoneContact } from "@/components/common/PhoneContact";
 import { Element } from "@/components/view/Element";
-import type { Contact } from "@/types/contact";
 import type { DocumentViewData } from "@/types/documents";
 
 export interface DocRowProps {
   document: DocumentViewData;
-  contact?: Contact;
 }
-export function DocRow({ document, contact }: DocRowProps) {
+export function DocRow({ document }: DocRowProps) {
   return (
     <div className="nx-doc">
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -15,7 +12,6 @@ export function DocRow({ document, contact }: DocRowProps) {
         <Element className="nx-muted">
           {document.agency} · {document.guide}
         </Element>
-        <PhoneContact contact={contact} />
         <Element className="nx-row" style={{ marginTop: 8 }}>
           {document.sites.map((site) => {
             return (
