@@ -1,12 +1,10 @@
-import { SocialLoginButton } from "@/components/login/SocialLoginButton";
+import { PasswordLoginForm } from "@/components/login/PasswordLoginForm";
 import { Element } from "@/components/view/Element";
 
 export function LoginActions() {
   return (
     <>
-      <SocialLoginButton provider="kakao" label="카카오" />
-      <SocialLoginButton provider="google" label="Google" />
-      <SocialLoginButton provider="naver" label="네이버" />
+      <PasswordLoginForm />
       <Element className="nx-or">
         <span>또는</span>
       </Element>

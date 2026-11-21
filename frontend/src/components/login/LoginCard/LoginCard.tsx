@@ -10,12 +10,11 @@ export function LoginCard() {
         창업 전, 확인부터.
       </h1>
       <Element as="p" className="nx-muted" style={{ margin: "0 0 8px" }}>
-        로그인하면 내 가게 정보와 점검 결과가 내 계정에 저장돼요.
+        로그인하면 내 가게 정보와 점검 결과를 이어서 볼 수 있어요. 지금은 이 브라우저에 저장돼요.
       </Element>
       <LoginActions />
       <Element className="nx-muted" style={{ marginTop: 6 }}>
-        시연용 화면이에요. 실제 소셜 로그인과 연결되어 있지 않고, 입력한 이름과
-        가게 정보는 이 브라우저에만 저장돼요.
+        “예시 계정으로 둘러보기”는 가입 없이 이서연 씨의 사례를 보여 주는 시연 화면이에요.
       </Element>
     </Element>
   );

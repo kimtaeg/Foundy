@@ -1,4 +1,4 @@
 import type { FeatureContextPage } from "./features";
 
 export type FeaturePage = FeatureContextPage;
-export type ApplicationPage = FeaturePage | "login";
+export type ApplicationPage = FeaturePage | "login" | "signup";

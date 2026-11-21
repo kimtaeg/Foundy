@@ -168,3 +168,10 @@ export interface ApiBundle {
   checklist: ApiChecklist;
   alerts: ApiAlert[];
 }
+
+/** POST /api/auth/signup · /api/auth/login 응답 */
+export interface ApiAuthSession {
+  access_token: string;
+  user: { user_id: string; name: string; provider: string; username: string | null; joined_at: string };
+  store_id: string | null;
+}

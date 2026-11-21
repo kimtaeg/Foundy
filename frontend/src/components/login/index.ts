@@ -4,3 +4,7 @@ export * from "./LoginCard";
 export * from "./LoginView";
 export * from "./SocialLoginButton";
 export * from "./SocialSignInDialog";
+export * from "./PasswordLoginForm";
+export * from "./SignupCard";
+export * from "./SignupForm";
+export * from "./SignupView";

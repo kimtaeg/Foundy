@@ -65,7 +65,8 @@ def dday(due: date | None, today: date | None = None) -> int | None:
 # ---------- 계정·가게 ----------
 
 def user(u: User) -> dict:
-    return {"user_id": str(u.id), "name": u.name, "provider": u.provider, "joined_at": u.joined_at.isoformat()}
+    return {"user_id": str(u.id), "name": u.name, "provider": u.provider, "username": u.username,
+            "joined_at": u.joined_at.isoformat()}
 
 
 def answers(src: Any) -> dict:

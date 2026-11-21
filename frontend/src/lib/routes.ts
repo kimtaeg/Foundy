@@ -20,7 +20,7 @@ export function resolveApplicationPage(
   snapshot: Pick<FoundySnapshot, "uid" | "onboarded">,
   requested: string,
 ): ApplicationPage {
-  if (!snapshot.uid) return "login";
+  if (!snapshot.uid) return requested === "signup" ? "signup" : "login";
   if (!snapshot.onboarded) return "register";
   return isFeaturePage(requested) ? requested : "dashboard";
 }
