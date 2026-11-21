@@ -10,10 +10,12 @@ from agent.ports import ToolResult
 from config import get_settings
 from services.pack import get_pack
 from services.timeutil import now_utc, today_kst
+from rules import building_use
 from tools import address as address_tool
 
 KAKAO_URL = address_tool.KAKAO_URL
 BUILDING_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrFlrOulnInfo"
+BUILDING_UNIT_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo"
 TRADEMARK_URL = "https://plus.kipris.or.kr/kipo-api/kipi/trademarkInfoSearchService/getAdvancedSearch"
 LAW_BASE = "https://www.law.go.kr/DRF"
 
@@ -47,20 +49,11 @@ class Providers:
             raise ValueError("ADDRESS_AMBIGUOUS_OR_MISSING")
         return address_tool.codes_from_document(documents[0])
 
-    def building(self, store):
-        key = self.settings.building_api_key or self.settings.data_go_kr_key
-        if not key:
-            raise ValueError("MISSING_BUILDING_KEY")
-        codes = self._address(store)
-        floor = re.search(r"(지하\s*|B\s*)?(\d+)\s*층", store.address_detail or "", re.I)
-        if not floor:
-            raise ValueError("FLOOR_REQUIRED")
-        params = {"serviceKey": unquote(key), "sigunguCd": codes["sigungu_cd"], "bjdongCd": codes["bjdong_cd"],
-                  "platGbCd": codes.get("plat_gb_cd", "0"), "bun": codes["bun"], "ji": codes["ji"],
-                  "_type": "json", "numOfRows": "100"}
+    def _building_rows(self, url: str, params: dict) -> list[dict]:
+        """건축HUB 목록을 끝까지 읽는다. 제공자 오류·불완전한 페이지는 예외 (조회 실패)."""
         rows, expected, seen = [], None, set()
-        for page in range(1, 11):
-            payload = self._get(BUILDING_URL, params={**params, "pageNo": str(page)}).json()["response"]
+        for page in range(1, 31):
+            payload = self._get(url, params={**params, "pageNo": str(page)}).json()["response"]
             if str(payload["header"].get("resultCode")) not in {"00", "0"}:
                 raise ValueError("BUILDING_PROVIDER_ERROR")
             body = payload["body"]
@@ -75,23 +68,45 @@ class Providers:
             seen.add(signature)
             rows.extend(batch)
             if len(rows) == total:
-                break
+                return rows
             if not batch or len(rows) > total:
                 raise ValueError("BUILDING_INCOMPLETE")
-        else:
-            raise ValueError("BUILDING_PAGE_LIMIT")
-        selected = [r for r in rows if str(r.get("flrNo")) == floor.group(2)
-                    and r.get("flrGbCdNm") == ("지하" if floor.group(1) else "지상")
-                    and r.get("mainAtchGbCdNm") == "주건축물"]
-        buildings = {r.get("mgmBldrgstPk") or r.get("bldrgstSeqno") or r.get("dongNm") for r in selected}
-        if len(buildings) > 1:
-            raise ValueError("BUILDING_AMBIGUOUS")
-        uses = sorted({re.sub(r"\s", "", r["mainPurpsCdNm"]) for r in selected if r.get("mainPurpsCdNm")})
-        if not uses:
-            raise ValueError("FLOOR_USE_UNAVAILABLE")
+        raise ValueError("BUILDING_PAGE_LIMIT")
+
+    def building(self, store):
+        """가게 층(입력에 호가 있으면 그 호실)의 원본 용도 행과 대상 공간을 돌려준다.
+
+        층 없음·층 행 없음·건물 여러 개·호실 불일치 같은 데이터 결과는 예외가 아니라 space.status 로 돌려준다
+        (예외는 통신·제공자 오류만. 예외면 분석 도구가 캐시·모의 응답으로 대체하므로 데이터 결과를 예외로 만들지 않는다).
+        """
+        key = self.settings.building_api_key or self.settings.data_go_kr_key
+        if not key:
+            raise ValueError("MISSING_BUILDING_KEY")
+        codes = self._address(store)
+        detail = building_use.parse_detail(store.address_detail)
+        params = {"serviceKey": unquote(key), "sigunguCd": codes["sigungu_cd"], "bjdongCd": codes["bjdong_cd"],
+                  "platGbCd": codes.get("plat_gb_cd", "0"), "bun": codes["bun"], "ji": codes["ji"],
+                  "_type": "json", "numOfRows": "100"}
+        floor_rows: list[dict] = []
+        unit_rows: list[dict] | None = None
+        if detail["floor"]:
+            floor_rows = self._building_rows(BUILDING_URL, params)
+            if detail["ho"]:
+                # 요청에 hoNm 을 넣었다고 그 호실로 보지 않는다. 응답 행의 동·층·호를 resolve_space 가 다시 대조한다
+                unit_rows = self._building_rows(BUILDING_UNIT_URL, {**params, "hoNm": detail["ho"]})
+        target = [r for r in floor_rows if str(r.get("flrNo")) == detail["floor"]]
+        space = building_use.resolve_space(floor_rows, unit_rows, detail)
         # 주소 코드도 함께 돌려줘 분석 결과 저장 때 stores.address_codes 로 남긴다 (관할 기관 연락처에 쓴다)
-        return ToolResult(ok=True, source="건축HUB 층별개요", fetched_at=now_utc(),
-                          data={"floor_uses": uses, "violation": None, "address_codes": codes})
+        data = {
+            "schema": building_use.SPACE_SCHEMA,
+            "space": space,
+            "floor_rows": [building_use.keep_row(r) for r in target],
+            "unit_rows": None if unit_rows is None else [building_use.keep_row(r) for r in unit_rows],
+            "violation": None,  # 층별개요·전유부 응답에 위반건축물 표기가 없다 (지어내지 않는다)
+            "address_codes": codes,
+        }
+        source = "건축HUB 전유부·층별개요" if space["status"] == building_use.UNIT_MATCHED else "건축HUB 층별개요"
+        return ToolResult(ok=True, source=source, fetched_at=now_utc(), data=data)
 
     def trademark(self, name):
         if not self.settings.kipris_api_key:

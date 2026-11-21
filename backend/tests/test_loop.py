@@ -233,3 +233,31 @@ def test_obligations_are_returned_with_status():
     assert status["FIRE-DENSE-001"] == "applies"
     assert status["FOOD-REPORT-001"] == "applies"
     assert status["LABOR-CONTRACT-001"] == "applies"
+
+
+class _MockFallbackTools(FakeTools):
+    """실제 모드(use_mock=False) 분석 도구가 건물 조회 실패로 모의 응답(다른 주소의 예시 건물)을 돌려준 상황."""
+    use_mock = False
+
+    def building(self, store):
+        return ToolResult(ok=True, source="건축물대장 층별개요 (예시)", from_mock=True,
+                          data={"floor_uses": ["제1종근린생활시설"], "violation": False})
+
+
+def test_real_mode_mock_building_is_not_used_for_use_or_violation():
+    res, events = run(tools=_MockFallbackTools(similar=SIMILAR))
+    found = by_check(res)
+    assert found["building_use"].verdict == "unknown" and found["building_violation"].verdict == "unknown"
+    assert not any(e.from_mock and e.type == "data" for e in found["building_use"].evidence)
+    assert "조회하지 못했어요" in found["building_violation"].reason
+    step = next(d for e, d in events if e == "step" and d["step"] == "building" and d["status"] != "running")
+    assert step["status"] == "fallback"  # 진행 표시에도 실제 조회가 아님을 남긴다
+    assert res.address_codes is None
+
+
+def test_mock_mode_keeps_demo_judgement():
+    class DemoTools(_MockFallbackTools):
+        use_mock = True  # 명시한 모의 모드(개발·데모)는 기존대로 예시 자료로 판정한다
+
+    found = by_check(run(tools=DemoTools(similar=SIMILAR))[0])
+    assert found["building_use"].verdict == "high" and found["building_use"].evidence[0].from_mock

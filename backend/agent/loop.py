@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from rules.applicability import APPLIES, NEEDS_CHECK, RuleOutcome, evaluate_rules
+from rules.building_use import building_input
 from rules.engine import (
     active_checks, base_checklist, check_spec, contact_of, derive_business_type, documents_of,
     judge_building_use, load_pack, render_title,
@@ -146,8 +147,12 @@ def run_analysis(
              if b.ok else "건축물대장 조회 실패", source=b.source)
     elif "law" in selected and hasattr(tools, "cached_building"):
         b = _safe("건축물대장 캐시", tools.cached_building, store)
-    uses = (b.data or {}).get("floor_uses", []) if b.ok else []
     address_codes = resolved_address_codes(b)
+    if b.ok and b.from_mock and getattr(tools, "use_mock", None) is False:
+        # 실제 모드에서 조회가 실패해 모의 응답(다른 주소의 예시 건물)으로 대체됐다. 이 자료로 건물 용도·위반건축물을 판정하지 않는다
+        b = ToolResult(ok=False, source=b.source, error="실제 조회 실패 (예시 건축물 자료로 판정하지 않음)", from_mock=True)
+    building = building_input(pack, business_type, b.data) if b.ok else None
+    uses = (building.uses or []) if building else []
 
     t = ToolResult(ok=False, source="KIPRIS", error="미실행")
     if "trademark" in selected:
