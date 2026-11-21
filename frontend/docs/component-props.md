@@ -76,9 +76,9 @@
 | [ManagedDocsBoard](../src/components/docs/ManagedDocsBoard/ManagedDocsBoard.tsx) | `ManagedDocsBoardProps` | data | props / UI 상태 |
 | [Modal](../src/components/feedback/Modal/Modal.tsx) | `ModalProps` | title, children, onClose (콜백) | props / UI 상태 |
 | [Toast](../src/components/feedback/Toast/Toast.tsx) | `ToastProps` | message | props / UI 상태 |
-| [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) | `FootTrafficMapProps` | appKey?, dataSource?, dataset?, loading?, error?, onRetry? (콜백), center, onCenterChange (콜백), radius, onRadiusChange (콜백), shops, selectedShopId, onSelectShop (콜백), address?, settingsOpen, onSettingsOpenChange (콜백), hour, lastHour, onHourChange (콜백) | props / UI 상태 |
+| [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) | `FootTrafficMapProps` | appKey?, dataSource?, dataset?, loading?, error?, onRetry? (콜백), center, onCenterChange (콜백), radius, onRadiusChange (콜백), shops, selectedShopId, onSelectShop (콜백), address?, onNearbyShopsChange? (콜백), settingsOpen, onSettingsOpenChange (콜백), hour, lastHour, onHourChange (콜백) | props / UI 상태 |
 | [MapAvailability](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) | `MapAvailabilityProps` | state | props / UI 상태 |
-| [MapCanvas](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx) | `MapCanvasProps` | appKey, center, radius, level, lines, cells, cuts, label, hour, shops, selectedShopId, address?, onSelectShop (콜백), onCenterChange (콜백), onLevelChange (콜백), onRegionChange (콜백), onAddressStatusChange (콜백) | props / UI 상태 |
+| [MapCanvas](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx) | `MapCanvasProps` | appKey, center, radius, level, lines, cells, cuts, label, hour, shops, selectedShopId, address?, onSelectShop (콜백), onCenterChange (콜백), onLevelChange (콜백), onRegionChange (콜백), onAddressStatusChange (콜백), onNearbyShopsChange? (콜백) | props / UI 상태 |
 | [MapControls](../src/components/foot-traffic/MapControls/MapControls.tsx) | `MapControlsProps` | open, onOpenChange (콜백), category, sub, hour, lastHour, radius, shown, region, onCategoryChange (콜백), onSubChange (콜백), onHourChange (콜백), onRadiusChange (콜백), onToggle (콜백) | props / UI 상태 |
 | [MapDataStatus](../src/components/foot-traffic/MapDataStatus/MapDataStatus.tsx) | `MapDataStatusProps` | loading, error, addressStatus, retry (콜백) | props / UI 상태 |
 | [MapZoomControls](../src/components/foot-traffic/MapZoomControls/MapZoomControls.tsx) | `MapZoomControlsProps` | level, onChange (콜백) | props / UI 상태 |
@@ -200,13 +200,13 @@
 | [MarketAnalysisPanel](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx) | `MarketAnalysisPanelProps` | open, onClose (콜백), center, radius, category, onCategoryChange (콜백), summary, population, shops, planning | props / UI 상태 |
 | [MarketBar](../src/components/sites/MarketBar/MarketBar.tsx) | `MarketBarProps` | label, value, percent | props / UI 상태 |
 | [MarketCategoryFilter](../src/components/sites/MarketCategoryFilter/MarketCategoryFilter.tsx) | `MarketCategoryFilterProps` | value, onChange (콜백) | props / UI 상태 |
-| [MarketEmptyState](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) | 없음 | 없음 | props / UI 상태 |
+| [MarketEmptyState](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) | `MarketEmptyStateProps` | example?, status? | props / UI 상태 |
 | [MarketMetric](../src/components/sites/MarketMetric/MarketMetric.tsx) | `MarketMetricProps` | label, children, unavailable? | props / UI 상태 |
 | [MarketPanelCard](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx) | `MarketPanelCardProps` | title, description?, children | props / UI 상태 |
 | [MarketPanelHeader](../src/components/sites/MarketPanelHeader/MarketPanelHeader.tsx) | `MarketPanelHeaderProps` | center, radius, onClose (콜백) | props / UI 상태 |
 | [MarketPanelTabs](../src/components/sites/MarketPanelTabs/MarketPanelTabs.tsx) | `MarketPanelTabsProps` | value, onChange (콜백) | props / UI 상태 |
 | [MarketSummaryCard](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) | `MarketSummaryCardProps` | analysis | props / UI 상태 |
-| [NearbyShopsCard](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) | `NearbyShopsCardProps` | shops, selectedShop?, onSelect (콜백) | props / UI 상태 |
+| [NearbyShopsCard](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) | `NearbyShopsCardProps` | analysis, shops, selectedShop?, onSelect (콜백) | props / UI 상태 |
 | [PopulationBreakdownCard](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx) | `PopulationBreakdownCardProps` | title, description, rows, chart | props / UI 상태 |
 | [PopulationDataNote](../src/components/sites/PopulationDataNote/PopulationDataNote.tsx) | `PopulationDataNoteProps` | date | props / UI 상태 |
 | [PopulationHourlyCard](../src/components/sites/PopulationHourlyCard/PopulationHourlyCard.tsx) | `PopulationHourlyCardProps` | points, hour, onHourChange (콜백) | props / UI 상태 |
@@ -219,7 +219,7 @@
 | [SitesPage](../src/components/sites/SitesPage/SitesPage.tsx) | 없음 | 없음 | Page / Connected 어댑터 |
 | [SitesView](../src/components/sites/SitesView.tsx) | `SitesViewProps` | data?, loading?, error?, onRetry? (콜백), appKey?, footTrafficData?, footTrafficSource?, footTrafficLoading?, footTrafficError?, onFootTrafficRetry? (콜백), populationData?, populationSource?, populationInsights?, onAnalysisChange? (콜백), onPriceChange? (콜백), onOpenReport? (콜백) | props / UI 상태 |
 | [SitesWorkspace](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx) | `SitesWorkspaceProps` | data, appKey?, footTrafficData?, footTrafficSource?, footTrafficLoading?, footTrafficError?, onFootTrafficRetry? (콜백), populationData?, populationSource?, populationInsights?, onAnalysisChange? (콜백), onPriceChange? (콜백), onOpenReport? (콜백) | props / UI 상태 |
-| [StrategyCard](../src/components/sites/StrategyCard/StrategyCard.tsx) | 없음 | 없음 | props / UI 상태 |
+| [StrategyCard](../src/components/sites/StrategyCard/StrategyCard.tsx) | `StrategyCardProps` | example? | props / UI 상태 |
 | [StrategyRow](../src/components/sites/StrategyRow/StrategyRow.tsx) | `StrategyRowProps` | text, source | props / UI 상태 |
 | [Input](../src/components/ui/Input/Input.tsx) | `InputProps` | React HTML 속성 | props / UI 상태 |
 | [Select](../src/components/ui/Select/Select.tsx) | `SelectProps` | React HTML 속성 | props / UI 상태 |

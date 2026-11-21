@@ -1837,6 +1837,12 @@
         "callback": false
       },
       {
+        "name": "onNearbyShopsChange",
+        "optional": true,
+        "type": "((state: NearbyShopsState) => void) | undefined",
+        "callback": true
+      },
+      {
         "name": "settingsOpen",
         "optional": false,
         "type": "boolean",
@@ -1992,6 +1998,12 @@
         "name": "onAddressStatusChange",
         "optional": false,
         "type": "(status: string) => void",
+        "callback": true
+      },
+      {
+        "name": "onNearbyShopsChange",
+        "optional": true,
+        "type": "((state: NearbyShopsState) => void) | undefined",
         "callback": true
       }
     ]
@@ -5013,11 +5025,24 @@
   {
     "component": "MarketEmptyState",
     "source": "src/components/sites/MarketEmptyState/MarketEmptyState.tsx",
-    "propsType": null,
+    "propsType": "MarketEmptyStateProps",
     "exportedProps": true,
     "nativeHtmlProps": false,
     "connected": false,
-    "props": []
+    "props": [
+      {
+        "name": "example",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "status",
+        "optional": true,
+        "type": "NearbyShopsStatus | undefined",
+        "callback": false
+      }
+    ]
   },
   {
     "component": "MarketMetric",
@@ -5149,6 +5174,12 @@
     "nativeHtmlProps": false,
     "connected": false,
     "props": [
+      {
+        "name": "analysis",
+        "optional": false,
+        "type": "MarketAnalysis",
+        "callback": false
+      },
       {
         "name": "shops",
         "optional": false,
@@ -5651,11 +5682,18 @@
   {
     "component": "StrategyCard",
     "source": "src/components/sites/StrategyCard/StrategyCard.tsx",
-    "propsType": null,
+    "propsType": "StrategyCardProps",
     "exportedProps": true,
     "nativeHtmlProps": false,
     "connected": false,
-    "props": []
+    "props": [
+      {
+        "name": "example",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
   },
   {
     "component": "StrategyRow",

@@ -21,6 +21,7 @@
 | 2026-11-20 (확정) | 프로토타입 `foundy` 확정 반영: 서류함은 **받는 곳 안내만**(`documents[]`는 서류 이름·받는 곳 링크·찾는 방법·기관 전화번호, `type`·`ready`·`prepared_id` 제거, `PATCH /documents/{doc_key}` 제거, `GET /documents`는 읽기 전용), 결과 카드에서 **`prepared[]`(문의 문구·특약·서류 초안) 제거**하고 `contact`(기관 전화번호)로 대체, 체크리스트 `prepared` 제거, **상권 분석(`/map`·`/market`)과 메뉴 광고 문구(`menu_text`)는 마지막에 구현**해 현재 범위에서 제외 |
 | 2026-11-20 (서류, 같은 날 확정에서 축소됨) | **필요 서류와 서류함**: 체크리스트 항목의 `documents`를 문자열 목록에서 **서류 객체**(`type`: 만들어 줌·받는 곳·내가 준비·기관에 문의, 받는 곳 링크, 기관 전화번호, 준비 여부)로 바꾸고, `GET /documents`(서류함)·`PATCH /documents/{doc_key}`(준비 완료 체크) 추가, 대시보드 `documents_progress`, 상담의 서류 질문 응답 |
 | 2026-11-19 (프로토타입 반영) | **로그인·계정**(소셜 로그인, 사용자별 가게 소유), **마이페이지**(`PATCH /stores`가 영향 `impacts[]`·초기화된 카드 `reset_items[]`를 돌려줌, 변경 기록 `/changes`), **다음으로 할 일**(`next_steps[]`), 알림 유형 확장과 `as_of`(시점 이동 시연), AI 상담 응답 `kind`·`contacts[]`·통화 준비, **상권 분석**으로 재편(`/map`·`/market`, 후보 자리 `/sites` 전부 제거), 점검 카드 선택지 `set_main_site` 제거(`adds_checklist` 추가), 지원사업 보기·필터, 화면–API 매핑 갱신 |
+| 2026-11-22 (상권 분석 시작 위치·주변 점포) | 상권 분석 지도가 **가게 주소에서 시작**하고(찾는 동안 지도를 그리지 않음), 주변 점포를 **카카오 장소 검색(CE7·FD6) 실제 결과**로 보여 준다. 서버 `/map`은 아직 없다(프론트가 SDK로 직접 조회) |
 | 2026-11-22 (서류함에서 파일·전화번호 제거) | 서류함에서 **파일 올리기·내려받기·삭제(`…/files`)와 서류의 `files`·`contact`를 없앴다**. 서류는 상태(`status`)와 이력만 관리한다. DB는 마이그레이션 0007 |
 | 2026-11-22 (서류함 개편) | 서류함을 체크리스트와 **독립된 서류 관리**로 변경: 서류마다 상태(`status`: 준비 전·준비 중·발급·취득 완료·제출 완료·보완 필요·해당 없음), 서류 유형(`type`), 적용 여부(`applicability`), 출처(`source_type`), 근거(`law_basis`·`reason`), 연결 작업(`tasks`), 파일 업로드·다운로드·삭제, 상태 이력. 진행률은 서류 상태 기준(해당 없음 제외). `PATCH /documents/{doc_key}`와 `PUT·GET·DELETE …/files` 추가, 법령 규칙이 서류를 더하고 법제처 공식 서식 링크(`form`)를 수집한다 |
 | 2026-11-22 (의무 중심 체크리스트) | 체크리스트 항목에 `task_type`(필수·조건부·권장), `source_type`, `priority`, `deadline_type`, **`recommended_due_date`(권장 준비일)와 `statutory_deadline`·`statutory_basis`(법정 기한, 없으면 null)**, `reason`, `law_basis`, `sources`, `added_by_ai`, `review_needed`·`review_reason` 추가. 응답에 `type_counts`·`review_needed` 추가. `PATCH /checklist/{id}` 는 `done` 외에 `review_ack`(재검토 안내 확인)을 받는다. 법령 규칙이 적용·확인 필요로 판정되면 규칙 묶음 `applicability_rules[].task` 로 작업이 생기고, 법령이 개정되면 연결된 작업에 `review_needed` 가 켜진다 |
@@ -1046,6 +1047,7 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 }
 ```
 
+- **현재 구현**: 서버 `GET /map`은 아직 없고, **프론트가 카카오 지도 JS SDK로 직접** 가게 주소를 좌표로 바꾸고(주소 검색 → 장소 검색 대체, 번지를 못 찾으면 도로 부근에서 시작하고 안내) 중심·반경 안의 카페(CE7)·음식점(FD6)을 가까운 순으로 조회한다(그룹당 최대 45곳, 한도에 걸리면 일부만이라고 안내). 지도 키가 없을 때만 시연용 예시 점포를 쓴다. 아래 서버 설계는 붙일 때의 참고다.
 - `shops`는 카카오 카테고리 검색(CE7 카페, FD6 음식점)의 결과다. 한 번에 최대 45건이라 **총 개수는 `meta.total_count`(`total_count`)로, 마커는 받은 만큼만** 표시한다. 반경 밖 가게는 `distance_m`으로 프론트가 흐리게 처리한다.
 - 메뉴·가격은 공개 데이터가 없어 내려주지 않는다. 화면은 `place_url` 링크로 연결한다.
 - `competition`(`low | mid | high`)과 밀집도, 프랜차이즈 비율은 **계산·규칙**으로 만든다. 프랜차이즈 판별은 규칙 묶음의 브랜드 목록(`franchise_brands`)으로 가게 이름을 분류한 값이다. AI가 만들지 않는다.
