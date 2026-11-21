@@ -25,8 +25,9 @@ def test_unknown_ids_ignored():
 
 def test_llm_failure_asks_all_pending():
     llm = FakeLLM({"ask": LLMError("down")})
+    # 선택 질문(배달 does_delivery·자금 funds_krw)도 규칙 묶음 순서대로 모두 묻는다 (#113에서 배달 질문 추가)
     assert ids(select_questions(llm, PACK, store(answers={"uses_terrace": False}))) == [
-        "sells_alcohol", "has_employees", "funds_krw"]
+        "sells_alcohol", "has_employees", "does_delivery", "funds_krw"]
 
 
 def test_nothing_pending_skips_llm():

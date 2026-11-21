@@ -48,8 +48,12 @@ def check(sc: dict, res) -> None:
             assert item.contact and item.contact.agency == e["contact"], cid
         if "evidence_contains" in e:
             assert any(e["evidence_contains"] in ((ev.value or "") + (ev.text or "")) for ev in item.evidence), cid
+        if "evidence_article" in e:  # 근거가 지정한 실제 조문(법령명 조문)에서 나왔는지
+            assert any(ev.type == "law" and f"{ev.law_name} {ev.article}" == e["evidence_article"] for ev in item.evidence), cid
         if item.verdict != "ok":
             assert item.evidence or item.verdict == "unknown", f"{cid}: 근거 없는 판정"
+    if exp.get("summary", {}).get("high") == 0:  # '위반 소지 높음'이 없어야 하는 시나리오 (실제 LLM 실행에도 적용)
+        assert [i.check_id for i in res.items if i.verdict == "high"] == []
     if exp.get("no_cards"):
         assert all(not i.options for i in res.items)  # 선택지가 있는 결과 카드가 없다
     for task_id, cid in exp.get("checklist_linked", {}).items():
