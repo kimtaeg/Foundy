@@ -43,6 +43,7 @@ const STEP_INDEX: Record<string, number> = {
   building: 1,
   trademark: 2,
   law: 3,
+  applicability: 3,
   rules: 4,
   interpret: 5,
   advise: 6,

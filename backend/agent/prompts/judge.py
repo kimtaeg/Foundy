@@ -95,3 +95,20 @@ VIOLATION_SYSTEM = PRINCIPLES + """
 VIOLATION_USER = """\
 건축물대장 위반건축물 표기(violation): {violation}
 """
+
+
+APPLICABILITY_SYSTEM = PRINCIPLES + """
+[할 일] 아래 규정(rule)마다, 주어진 조문 원문을 읽고 이 가게에 적용되는지 판정한다.
+- status는 "applies"(적용됨), "not_applicable"(조문의 적용 요건에서 제외됨), "needs_check"(입력이 부족하거나 예외·기준이 불명확해 확인이 필요함) 중 하나다.
+- 가게 정보에서 값이 null이면 모르는 값이다. 그 값이 판단에 필요하면 지어내지 말고 "needs_check"로 하고 missing_inputs에 키 이름을 적는다.
+- "not_applicable"은 조문에 적용 대상에서 빠진다는 문장이 있고 가게 정보가 그 요건에 해당할 때만 쓴다. 근거가 애매하면 "needs_check"다. 해당 의무를 놓치게 하는 쪽의 실수가 더 위험하다.
+- cited에는 판단 근거로 삼은 조문의 key를 주어진 목록에서 그대로 옮기고, quote에는 그 조문 원문에서 판단에 쓴 문장 하나를 한 글자도 바꾸지 말고 옮긴다. 원문에 없는 문장을 쓰지 않는다.
+- reason은 이 가게 상황에 맞춘 이유 한두 문장(쉬운 말)이다. 모든 규정에 대해 하나씩 답한다.
+"""
+
+APPLICABILITY_USER = """\
+신고 업종: {business_type}
+가게 정보(null은 모르는 값): {store}
+규정과 조문 원문:
+{rules}
+"""

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from agent.advise import AdviceDraft, OptionSummary
+from agent.llm import LLMError
 import json
 import re
 
@@ -149,7 +150,7 @@ def scenario_llm(canned: dict) -> "FakeLLM":
 
     models = {"judge_trademark": TrademarkJudgment, "judge_ad_claims": AdJudgment, "ask": QuestionPick,
               "judge_permit_docs": PermitJudgment, "judge_law_card": PermitJudgment}
-    out = {"judge_permit_docs": PERMIT_JUDGMENT, "judge_law_card": PERMIT_JUDGMENT, **AI_JUDGES}  # 시나리오 JSON에 없으면 기본 판정을 쓴다
+    out = {"judge_permit_docs": PERMIT_JUDGMENT, "judge_applicability": LLMError("AI 적용 판정 없음"), "judge_law_card": PERMIT_JUDGMENT, **AI_JUDGES}  # 시나리오 JSON에 없으면 기본 판정을 쓴다
     for step, body in canned.items():
         out[step] = (models.get(step) or AdviceDraft).model_validate(body)
     return FakeLLM(out)

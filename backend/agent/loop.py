@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from calc.obligation_tasks import apply_obligations
+from rules.ai_applicability import refine_obligations
 from rules.applicability import APPLIES, NEEDS_CHECK, RuleOutcome, evaluate_rules, facts_of
 from rules.building_use import building_input
 from rules.engine import (
@@ -112,28 +113,34 @@ def run_analysis(
     selected = set(scope if scope is not None else ("building", "law", "trademark", "checklist"))
     all_checks = active_checks(pack)
     # 조문을 읽고 AI가 판정하는 점검 (law_card). 연결된 적용 규칙이 모두 미적용이면 카드를 만들지 않는다.
-    obligations = evaluate_rules(pack, store, business_type)
-    outcome_of = {o.rule_id: o for o in obligations}
+    baseline = evaluate_rules(pack, store, business_type)  # 규칙 엔진 결과. AI 판정의 안전장치다
+    obligations = baseline
     law_card_ids = [c["id"] for c in all_checks if c.get("law_card")]
-    def _shown(check: dict) -> bool:
+
+    def _plan(outcomes: list[RuleOutcome]) -> tuple[set[str], list[dict], set[str]]:
         """적용되거나 예외 때문에 확인이 필요한 규정이 있을 때만 카드를 만든다. 미적용이거나 입력이 없어 모르는 규정은 카드로 만들지 않는다
         (그 결과는 의무사항 목록에 남아 면적 같은 입력을 채우면 다시 판정된다)."""
-        linked = [outcome_of[r] for r in check.get("rule_ids", []) if r in outcome_of]
-        if not linked:
-            return True
-        return any(o.status == APPLIES or (o.status == NEEDS_CHECK and not o.missing_inputs) for o in linked)
+        outcome_of = {o.rule_id: o for o in outcomes}
 
-    skipped_checks = {c["id"] for c in all_checks if c.get("law_card") and c.get("rule_ids") and not _shown(c)}
-    check_ids = {
-        "building": {"building_use", "building_violation"},
-        "law": {"building_use", "permit_docs", *law_card_ids},
-        "trademark": {"trademark_similar"},
-        "checklist": set(),
-    }
-    affected = set().union(*(check_ids.get(name, set()) for name in selected))
-    if selected == {"building", "law", "trademark", "checklist"}:
-        affected = {c["id"] for c in all_checks}
-    checks = [c for c in all_checks if c["id"] in affected and c["id"] not in skipped_checks]
+        def _shown(check: dict) -> bool:
+            linked = [outcome_of[r] for r in check.get("rule_ids", []) if r in outcome_of]
+            if not linked:
+                return True
+            return any(o.status == APPLIES or (o.status == NEEDS_CHECK and not o.missing_inputs) for o in linked)
+
+        skipped = {c["id"] for c in all_checks if c.get("law_card") and c.get("rule_ids") and not _shown(c)}
+        check_ids = {
+            "building": {"building_use", "building_violation"},
+            "law": {"building_use", "permit_docs", *law_card_ids},
+            "trademark": {"trademark_similar"},
+            "checklist": set(),
+        }
+        affected = set().union(*(check_ids.get(name, set()) for name in selected))
+        if selected == {"building", "law", "trademark", "checklist"}:
+            affected = {c["id"] for c in all_checks}
+        return skipped, [c for c in all_checks if c["id"] in affected and c["id"] not in skipped], affected
+
+    skipped_checks, checks, affected_ids = _plan(baseline)
 
     def step(name: str, status: str, message: str, **extra) -> None:
         emit("step", {"step": name, "status": status, "message": message, **extra})
@@ -168,7 +175,8 @@ def run_analysis(
         step("trademark", _status(t), f"비슷한 상표 {n_sim}건{origin}" if t.ok else "상표 조회 실패", source=t.source)
 
     # 2. 규칙 판정 + AI 판정 (점검 항목 순서는 규칙 묶음의 순서)
-    law_ids = ["building_use", "permit_docs", *[c for c in law_card_ids if c not in skipped_checks]]
+    # AI가 규정별 적용 여부를 판정하려면 규칙 엔진이 미적용으로 본 카드의 조문도 읽어야 해서 조문 카드 전체를 조회한다
+    law_ids = ["building_use", "permit_docs", *law_card_ids]
     laws = {cid: ToolResult(ok=False, source="국가법령정보", error="미실행") for cid in law_ids}
     if "law" in selected:
         laws = {cid: _safe("국가법령정보", tools.law, cid, store) for cid in laws}
@@ -187,6 +195,14 @@ def run_analysis(
         laws = {cid: r if (r.ok and not r.from_mock) else ToolResult(
             ok=False, source=r.source, error=f"{REAL_LAW_UNAVAILABLE}:{r.error or 'mock'}", from_mock=r.from_mock)
             for cid, r in laws.items()}
+
+    if "law" in selected:
+        step("applicability", "running", "AI가 법령 적용 여부 판정 중")
+        before = guarded.failures
+        obligations = refine_obligations(llm, pack, store, business_type, baseline, laws, facts_of(store, business_type))
+        step("applicability", *_ai_status(guarded, before, "법령 적용 판정 완료"))
+        skipped_checks, checks, affected_ids = _plan(obligations)
+    outcome_of = {o.rule_id: o for o in obligations}
 
     step("rules", "running", "규칙표 대조 준비 중")
     found: dict[str, tuple[ReportItem, dict]] = {}  # check_id → (항목, 선택지 만들 때 쓰는 부가 정보)
@@ -297,4 +313,4 @@ def run_analysis(
     emit("done", {"summary": summary, "cost_krw": cost_krw})
     return AnalysisResult(business_type, items, checklist, summary, cost_krw, changes, grants_result,
                           address_codes=address_codes, obligations=obligations,
-                          skipped_checks=[c["id"] for c in all_checks if c["id"] in skipped_checks and c["id"] in affected])
+                          skipped_checks=[c["id"] for c in all_checks if c["id"] in skipped_checks and c["id"] in affected_ids])

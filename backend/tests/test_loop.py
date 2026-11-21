@@ -15,7 +15,7 @@ PACK = load_pack("cafe_restaurant")
 
 
 def llm(**over):
-    base = {**AI_JUDGES, "judge_trademark": TM_JUDGMENT, "judge_permit_docs": PERMIT_JUDGMENT, "judge_law_card": PERMIT_JUDGMENT,
+    base = {**AI_JUDGES, "judge_applicability": LLMError("AI 적용 판정 없음"), "judge_trademark": TM_JUDGMENT, "judge_permit_docs": PERMIT_JUDGMENT, "judge_law_card": PERMIT_JUDGMENT,
             "advise_building_use": BUILDING_ADVICE,
             "advise_trademark_similar": TM_ADVICE}
     base.update(over)
@@ -206,7 +206,7 @@ def test_llm_outage_stops_calling_after_three_failures_and_marks_fallback():
     from agent.llm import LLMError as _E
 
     down = FakeLLM({k: _E("down") for k in ("judge_building_use", "judge_violation", "judge_trademark",
-                                            "judge_permit_docs", "advise_building_use", "advise_trademark_similar")})
+                                            "judge_permit_docs", "judge_applicability", "advise_building_use", "advise_trademark_similar")})
     res, events = run(llm_=down)
     assert len(down.calls) == 3  # 세 번 실패한 뒤에는 나머지 AI 호출을 하지 않는다 (규칙표·안내 카드로 대체)
     assert res.items and res.checklist  # 분석은 끝까지 진행

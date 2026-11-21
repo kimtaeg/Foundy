@@ -1,3 +1,4 @@
+from agent.llm import LLMError
 """실제 모드(USE_MOCK=false)에서 모의 조문이 법령 판정의 근거가 되지 않게 한다 (#68).
 
 - 실제 조문(저장된 법령 검색·법령 API·그 캐시)을 확보하고 인용을 검증했을 때만 기존 high 허용 조건을 통과한다.
@@ -53,7 +54,7 @@ def real_laws():
 
 def llm(**over):
     base = {**AI_JUDGES, "judge_trademark": TM_JUDGMENT, "judge_permit_docs": PERMIT_JUDGMENT,
-            "judge_law_card": PERMIT_JUDGMENT, "advise_building_use": BUILDING_ADVICE, "advise_trademark_similar": TM_ADVICE}
+            "judge_law_card": PERMIT_JUDGMENT, "judge_applicability": LLMError("AI 적용 판정 없음"), "advise_building_use": BUILDING_ADVICE, "advise_trademark_similar": TM_ADVICE}
     base.update(over)
     return FakeLLM(base)
 
