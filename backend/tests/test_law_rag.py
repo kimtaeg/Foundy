@@ -359,3 +359,86 @@ def test_collector_refuses_ambiguous_law_names():
                                  {"법령명한글": "가법", "현행연혁코드": "현행", "법령일련번호": "2", "시행일자": "20260101"}]}}
     with pytest.raises(LawApiError, match="특정"):
         _collector(lambda request: httpx.Response(200, json=two)).fetch("가법")
+
+
+# ---------------------------------------------------------------- OpenAI 임베더 (가짜 클라이언트)
+
+class _FakeEmbeddings:
+    def __init__(self, fail=None):
+        self.calls, self.fail = [], fail
+
+    def create(self, *, model, input, dimensions):
+        self.calls.append({"model": model, "n": len(input), "dimensions": dimensions})
+        if self.fail:
+            raise self.fail
+        from types import SimpleNamespace as NS
+
+        # 일부러 순서를 뒤섞어 돌려준다: index 로 원래 순서를 되찾아야 한다
+        data = [NS(index=i, embedding=[float(i + 1)] + [0.0] * (dimensions - 1)) for i in range(len(input))]
+        return NS(data=list(reversed(data)))
+
+
+class _FakeClient:
+    def __init__(self, fail=None):
+        self.embeddings = _FakeEmbeddings(fail)
+
+
+def test_openai_embedder_requests_768_dims_keeps_order_and_normalizes():
+    from law_rag.embedder import OpenAIEmbedder
+
+    client = _FakeClient()
+    emb = OpenAIEmbedder("k", client=client)
+    vectors = emb.embed_documents(["a", "b", "c"])
+    assert emb.model == "text-embedding-3-large"
+    assert client.embeddings.calls == [{"model": "text-embedding-3-large", "n": 3, "dimensions": DIM}]
+    assert len(vectors) == 3 and all(len(v) == DIM for v in vectors)
+    assert vectors[0][0] == 1.0 and vectors[2][0] == 1.0  # 길이를 1로 맞췄다 (첫 성분만 값이 있어 1.0)
+    assert len(emb.embed_query("질문")) == DIM
+
+
+def test_openai_embedder_batches_and_does_not_retry_auth_errors():
+    from law_rag import embedder as mod
+
+    client = _FakeClient()
+    mod.OpenAIEmbedder("k", client=client).embed_documents(["x"] * (mod.BATCH * 2 + 1))
+    assert [c["n"] for c in client.embeddings.calls] == [mod.BATCH, mod.BATCH, 1]
+
+    class AuthenticationError(Exception):
+        pass
+
+    denied = _FakeClient(fail=AuthenticationError("401"))
+    with pytest.raises(RuntimeError, match="AuthenticationError"):
+        mod.OpenAIEmbedder("bad", client=denied).embed_query("x")
+    assert len(denied.embeddings.calls) == 1  # 인증 오류는 다시 시도하지 않는다
+
+
+def test_make_embedder_prefers_embedding_key_over_gemini(monkeypatch):
+    from law_rag import embedder as mod
+
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)  # 실제 .env 의 키가 섞이지 않게 한다
+    monkeypatch.setenv("EMBEDDING_API_KEY", "key")
+    monkeypatch.setenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    monkeypatch.setenv("LLM_API_KEY", "gemini-key")
+    emb = mod.make_embedder()
+    assert isinstance(emb, mod.OpenAIEmbedder) and emb.model == "text-embedding-3-small"
+    monkeypatch.delenv("EMBEDDING_API_KEY")
+    monkeypatch.setenv("LLM_API_KEY", "")
+    assert mod.make_embedder() is None  # 키가 없으면 키워드 검색만
+
+
+@needs_db
+def test_vector_search_only_compares_vectors_from_the_same_model(test_law):
+    from db.session import transaction
+    from law_rag import retriever
+    from law_rag.store import save_law
+
+    class Other(HashEmbedder):
+        model = "다른모델"
+
+    law = make_law(test_law, "100", [("영업신고", "① 영업신고를 하여야 한다.")])
+    with transaction() as session:
+        save_law(session, law, embedder=HashEmbedder())
+    with transaction() as session:
+        same = retriever.vector_search(session, HashEmbedder().embed_query("영업신고"), [test_law["name"]], "hash-ngram-768")
+        other = retriever.vector_search(session, Other().embed_query("영업신고"), [test_law["name"]], "다른모델")
+    assert len(same) == 1 and other == []

@@ -48,11 +48,13 @@ def _hit(row, source: str) -> Hit:
                row.effective_date, row.collected_at, sources={source})
 
 
-def vector_search(session: Session, vector: list[float], names: list[str], limit: int = CANDIDATES) -> list[Hit]:
+def vector_search(session: Session, vector: list[float], names: list[str], model: str,
+                  limit: int = CANDIDATES) -> list[Hit]:
+    """같은 모델이 만든 벡터끼리만 비교한다 (모델이 다르면 벡터 공간이 달라 거리가 의미 없다)."""
     rows = session.execute(
-        text(f"SELECT {_COLUMNS} {_FROM} AND e.embedding IS NOT NULL "
+        text(f"SELECT {_COLUMNS} {_FROM} AND e.embedding IS NOT NULL AND e.model = :model "
              "ORDER BY e.embedding <=> CAST(:q AS vector) LIMIT :limit"),
-        {"q": _literal(vector), "names": names, "limit": limit}).all()
+        {"q": _literal(vector), "names": names, "model": model, "limit": limit}).all()
     return [_hit(r, "vector") for r in rows]
 
 
@@ -95,7 +97,7 @@ def search(session: Session, *, query: str, keywords: list[str], names: list[str
 
     if embedder is not None:
         try:
-            add(vector_search(session, embedder.embed_query(query), names))
+            add(vector_search(session, embedder.embed_query(query), names, embedder.model))
         except Exception as exc:
             logger.warning("벡터 검색을 건너뜁니다: %s", exc)
     add(keyword_search(session, keywords, names))
