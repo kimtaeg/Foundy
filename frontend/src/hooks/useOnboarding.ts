@@ -10,5 +10,7 @@ export function useOnboarding(): OnboardingViewModel | null {
     step: Number(context.W.step),
     completed: context.W.done,
     analysisSteps: context.STEPS_DECIDED,
+    server: Boolean(context.W.server),
+    notes: context.W.notes ?? {},
   };
 }

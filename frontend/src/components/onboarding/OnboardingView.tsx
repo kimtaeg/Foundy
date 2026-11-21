@@ -29,7 +29,7 @@ export function OnboardingView({ onEvent, ...state }: OnboardingViewProps) {
               ) : model.step === 2 ? (
                 <BusinessQuestionsStep store={model.store} />
               ) : (
-                <AnalysisStep storeName={model.store.name} steps={model.analysisSteps} completed={model.completed} />
+                <AnalysisStep storeName={model.store.name} steps={model.analysisSteps} completed={model.completed} server={model.server} notes={model.notes} />
               )}
             </Suspense>
           </Element>

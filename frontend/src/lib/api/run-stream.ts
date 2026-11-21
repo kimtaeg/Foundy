@@ -5,7 +5,7 @@ import { readEventStream } from "@/lib/api/sse";
 const POLL_MS = 1500;
 const POLL_LIMIT = 120;
 
-export type StepHandler = (step: string, status: string) => void;
+export type StepHandler = (step: string, status: string, message?: string) => void;
 
 async function pollUntilDone(runId: string, token: string): Promise<void> {
   for (let attempt = 0; attempt < POLL_LIMIT; attempt += 1) {
@@ -24,8 +24,8 @@ export async function followRun(runId: string, token: string, onStep: StepHandle
   try {
     await readEventStream(`/api/runs/${runId}/stream`, token, (event, data) => {
       if (event === "step") {
-        const { step, status } = data as { step: string; status: string };
-        onStep(step, status);
+        const { step, status, message } = data as { step: string; status: string; message?: string };
+        onStep(step, status, message);
       } else if (event === "done") finished = true;
       else if (event === "error") failure = (data as { message?: string }).message ?? "분석에 실패했어요";
     });
@@ -60,4 +60,18 @@ export function finishedIndexes(step: string, status: string): number[] {
   const indexes = Array.from({ length: index }, (_, i) => i);
   if (FINISHED.has(status)) indexes.push(index);
   return indexes;
+}
+
+/**
+ * 서버가 보낸 단계 상태를 화면에 보여 줄 문구로 바꾼다. 정상 완료면 null (화면은 "완료"라고 쓴다).
+ * 예시·캐시 자료로 대체됐거나 실패·건너뛴 단계는 숨기지 않고 그대로 알린다.
+ */
+export function stepNote(step: string, status: string, message?: string): { index: number; note: string } | null {
+  const index = STEP_INDEX[step];
+  if (index === undefined || status === "done") return null;
+  if (status === "fallback")
+    return { index, note: message && /예시|캐시|저장/.test(message) ? message : "예시·캐시 자료로 대체" };
+  if (status === "failed") return { index, note: message && message !== "" ? message : "조회 실패" };
+  if (status === "skipped") return { index, note: message || "건너뜀" };
+  return null;
 }

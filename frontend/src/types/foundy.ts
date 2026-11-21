@@ -37,8 +37,8 @@ export interface FoundyStore {
   showToast(message: string): void;
   /** 서버에 저장된 가게로 로컬 가게 정보를 맞추고 가게 등록을 마친 상태로 만든다 */
   adoptServerStore(store: Store): void;
-  /** 서버 분석 진행(끝난 단계 번호들)을 가게 등록 화면에 표시한다 */
-  setAnalysisProgress(done: number[]): void;
+  /** 서버 분석 진행(끝난 단계 번호들)과 예시·실패 등 단계별 실제 상태 문구를 가게 등록 화면에 표시한다 */
+  setAnalysisProgress(done: number[], notes?: Record<number, string>): void;
   navigateTo(page: string): void;
   logout(): void;
   openNotification(id: string): void;

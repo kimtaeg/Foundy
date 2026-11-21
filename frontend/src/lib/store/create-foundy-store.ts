@@ -1190,10 +1190,12 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       notify();
     },
     // 서버 분석이 진행되는 동안 가게 등록 화면의 단계 표시를 서버 이벤트에 맞춘다 (가짜 타이머를 멈춘다).
-    setAnalysisProgress: (done: number[]) => {
+    setAnalysisProgress: (done: number[], notes: Record<number, string> = {}) => {
       clearTimers();
       onboarding.step = 3;
       onboarding.done = [...done];
+      onboarding.server = true; // 서버가 알려 주는 실제 진행이다 (시뮬레이션이 아니다)
+      onboarding.notes = { ...notes };
       notify();
     },
     navigateTo: (page: string) => {
