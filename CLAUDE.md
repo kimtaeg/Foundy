@@ -47,6 +47,7 @@ pytest tests/scenarios           # 데모 시나리오 S1~S4
 RUN_LLM_TESTS=1 pytest tests/scenarios -m llm   # 실제 LLM으로 시나리오 확인
 alembic upgrade head             # DB 마이그레이션 (적용 전 확인, 배포 시 Railway preDeploy가 자동 실행)
 python -m law_rag.ingest         # 법령 수집·저장·임베딩 (--reembed: 임베딩만 다시)
+python -m law_rag.forms          # 법령 공식 서식(별지 서식) 파일 링크 수집
 USE_MOCK=true uvicorn main:app --reload   # 화면 시연용: 외부 API 대신 mocks/ 응답 사용 (테스트·검증에는 쓰지 않는다)
 ```
 
@@ -86,10 +87,10 @@ Foundy/
     ├── main.py               # FastAPI 앱 (CORS, 라우터 등록, 시작 시 중단된 runs 정리)
     ├── config.py             # 환경변수 설정 (pydantic-settings)
     ├── railway.json          # Railway 배포 설정 (preDeploy: alembic upgrade head)
-    ├── api/                  # 라우터 (health, demo, auth, me, stores, checklist, alerts, runs[분석·SSE], laws[내부 갱신])
-    ├── services/             # 분석 저장, 유효 값, 카드 상태 변경, 응답 조립(serializers), 가게 등록·수정, 로그인
+    ├── api/                  # 라우터 (health, demo, auth, me, stores, checklist, documents, alerts, runs[분석·SSE], laws[내부 갱신])
+    ├── services/             # 분석 저장, 유효 값, 카드 상태 변경, 응답 조립(serializers), 서류함(documents), 가게 등록·수정, 로그인
     ├── calc/                 # 코드가 하는 계산: 날짜, 선택지 효과, 카드↔체크리스트 연결, 다음 할 일, 법령→체크리스트 작업(obligation_tasks)
-    ├── db/                   # 엔진·세션, ORM 모델, 예시 계정 시드, migrations/ (0001~0005)
+    ├── db/                   # 엔진·세션, ORM 모델, 예시 계정 시드, migrations/ (0001~0006)
     ├── agent/                # 분석 루프(loop), 판정(judge), 해결 방안(advise), 챗봇, 가드레일, 프롬프트, LLM 어댑터, 비용 기록
     ├── law_rag/              # 법령 수집·파싱·청킹·임베딩(pgvector)·검색, 변경 감지(changes)
     ├── tools/                # 외부 API 조회 (address, providers[건축물대장·상표·법령·지원사업], analysis[캐시·모의 대체])
@@ -138,6 +139,15 @@ Foundy/
 - 법령 개정이나 재분석으로 더는 적용되지 않는 작업이라도 사용자가 완료한 기록은 지우지 않고 `review_needed`로 표시한다. 미완료 작업만 삭제한다.
 - 새 작업은 해당 점검 카드(`check_id`)와 연결되어 카드를 완료하면 자동 체크된다. 기본 항목의 연결은 규칙 묶음 `report_links`가 정한다.
 
+### Documents Rules (서류함)
+
+- 서류함은 체크리스트의 하위 화면이 아니라 **서류마다 독립된 상태**를 가진다 (`document_requirements`). 진행률은 서류 상태(`obtained`·`submitted`)로 세고 `not_applicable`은 분모에서 뺀다. **발급·취득 완료와 제출 완료는 구분한다.**
+- 서류는 세 곳에서 같은 구조로 합쳐진다: 규칙 묶음 `documents`(기본 템플릿), 법령 규칙 `applicability_rules[].documents`(규칙 엔진 판정), 점검 카드가 검증한 조문이 붙은 법령 분석. 법령에 의무가 있어도 별도 서류가 없으면 서류를 만들지 않고 체크리스트 작업으로만 둔다.
+- 서류 이름·받는 곳·안내 문장은 조문이나 공식 안내로 확인된 것만 규칙 묶음에 적는다 (근거 조문을 `guide`에 남긴다). 링크는 규칙 묶음 `sites`의 검증된 첫 화면만 쓰고, **공식 서식 파일 링크는 법제처 API로 수집한 값(`law_forms`)만 쓴다. 규칙 묶음이나 코드에 URL을 적지 않는다.**
+- 법령에 첨부된 서식은 `python -m law_rag.forms`(법령 갱신 때 같이 실행)로 수집하고, 개정되면 이전 행을 남기고 그 서식을 쓰는 서류에 재검토를 표시한다.
+- YAML에서 `no`·`yes`·`on`·`off`는 불리언으로 읽힌다. 키 이름으로 쓰지 않는다 (`form_no`).
+- 업로드는 PDF·이미지·HWP(X), 파일당 10MB, 서류당 5개다. 파일은 지금 Postgres에 저장하며, 파일 저장소를 붙이면 경로만 저장한다.
+
 ### Tool Convention
 
 - 외부 API 조회는 `tools/`에 둔다 (`address.py`, `providers.py`, `analysis.py`). 저장된 법령 검색은 `law_rag/service.py`가 맡는다.
@@ -154,7 +164,7 @@ Foundy/
 |-----|------|------|
 | 도로명주소·카카오 로컬 | 주소 → 법정동코드·번·지 | `tools/address.py`, `tools/providers.py` |
 | 건축물대장 (국토부 건축HUB) | 건물·층별·호별 용도와 면적 | `tools/providers.py` |
-| 국가법령정보 (법제처) | 법령 수집·조문 링크 (OC 등록 IP 제한 있음) | `law_rag/collector.py` |
+| 국가법령정보 (법제처) | 법령 수집·조문 링크·공식 서식 링크 (OC 등록 IP 제한 있음) | `law_rag/collector.py`, `law_rag/forms.py` |
 | KIPRIS Plus (특허청) | 유사 등록 상표 검색 | `tools/providers.py` |
 | LLM API | 판정·해결 방안·챗봇·되묻기 (`LLM_PROVIDER`: openai \| gemini) | `agent/llm.py` |
 | 임베딩 API | 법령 조각 임베딩 (기본 OpenAI `text-embedding-3-large`, 768차원) | `law_rag/embedder.py` |

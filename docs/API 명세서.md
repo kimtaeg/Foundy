@@ -21,6 +21,8 @@
 | 2026-11-20 (확정) | 프로토타입 `foundy` 확정 반영: 서류함은 **받는 곳 안내만**(`documents[]`는 서류 이름·받는 곳 링크·찾는 방법·기관 전화번호, `type`·`ready`·`prepared_id` 제거, `PATCH /documents/{doc_key}` 제거, `GET /documents`는 읽기 전용), 결과 카드에서 **`prepared[]`(문의 문구·특약·서류 초안) 제거**하고 `contact`(기관 전화번호)로 대체, 체크리스트 `prepared` 제거, **상권 분석(`/map`·`/market`)과 메뉴 광고 문구(`menu_text`)는 마지막에 구현**해 현재 범위에서 제외 |
 | 2026-11-20 (서류, 같은 날 확정에서 축소됨) | **필요 서류와 서류함**: 체크리스트 항목의 `documents`를 문자열 목록에서 **서류 객체**(`type`: 만들어 줌·받는 곳·내가 준비·기관에 문의, 받는 곳 링크, 기관 전화번호, 준비 여부)로 바꾸고, `GET /documents`(서류함)·`PATCH /documents/{doc_key}`(준비 완료 체크) 추가, 대시보드 `documents_progress`, 상담의 서류 질문 응답 |
 | 2026-11-19 (프로토타입 반영) | **로그인·계정**(소셜 로그인, 사용자별 가게 소유), **마이페이지**(`PATCH /stores`가 영향 `impacts[]`·초기화된 카드 `reset_items[]`를 돌려줌, 변경 기록 `/changes`), **다음으로 할 일**(`next_steps[]`), 알림 유형 확장과 `as_of`(시점 이동 시연), AI 상담 응답 `kind`·`contacts[]`·통화 준비, **상권 분석**으로 재편(`/map`·`/market`, 후보 자리 `/sites` 전부 제거), 점검 카드 선택지 `set_main_site` 제거(`adds_checklist` 추가), 지원사업 보기·필터, 화면–API 매핑 갱신 |
+| 2026-11-22 (서류함 개편) | 서류함을 체크리스트와 **독립된 서류 관리**로 변경: 서류마다 상태(`status`: 준비 전·준비 중·발급·취득 완료·제출 완료·보완 필요·해당 없음), 서류 유형(`type`), 적용 여부(`applicability`), 출처(`source_type`), 근거(`law_basis`·`reason`), 연결 작업(`tasks`), 파일 업로드·다운로드·삭제, 상태 이력. 진행률은 서류 상태 기준(해당 없음 제외). `PATCH /documents/{doc_key}`와 `PUT·GET·DELETE …/files` 추가, 법령 규칙이 서류를 더하고 법제처 공식 서식 링크(`form`)를 수집한다 |
+| 2026-11-22 (의무 중심 체크리스트) | 체크리스트 항목에 `task_type`(필수·조건부·권장), `source_type`, `priority`, `deadline_type`, **`recommended_due_date`(권장 준비일)와 `statutory_deadline`·`statutory_basis`(법정 기한, 없으면 null)**, `reason`, `law_basis`, `sources`, `added_by_ai`, `review_needed`·`review_reason` 추가. 응답에 `type_counts`·`review_needed` 추가. `PATCH /checklist/{id}` 는 `done` 외에 `review_ack`(재검토 안내 확인)을 받는다. 법령 규칙이 적용·확인 필요로 판정되면 규칙 묶음 `applicability_rules[].task` 로 작업이 생기고, 법령이 개정되면 연결된 작업에 `review_needed` 가 켜진다 |
 | 2026-11-19 (실행 단계·자동 체크) | 결과 카드에 **실행 단계** `action_status`와 `POST /report/items/{id}/action` 추가, 점검 카드를 완료하면 연결된 체크리스트 항목을 자동 완료(`auto_checked`). 지원사업 항목에 `poster` 추가. 상권 분석은 **입지를 정한 사용자**의 주소 기준으로 한정(`/map`의 주변 업소는 카카오 CE7·FD6, 후보 자리 직접 입력 제거). 입지를 정하지 않은 사용자는 대상이 아니다 |
 | 2026-11-18 (결과 카드) | 점검 리포트 항목을 **"결과물 + 결정 한 번"** 구조로 변경: `consequence`, `options[]`, `recommendation`, `prepared[]`, `user_action`, `chosen_option` 추가, `next_action` 제거. 선택지 적용 `POST /report/items/{id}/choose` 추가, SSE `advise` step 추가, 대시보드 `pending_decisions` 추가, 체크리스트 항목에 `prepared`(신고서류 초안) 추가, 챗봇 `choose_option` 액션 추가 |
 | 2026-11-18 | 아키텍처 문서(11-18)에 맞춰 전면 갱신: 일정표·신고를 **개업 체크리스트**(`/checklist`)로 통합, 항목별 질문(`/report/items/{id}/ask`)을 **내 가게 챗봇**(`/chat`)으로 확장, **입지·상권 지도와 매물 비교**(`/map`, `/sites`) 추가, **대출 안내 삭제**(`/loans`), **지원사업 자격 판정은 AI가 데이터에 근거해 판정**(`decided_by: ai`), 자격 값을 `eligible / partial / unknown`으로 통일(`ineligible` 삭제), 깨져 있던 화면-API 매핑표 복구 |
@@ -846,12 +848,13 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 
 ### 서류 객체 (`documents[]`)와 서류함 [핵심]
 
-신고·신청에 필요한 서류를 항목마다 **어디서 받는지**만 안내한다. 서류를 대신 만들어 주지 않고, 서류별 준비 여부도 저장하지 않는다.
+신고·신청에 필요한 서류를 항목마다 **어디서 받는지** 안내한다. 서류를 대신 만들어 주지 않는다. 서류별 준비 상태·파일은 서류함 API에서 관리한다.
 
 ```json
 {
   "doc_id": "apply",
-  "name": "영업신고 접수",
+  "name": "영업신고서 (식품위생법 시행규칙 별지 제37호서식)",
+  "type": "application",
   "agency": "정부24 · 관할 구청 위생과",
   "guide": "정부24에서 “영업신고”를 검색해 신청하거나, 관할 구청 위생과에 직접 제출해요. 신고 업종과 필요 서류는 구청에 먼저 확인하세요",
   "links": [ { "label": "정부24", "url": "https://www.gov.kr/" } ],
@@ -871,22 +874,56 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 - 서류는 가게 상태에 따라 달라진다. 항목이 숨겨지면(직원 없음 → 고용) 그 서류도 빠지고, 선택지로 생긴 항목(`source: report`, 예: `x-0`·`x-2`)의 서류는 그 카드를 되돌리면 사라진다.
 - 발급 비용·소요 기간은 근거(규칙·데이터)가 있을 때만 숫자로 쓰고 없으면 "확인 필요"다.
 
-### `GET /api/stores/{store_id}/documents` — 서류함
+### 서류함 API: 서류별 상태·파일·이력 [핵심]
+
+서류함은 체크리스트의 하위 화면이 아니다. **서류마다 자기 상태를 가지고, 진행률도 서류 상태로 센다** (체크리스트 완료와 별개). 서류가 만들어지는 곳은 세 곳이고 모두 같은 구조로 합쳐진다.
+
+| `source_type` | 뜻 |
+| --- | --- |
+| `template` | 규칙 묶음 `documents` (체크리스트 항목에 붙은 기본 서류) |
+| `rule_engine` | 법령 규칙(`applicability_rules[].documents`)이 적용·확인 필요로 판정돼 추가 |
+| `legal_analysis` | 위와 같고, 점검 카드가 검증해 인용한 조문이 근거로 붙은 경우 |
+
+법령에 의무가 있어도 별도 서류가 없으면 서류를 만들지 않는다 (체크리스트 작업으로만 둔다).
+
+**서류 유형 `type`**: `issued` 발급 서류 · `application` 작성·제출 서류 · `certificate` 교육·검사로 취득하는 서류(식품위생교육 이수증·건강진단결과서 등) · `kept` 보관 서류 · `reference` 확인 자료.
+**상태 `status`**: `not_started` 준비 전 · `in_progress` 준비 중 · `obtained` 발급·취득 완료 · `submitted` 제출 완료 · `needs_fix` 보완 필요 · `not_applicable` 해당 없음. **발급·취득 완료와 제출 완료는 다르다.** `not_applicable`은 진행률 분모에서 뺀다.
+**적용 여부 `applicability`**: `applies` · `needs_check`(해당 여부를 확인해야 함, 예: 지하수를 쓸 때만 필요한 수질검사성적서) · `not_applicable`.
+
+| 메서드 | 경로 | 설명 |
+| --- | --- | --- |
+| GET | `/api/stores/{store_id}/documents` | 서류함 목록. 조회할 때 필요한 서류를 지금 가게 상태에 맞춰 동기화한다 (멱등) |
+| GET | `/api/stores/{store_id}/documents/{doc_key}` | 서류 하나 + 상태 변경 이력(`history`) |
+| PATCH | `/api/stores/{store_id}/documents/{doc_key}` | 상태 변경 `{ "status": "obtained", "note": "정부24에서 발급" }`. 알 수 없는 상태는 400 |
+| PUT | `/api/stores/{store_id}/documents/{doc_key}/files` | 파일 업로드. 본문은 파일 그대로, `Content-Type`·`X-File-Name`(URL 인코딩)·`X-Issued-On`(선택, YYYY-MM-DD). 201 |
+| GET | `/api/stores/{store_id}/documents/{doc_key}/files/{file_id}` | 파일 내려받기 |
+| DELETE | `/api/stores/{store_id}/documents/{doc_key}/files/{file_id}` | 파일 삭제 |
+
+업로드 제한: PDF·PNG·JPG·WEBP·HWP(X), 파일당 10MB, 서류당 5개. 허용하지 않는 형식은 415, 큰 파일은 413. 상태가 준비 전·준비 중·보완 필요일 때 올리면 `obtained`로 바뀐다 (이력에 남는다).
 
 ```json
 {
-  "summary": { "total": 8, "finished": 1, "remaining": 7 },
-  "groups": [
-    { "item_id": "c-01", "task": "건축물대장 확인 및 임대차 계약 검토", "group_label": "계약 전", "due_date": "2027-01-05", "dday": -56, "agency": "관할 구청 건축과", "done": false,
-      "documents": [ { "doc_id": "bldg", "name": "건축물대장 (일반·집합)", "agency": "정부24 · 세움터", "guide": "…", "links": [ { "label": "정부24", "url": "https://www.gov.kr/" } ] } ] }
+  "summary": { "total": 10, "finished": 2, "remaining": 8, "not_applicable": 1,
+               "by_status": { "not_started": 7, "in_progress": 1, "obtained": 1, "submitted": 1, "needs_fix": 0, "not_applicable": 1 },
+               "by_type": { "issued": 1, "application": 4, "certificate": 3, "kept": 1, "reference": 3 },
+               "to_obtain": 4, "to_write_or_keep": 5, "review_needed": 0 },
+  "groups": [ { "item_id": "c-04", "task": "일반음식점 영업신고에 필요한 서류 준비", "group_label": "개업 4주 전", "due_date": "2027-02-02", "dday": -28, "agency": "관할 구청 위생과", "done": false, "documents": [ "…서류 객체…" ] } ],
+  "requirements": [
+    { "doc_id": "edu_cert", "doc_key": "edu_cert", "name": "식품위생교육 이수증", "type": "certificate", "type_label": "교육·검사로 취득하는 서류",
+      "status": "not_started", "status_label": "준비 전", "note": null, "applicability": "applies", "source_type": "rule_engine", "added_by_ai": true,
+      "reason": "이 가게가 신고 업종 일반음식점 조건에 해당해 적용돼요.", "law_basis": { "law_name": "식품위생법", "article": "제41조", "url": null },
+      "agency": "식품위생교육전문기관 · 동업자조합 · 한국식품산업협회", "guide": "…", "links": [], "contact": null, "form": null,
+      "tasks": [ { "item_id": "c-05", "task": "식품위생교육 이수", "done": false } ], "due_date": "2027-02-08", "dday": -22, "statutory_deadline": "2027-03-01",
+      "review_needed": false, "review_reason": null, "files": [] }
   ],
-  "disclaimer": "정부 서식은 해당 사이트에서만 효력이 있어요. 링크는 공식 사이트 첫 화면이고, 찾는 방법은 각 서류 아래에 적어 뒀어요. 발급·제출은 직접 해야 해요."
+  "disclaimer": "…"
 }
 ```
 
-- 체크리스트와 같은 데이터를 **서류가 있는 항목 기준으로 다시 묶은** 읽기 전용 화면이다 (기한순). 서류 자체를 따로 저장하지 않고 규칙 묶음의 `documents`와 체크리스트 상태로 만든다.
-- `summary`: `total`은 전체 서류 수, `finished`는 **완료한 체크리스트 항목의 서류 수**, `remaining`은 나머지다.
-- 서류함에는 쓰기 API가 없다 (`PATCH /documents/...` 없음). 항목을 완료하려면 체크리스트에서 체크한다.
+- `summary.total·finished`: **서류 자신의 상태**로 센다 (`obtained`·`submitted`가 완료). `groups`는 예전 화면 호환용으로 체크리스트 항목별로 다시 묶은 것이고 `requirements`가 서류 기준 목록이다.
+- `form`: 법령에 첨부된 공식 서식이 있는 서류만. 파일 링크(`pdf_url`·`file_url`)와 `revision_date`는 법제처 API(별표·서식 검색)로 수집해 저장한 값이다 (`python -m law_rag.forms`, 법령 갱신 때 같이 확인). 수집 전이면 링크가 null이다.
+- 법령이 개정되거나 서식이 개정되면 관련 서류에 `review_needed`가 켜진다. 더는 필요 없어진 서류는 손대지 않았으면 지우고, 진행했거나 파일이 있으면 남기고 재검토를 표시한다.
+- 파일은 현재 Postgres에 저장한다 (10MB 이하). 파일 저장소(S3 등)를 붙이면 경로만 저장하도록 바꾼다.
 
 ---
 

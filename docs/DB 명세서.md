@@ -59,7 +59,13 @@ erDiagram
 | `cost_logs` | LLM 토큰·비용 (점검 1회 단위) | — | 핵심 |
 
 **테이블이 없는 것**
-- **서류함**: 서류 목록·받는 곳 링크·찾는 방법은 규칙 묶음 `documents`·`sites`로 만들고, 요약 숫자는 `checklist_items.done`으로 센다. 서류별 준비 여부를 저장하지 않는다 (`document_states` 없음).
+- **체크리스트 확장 (0005)**: `checklist_items` 에 작업 유형 `task_type`(필수 `legal_obligation` · 조건부 `conditional` · 권장 `preparation`), 생성 출처 `source_type`(`template` 기본 일정 · `rule_engine` 조건 규칙 · `legal_analysis` 법령 분석 · `inspection` 점검 리포트 · `grant`), `priority`, `deadline_type`, **법정 기한 `statutory_deadline`·`statutory_basis`**, 이유 `reason`, 근거 조문 `law_basis`, 규칙 `obligation_rule_id`, 연결 `sources`(법령·규칙·점검 카드), 재검토 `review_needed`·`review_reason` 을 추가했다. **`due_date`·`offset_days`는 권장 준비일**이고, 법령이 개업 전 기한을 정한 규칙만 `statutory_deadline` 을 따로 둔다. 별도 테이블(`checklist_tasks`·`task_sources` 등) 대신 기존 테이블의 컬럼과 JSONB 로 구현했다.
+- **서류함 (0006)**: 기본 서류 템플릿은 규칙 묶음 `documents`·`sites`에 두고(테이블로 옮기지 않는다), 가게별로 필요한 서류와 상태는 DB에서 관리한다.
+  - `document_requirements`: 가게별 필요한 서류 (`doc_key`로 같은 서류를 한 번만, `document_type`, `applicability_status`, `source_type`, `rule_id`, `law_basis`, `task_keys`(쓰는 체크리스트 항목), `status`, `review_needed`). `UNIQUE(store_id, doc_key)`
+  - `user_documents`: 사용자가 올린 파일 (Postgres `bytea`, 10MB 이하). 파일 저장소를 붙이면 경로만 저장한다
+  - `document_history`: 상태 변경·파일 업로드·삭제 이력 (발급·취득과 제출을 구분해 남김)
+  - `law_forms`: 법제처에서 수집한 공식 서식 링크·공포일. 개정되면 새 행을 만들고 이전 행은 남긴다 (`is_current`)
+  - 진행률은 `checklist_items.done`이 아니라 `document_requirements.status`로 센다 (`not_applicable` 제외). 별도의 `document_templates`·`document_task_relations` 테이블은 만들지 않았다 (템플릿은 YAML, 연결은 `task_keys` JSONB).
 - **AI 상담 대화**: 서버가 저장하지 않는다. 프론트가 `history`로 보낸다. 통화 메모는 카드의 `action_reply`에 남는다.
 - **세션**: JWT(무상태). 세션 테이블이 없다.
 - **알림 시점 이동(`as_of`)의 예시 알림**: 저장하지 않고 `mocks/`에서 읽어 응답 시 `is_example: true`를 붙인다.
