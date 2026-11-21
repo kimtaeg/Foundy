@@ -175,3 +175,22 @@ export interface ApiAuthSession {
   user: { user_id: string; name: string; provider: string; username: string | null; joined_at: string };
   store_id: string | null;
 }
+
+/** POST /api/stores 요청 */
+export interface ApiRegisterBody {
+  name: string;
+  business_type_input: string;
+  address: string;
+  address_detail: string;
+  opening_date: string;
+  owner_birth_year?: number;
+}
+
+/** PATCH /api/stores/{id} 응답 (변경 반영 결과) */
+export interface ApiPatchResult {
+  changed: { field: string; from: unknown; to: unknown }[];
+  impacts: string[];
+  reset_items: { item_id: string; title: string; chosen_label?: string | null }[];
+  needs_reanalyze: boolean;
+  run_id: string | null;
+}

@@ -10,6 +10,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** 응답 error 객체 전체 (예: 주소 후보 candidates) */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -40,6 +42,7 @@ export async function apiFetch<T>(
       response.status,
       error.code ?? "HTTP_ERROR",
       error.message ?? "요청을 처리하지 못했어요.",
+      error,
     );
   }
   return data as T;

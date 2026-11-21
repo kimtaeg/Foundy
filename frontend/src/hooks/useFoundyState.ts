@@ -47,17 +47,18 @@ export function useFoundyState(): FoundyContextValue {
 
   const baseSnapshot = engine?.getSnapshot() ?? null;
   const uid = baseSnapshot?.uid ?? null;
+  const onboarded = baseSnapshot?.onboarded ?? false;
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
 
-  // 비동기 로그인(아이디·비밀번호)이 끝나 로그인 상태가 바뀌면 그에 맞는 화면 경로로 옮긴다.
+  // 비동기 로그인이나 서버에서 가게를 불러와 로그인·가게 등록 상태가 바뀌면 그에 맞는 화면 경로로 옮긴다.
   useEffect(() => {
     if (!engine) return;
     const current = engine.getSnapshot();
     const requested = current.uid ? current.currentPage : pathRef.current.slice(1);
     const target = resolveApplicationPage(current, requested);
     if (pathRef.current !== `/${target}`) router.replace(`/${target}`);
-  }, [engine, uid, router]);
+  }, [engine, uid, onboarded, router]);
 
   const api = useApiBridge(engine, baseSnapshot?.uid ?? null);
   // 서버 데이터로 그리는 동안 알림 목록도 서버 알림을 쓴다.

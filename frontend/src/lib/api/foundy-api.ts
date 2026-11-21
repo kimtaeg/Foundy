@@ -6,27 +6,40 @@ import type {
   ApiChecklist,
   ApiDashboard,
   ApiDemoSession,
+  ApiPatchResult,
+  ApiRegisterBody,
   ApiReport,
   ApiStore,
 } from "@/lib/api/types";
 
 const SESSION_KEY = "foundy-api-session";
 
+/** demo: 예시 계정(서버가 만든 가게 포함) · account: 아이디·비밀번호 계정 (가게는 없을 수 있다) */
+export type SessionKind = "demo" | "account";
+
 export interface ApiSession {
   token: string;
-  storeId: string;
+  /** 가게를 아직 등록하지 않은 계정은 null */
+  storeId: string | null;
+  kind: SessionKind;
 }
 
-export function loadSession(): ApiSession | null {
+/** 저장된 세션. 종류가 다르면(예: 예시 계정으로 들어왔는데 일반 계정 세션이 남아 있음) 쓰지 않는다. */
+export function loadSession(kind: SessionKind = "demo"): ApiSession | null {
   try {
     const value = JSON.parse(localStorage.getItem(SESSION_KEY) ?? "null");
-    return value && typeof value.token === "string" && typeof value.storeId === "string" ? value : null;
+    if (!value || typeof value.token !== "string") return null;
+    const savedKind: SessionKind = value.kind === "account" ? "account" : "demo";
+    if (savedKind !== kind) return null;
+    const storeId = typeof value.storeId === "string" ? value.storeId : null;
+    if (kind === "demo" && !storeId) return null;
+    return { token: value.token, storeId, kind };
   } catch {
     return null;
   }
 }
 
-function saveSession(session: ApiSession | null) {
+export function saveSession(session: ApiSession | null) {
   try {
     if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     else localStorage.removeItem(SESSION_KEY);
@@ -42,12 +55,13 @@ export function clearSession() {
 /** POST /api/demo: 예시 계정(이서연)을 새로 만들고 토큰을 받는다. */
 export async function startDemoSession(): Promise<ApiSession> {
   const body = await apiFetch<ApiDemoSession>("/api/demo", { method: "POST" });
-  const session = { token: body.access_token, storeId: body.store_id };
+  const session: ApiSession = { token: body.access_token, storeId: body.store_id, kind: "demo" };
   saveSession(session);
   return session;
 }
 
 export function createStoreApi(session: ApiSession) {
+  if (!session.storeId) throw new Error("가게가 아직 등록되지 않았어요");
   const base = `/api/stores/${session.storeId}`;
   const call = <T,>(path: string, method = "GET", body?: unknown) =>
     apiFetch<T>(`${base}${path}`, { method, body, token: session.token });
@@ -77,9 +91,20 @@ export function createStoreApi(session: ApiSession) {
     setTaskDone: (itemId: string, done: boolean) =>
       call<unknown>(`/checklist/${itemId}`, "PATCH", { done }),
     readAlert: (alertId: string) => call<unknown>(`/alerts/${alertId}`, "PATCH", { read: true }),
+    patchStore: (body: unknown) => call<ApiPatchResult>("", "PATCH", body),
+    saveAnswers: (answers: Record<string, unknown>) => call<unknown>("/answers", "POST", { answers }),
+    analyze: () => call<{ run_id: string }>("/analyze", "POST"),
     runStatus: (runId: string) =>
       apiFetch<{ status: string }>(`/api/runs/${runId}`, { token: session.token }),
   };
 }
 
 export type StoreApi = ReturnType<typeof createStoreApi>;
+
+/** 가게 등록 전에도 쓰는 계정 단위 호출 */
+export function createAccountApi(session: ApiSession) {
+  return {
+    registerStore: (body: ApiRegisterBody) =>
+      apiFetch<{ store_id: string }>("/api/stores", { method: "POST", body, token: session.token }),
+  };
+}

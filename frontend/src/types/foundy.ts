@@ -4,6 +4,7 @@ import {
   type FeatureContextPage,
 } from "@/types/features";
 import type { NotificationSummary } from "./notifications";
+import type { Store } from "./store";
 
 export interface FoundySnapshot {
   notifications: NotificationSummary[];
@@ -34,6 +35,10 @@ export interface FoundyStore {
   closeModal(): void;
   showModal(title: string, content: DialogContent): void;
   showToast(message: string): void;
+  /** 서버에 저장된 가게로 로컬 가게 정보를 맞추고 가게 등록을 마친 상태로 만든다 */
+  adoptServerStore(store: Store): void;
+  /** 서버 분석 진행(끝난 단계 번호들)을 가게 등록 화면에 표시한다 */
+  setAnalysisProgress(done: number[]): void;
   navigateTo(page: string): void;
   logout(): void;
   openNotification(id: string): void;

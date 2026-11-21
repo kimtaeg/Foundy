@@ -5,19 +5,28 @@
  * - 대시보드·리포트·체크리스트·서류함·알림 데이터는 서버 응답으로 그린다.
  * - 카드 선택·진행 상태·체크·알림 읽음은 서버에 저장한 뒤 응답을 다시 받는다.
  * - 서버에 연결하지 못하면 로컬 예시 데이터로 계속 동작한다 ("예시로 해보기"는 끝까지 돌아가야 한다).
+ * - 아이디·비밀번호 계정(uid "local:…")은 저장된 서버 세션으로 같은 화면을 그린다.
+ *   가게가 아직 없으면 가게 등록·되묻기·분석(SSE)을 서버로 처리하고, 마이페이지 수정은 PATCH 로 저장한다.
  */
 import { ApiError, apiEnabled } from "@/lib/api/client";
+import { IMP } from "@/data/store";
+import { ANALYSIS_STEP_COUNT, finishedIndexes, followRun } from "@/lib/api/run-stream";
+import { canPatchOnServer, toStorePatch, type ProfileChange } from "@/lib/api/store-update";
 import { createApiModel, toEvidence, type ApiModel } from "@/lib/api/contexts";
 import {
   clearSession,
+  createAccountApi,
   createStoreApi,
   loadSession,
+  saveSession,
   startDemoSession,
   type ApiSession,
 } from "@/lib/api/foundy-api";
 import { optionMeta } from "@/lib/report/option-meta";
 import { iso, realToday } from "@/lib/date";
 import { type FoundyStore } from "@/types/foundy";
+import type { FeatureContextMap } from "@/types/features";
+import type { StoreDraft } from "@/types/profile";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const RUN_POLL_MS = 1500;
@@ -25,11 +34,16 @@ const RUN_POLL_LIMIT = 120;
 
 function errorMessage(error: unknown) {
   if (error instanceof ApiError) {
+    const candidates = error.details?.candidates;
+    if (error.code === "ADDRESS_NOT_RESOLVED" && Array.isArray(candidates) && candidates.length)
+      return `${error.message} (후보: ${candidates.slice(0, 3).join(" / ")})`;
     if (error.code === "RUN_IN_PROGRESS") return "분석이 진행 중이에요 · 끝난 뒤 다시 시도해 주세요";
     return error.message;
   }
   return "요청을 처리하지 못했어요";
 }
+
+const isAccountUid = (uid: string | null) => !!uid && uid.startsWith("local:");
 
 export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
   const [model, setModel] = useState<ApiModel | null>(null);
@@ -38,37 +52,50 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
   const sessionRef = useRef<ApiSession | null>(null);
   const starting = useRef(false);
 
-  const active = apiEnabled() && uid === "demo" && !failed;
+  const [loading, setLoading] = useState(false);
+  const account = isAccountUid(uid);
+  const active = apiEnabled() && (uid === "demo" || account) && !failed;
 
-  const refresh = useCallback(async () => {
+  /** 서버 응답을 다시 받아 화면 모델을 바꾼다. 받은 모델을 돌려주고, 연결할 수 없으면 null. */
+  const refresh = useCallback(async (): Promise<ApiModel | null> => {
     const session = sessionRef.current;
-    if (!session) return;
+    if (!session?.storeId) return null;
     try {
-      setModel(createApiModel(await createStoreApi(session).loadBundle()));
+      const next = createApiModel(await createStoreApi(session).loadBundle());
+      setModel(next);
+      return next;
     } catch (error) {
       if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
-        // 토큰 만료·계정 삭제: 새 예시 계정을 다시 만든다.
-        clearSession();
         sessionRef.current = null;
         starting.current = false;
         setModel(null);
-        setAttempt((n) => n + 1);
-        return;
+        if (session.kind === "account") {
+          // 일반 계정의 토큰이 만료됐다: 로그아웃하고 다시 로그인하게 한다.
+          engine?.showToast("로그인이 만료됐어요. 다시 로그인해 주세요");
+          engine?.logout();
+        } else {
+          // 예시 계정: 새로 만든다.
+          clearSession();
+          setAttempt((n) => n + 1);
+        }
+        return null;
       }
       setFailed(true);
       engine?.showToast("서버에 연결하지 못해 예시 데이터로 보여 드려요");
+      return null;
     }
   }, [engine]);
 
-  // 예시 계정으로 들어오면 서버 세션을 준비하고, 나가면 지운다.
+  // 서버 세션을 준비하고(예시 계정은 만들고, 일반 계정은 로그인 때 저장한 것을 읽고), 나가면 지운다.
   useEffect(() => {
     if (!apiEnabled() || !engine) return;
-    if (uid !== "demo") {
+    if (uid !== "demo" && !account) {
       if (uid === null) clearSession();
       sessionRef.current = null;
       starting.current = false;
       setModel(null);
       setFailed(false);
+      setLoading(false);
       return;
     }
     if (failed || sessionRef.current || starting.current) return;
@@ -79,16 +106,32 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
     starting.current = true;
     void (async () => {
       try {
-        sessionRef.current = loadSession() ?? (await startDemoSession());
-        await refresh();
+        if (account) {
+          const saved = loadSession("account");
+          if (!saved) {
+            // 이 브라우저에 서버 세션이 없다(저장소 삭제 등): 다시 로그인하게 한다.
+            engine.showToast("로그인 정보가 없어요. 다시 로그인해 주세요");
+            engine.logout();
+            return;
+          }
+          sessionRef.current = saved;
+          if (!saved.storeId) return; // 가게 등록 전: 등록 화면은 서버 호출 없이 시작한다
+          setLoading(true);
+        } else {
+          sessionRef.current = loadSession("demo") ?? (await startDemoSession());
+        }
+        const loaded = await refresh();
+        // 다른 기기·이전 방문에서 등록한 가게: 로컬 가게 정보를 서버 값으로 맞춘다.
+        if (loaded && account) engine.adoptServerStore(loaded.S);
       } catch {
         setFailed(true);
         engine.showToast("서버에 연결하지 못해 예시 데이터로 보여 드려요");
       } finally {
+        setLoading(false);
         starting.current = false;
       }
     })();
-  }, [engine, uid, failed, attempt, refresh]);
+  }, [engine, uid, account, failed, attempt, refresh]);
 
   const waitForRun = useCallback(
     async (runId: string) => {
@@ -137,9 +180,113 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
     [model, run, waitForRun],
   );
 
+  /** 가게가 없는 일반 계정의 가게 등록·분석. 서버로 처리했으면 true, 로컬 흐름에 맡기면 false. */
+  const handleOnboarding = (type: string, event: { target: EventTarget; preventDefault(): void }): boolean => {
+      const session = sessionRef.current;
+      if (!engine || !session || session.kind !== "account") return false;
+      const target = event.target as HTMLElement;
+
+      if (type === "submit" && target.id === "nxForm") {
+        if (session.storeId) return false; // 이미 등록했다 (뒤로 와서 다시 제출): 로컬 값만 갱신한다
+        if (!document.getElementById("fAddr")) return false; // 자리 미정 경로는 서버가 지원하지 않는다
+        event.preventDefault();
+        const value = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
+        const birth = Number(value("fBirth"));
+        void (async () => {
+          try {
+            const { store_id } = await createAccountApi(session).registerStore({
+              name: value("fName").trim(),
+              business_type_input: value("fType"),
+              address: value("fAddr").trim(),
+              address_detail: value("fDetail").trim(),
+              opening_date: value("fOpen"),
+              ...(birth ? { owner_birth_year: birth } : {}),
+            });
+            const next: ApiSession = { ...session, storeId: store_id };
+            sessionRef.current = next;
+            saveSession(next);
+            engine.handleEvent("submit", event); // 입력값을 로컬에 저장하고 추가 질문 단계로 넘어간다
+          } catch (error) {
+            engine.showToast(errorMessage(error));
+          }
+        })();
+        return true;
+      }
+
+      const button = target.closest?.("[data-nx]") as HTMLElement | null;
+      if (type === "click" && button?.dataset.nx === "analyze" && session.storeId) {
+        void analyzeOnServer(session, button);
+        return true;
+      }
+      return false;
+  };
+
+  const analyzeOnServer = async (session: ApiSession, source: EventTarget) => {
+    if (!engine) return;
+    const register = engine.getViewContext("register");
+    const fundsInput = (document.getElementById("fFunds") as HTMLInputElement | null)?.value;
+    const finished = new Set<number>();
+    engine.setAnalysisProgress([]);
+    try {
+      const api = createStoreApi(session);
+      await api.saveAnswers({
+        sells_alcohol: register.S.alcohol,
+        uses_terrace: register.S.terrace,
+        has_employees: register.S.employees,
+        funds_krw: fundsInput ? Number(fundsInput) : register.S.funds,
+      });
+      const { run_id } = await api.analyze();
+      await followRun(run_id, session.token, (step, status) => {
+        finishedIndexes(step, status).forEach((index) => finished.add(index));
+        engine.setAnalysisProgress([...finished]);
+      });
+      // 결과를 받아 두고, "내 가게 홈으로" 버튼을 눌러 마치게 한다.
+      if (!(await refresh())) throw new Error("결과를 불러오지 못했어요");
+      engine.setAnalysisProgress(Array.from({ length: ANALYSIS_STEP_COUNT }, (_, index) => index));
+    } catch (error) {
+      engine.showToast(`${errorMessage(error)} · 예시 분석으로 이어가요`);
+      engine.handleEvent("click", { target: source, preventDefault() {} }); // 로컬 분석으로 끝까지 진행
+    }
+  };
+
+  /** 마이페이지 수정: 서버에 저장하고, 다시 점검이 필요하면 진행을 보여 준 뒤 결과를 반영한다. */
+  const saveProfile = async (profile: FeatureContextMap["mypage"], diff: ProfileChange[]) => {
+    const session = sessionRef.current;
+    if (!engine || !session?.storeId) return;
+    const lines = diff.map((change) => {
+      const key = change.k as keyof StoreDraft;
+      return `${profile.MPF[key][0]}: ${profile.fmtMp(key, change.from)} → ${profile.fmtMp(key, change.to)}`;
+    });
+    engine.showToast("저장하는 중이에요…");
+    try {
+      const result = await createStoreApi(session).patchStore(toStorePatch(diff));
+      result.reset_items.forEach((item) => lines.push(`${item.title} 카드 선택 초기화 (다시 결정 대기)`));
+      const title = "변경 내용을 다시 반영하고 있어요";
+      const steps = [...result.impacts.map((impact) => IMP[impact] ?? impact), "변경 요약 정리"];
+      const show = (completed: number) =>
+        engine.showModal(title, { kind: "analysis-progress", steps, completed, changes: lines });
+      if (result.run_id) {
+        show(0);
+        let finished = 0;
+        await followRun(result.run_id, session.token, (_step, status) => {
+          if (status === "done" || status === "fallback") {
+            finished += 1;
+            show(Math.min(steps.length - 1, finished));
+          }
+        });
+      }
+      const next = await refresh();
+      if (next) engine.adoptServerStore(next.S);
+      if (result.run_id) show(steps.length);
+      engine.showToast("가게 정보를 저장했어요");
+    } catch (error) {
+      engine.showToast(errorMessage(error));
+    }
+  };
+
   /** 서버 데이터가 필요한 이벤트만 처리하고 true 를 돌려준다. 나머지(이동·필터·보기 전환)는 로컬 엔진이 처리한다. */
-  const handleEvent = useCallback(
-    (type: string, event: { target: EventTarget; preventDefault(): void }): boolean => {
+  const handleEvent = (type: string, event: { target: EventTarget; preventDefault(): void }): boolean => {
+      if (active && !model && account && handleOnboarding(type, event)) return true;
       if (!active || !model || !engine || type !== "click") return false;
       const target = event.target as HTMLElement;
       const taskRow = target.closest?.("[data-task]") as HTMLElement | null;
@@ -221,12 +368,20 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
           });
           return true;
         }
+        case "mpsave": {
+          const profile = engine.getViewContext("mypage");
+          const diff = profile.mpDiff() as unknown as ProfileChange[];
+          if (!canPatchOnServer(diff)) return false; // 바뀐 값이 없거나 서버가 모르는 항목(지역·자리 상태)은 로컬 처리
+          void saveProfile(profile, diff);
+          return true;
+        }
+        case "mpwipe":
+          engine.showToast("서버에 저장된 가게는 처음부터 다시 설정할 수 없어요. 정보는 수정으로 바꿔 주세요");
+          return true;
         default:
           return false;
       }
-    },
-    [active, model, engine, run, choose],
-  );
+    };
 
   const openNotification = useCallback(
     (id: string): boolean => {
@@ -251,7 +406,7 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
     /** 서버 데이터로 화면을 그리는 중이면 모델, 아니면 null (로컬 예시 데이터 사용) */
     model: active ? model : null,
     /** 서버 데이터를 기다리는 중 (화면은 로딩 표시) */
-    pending: active && !model,
+    pending: active && !model && (uid === "demo" || loading),
     handleEvent,
     openNotification,
   };

@@ -1325,6 +1325,23 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       toast(message);
       notify();
     },
+    // 서버에 저장된 가게로 로컬 가게 정보를 맞춘다 (다른 기기에서 등록했거나 마이페이지에서 수정한 값).
+    adoptServerStore: (next: Store) => {
+      store = { ...store, ...next, onboarded: true };
+      profileDraft = null;
+      saveS();
+      recalc();
+      calendar.y = null;
+      if (userId && currentPage === "register") navigateTo("dashboard");
+      notify();
+    },
+    // 서버 분석이 진행되는 동안 가게 등록 화면의 단계 표시를 서버 이벤트에 맞춘다 (가짜 타이머를 멈춘다).
+    setAnalysisProgress: (done: number[]) => {
+      clearTimers();
+      onboarding.step = 3;
+      onboarding.done = [...done];
+      notify();
+    },
     navigateTo: (page: string) => {
       if (pages[page]) navigateTo(page);
       notify();
