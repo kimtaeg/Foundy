@@ -30,7 +30,6 @@ export function ObligationsSection({ items }: ObligationsSectionProps) {
           <li key={item.rule_id} style={{ display: "grid", gap: 2 }}>
             <strong>
               [{STATUS[item.status].label}] {item.title}
-              {item.review_status === "draft" ? " · 검토 전" : ""}
             </strong>
             <span>{item.reason}</span>
             {item.law.law_name && (
