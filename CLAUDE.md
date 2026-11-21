@@ -112,7 +112,7 @@ Foundy/
 분석은 순서가 고정된 파이프라인이다 (`agent/loop.py`의 `run_analysis`). AI가 도구를 마음대로 고르지 않는다.
 
 1. 입력을 받으면 `rules/`에서 업종 규칙 묶음을 불러오고, `ask`에 따라 빠진 정보만 되묻는다.
-2. 규칙 엔진이 가게 정보로 법령 적용 여부(`applies`·`not_applicable`·`needs_check`)를 판정한다 (`rules/applicability.py`, 결과는 `legal_obligations`에 저장).
+2. 규칙 엔진이 가게 정보로 법령 적용 여부(`applies`·`not_applicable`·`needs_check`)를 먼저 판정하고(`rules/applicability.py`, 안전장치), 조문 조회 뒤 AI가 조문 원문을 읽고 규정별로 다시 판정한다 (`rules/ai_applicability.py`). 조문이 규칙보다 우선이다. 인용 문장이 원문에서 검증되면 규칙 엔진 결과와 달라도 AI 판정을 따르고, 조문이 없거나 인용을 검증하지 못하면 규칙 엔진 결과를 쓴다. 결과는 `legal_obligations`에 저장한다.
 3. 조회: 건축물대장 → 상표 → 법령(저장된 법령 RAG 검색). 진행 상황을 SSE로 스트리밍한다 (`GET /api/runs/{id}/stream`, 폴링은 `GET /api/runs/{id}`).
 4. 규칙표 대조 → AI 판정(건물 용도·위반건축물·영업신고 서류·상표·광고 문구) → 해결 방안(결과 카드) 순으로 만든다.
 5. **체크리스트**: 기본 일정(템플릿)에 규칙 엔진이 적용·확인 필요로 판정한 법적 의무와 조건부 작업을 합친다 (`calc/obligation_tasks.py`).
@@ -134,7 +134,7 @@ Foundy/
 ### Checklist Rules
 
 - 체크리스트 작업은 세 가지 유형이다: `legal_obligation`(필수) / `conditional`(조건부, 적용 판단 이유를 보여준다) / `preparation`(권장). 생성 출처는 `source_type`: `template`(기본 일정) · `rule_engine`(조건 규칙) · `legal_analysis`(점검 카드가 검증해 인용한 조문이 있는 법령 분석) · `inspection` · `grant`.
-- **RAG 검색 결과를 그대로 작업으로 만들지 않는다.** 규칙 엔진이 적용(`applies`)·확인 필요(`needs_check`)로 판정한 규칙만 `applicability_rules[].task`로 작업이 된다. 적용 안 함이면 만들지 않는다.
+- **RAG 검색 결과를 그대로 작업으로 만들지 않는다.** 적용 판정(AI 판정, 실패 시 규칙 엔진)이 적용(`applies`)·확인 필요(`needs_check`)인 규칙만 `applicability_rules[].task`로 작업이 된다. 적용 안 함이면 만들지 않는다.
 - **`due_date`는 권장 준비일(개업일 + `offset_days`)이다.** 법령이 개업 전 기한을 정한 경우만 `statutory_deadline`(개업 전날)과 `statutory_basis`를 따로 채우고, 조문에 근거가 없으면 비워 둔다. 권장일을 법정 기한처럼 표시하지 않는다.
 - 법령 개정이나 재분석으로 더는 적용되지 않는 작업이라도 사용자가 완료한 기록은 지우지 않고 `review_needed`로 표시한다. 미완료 작업만 삭제한다.
 - 새 작업은 해당 점검 카드(`check_id`)와 연결되어 카드를 완료하면 자동 체크된다. 기본 항목의 연결은 규칙 묶음 `report_links`가 정한다.
