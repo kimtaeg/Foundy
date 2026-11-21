@@ -442,3 +442,16 @@ def test_vector_search_only_compares_vectors_from_the_same_model(test_law):
         same = retriever.vector_search(session, HashEmbedder().embed_query("영업신고"), [test_law["name"]], "hash-ngram-768")
         other = retriever.vector_search(session, Other().embed_query("영업신고"), [test_law["name"]], "다른모델")
     assert len(same) == 1 and other == []
+
+
+def test_별표_조각_앞에_소속_제목이_붙는다():
+    from law_rag.chunker import chunk_text
+
+    body = "\n".join(["3. 제1종 근린생활시설"] + [f"가. 항목{i} " + "가" * 100 for i in range(6)]
+                     + ["4. 제2종 근린생활시설"] + [f"나. 항목{i} " + "나" * 100 for i in range(20)] + ["자. 일반음식점"])
+    plain = chunk_text(body)
+    marked = chunk_text(body, keep_heading=True)
+    assert not any(c.startswith("[소속]") for c in plain)
+    assert marked[-1].split("\n")[0] == "[소속] 4. 제2종 근린생활시설" and "자. 일반음식점" in marked[-1]
+    assert all(c.split("\n")[0] in ("3. 제1종 근린생활시설", "[소속] 3. 제1종 근린생활시설", "[소속] 4. 제2종 근린생활시설")
+               or c.startswith("4. 제2종") for c in marked)
