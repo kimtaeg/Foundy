@@ -10,7 +10,7 @@ export function LoginCard() {
         창업 전, 확인부터.
       </h1>
       <Element as="p" className="nx-muted" style={{ margin: "0 0 8px" }}>
-        로그인하면 내 가게 정보와 점검 결과가 내 계정에 저장돼요.
+        로그인하면 내 가게 정보와 점검 결과를 이어서 볼 수 있어요. 지금은 이 브라우저에 저장돼요.
       </Element>
       <LoginActions />
       <Element className="nx-muted" style={{ marginTop: 6 }}>

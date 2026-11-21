@@ -60,35 +60,89 @@ def verify_password(password: str, password_hash: str | None) -> bool:
     return ok and password_hash is not None
 
 
-class LoginThrottle:
-    """아이디별 최근 실패 시각. 서버 한 대 기준이며 재시작하면 초기화된다."""
+class AttemptLimiter:
+    """키별 최근 시도 시각을 세어 한도를 넘으면 막는다. 서버 한 대(프로세스) 기준이라 재시작하면 초기화된다.
 
-    def __init__(self) -> None:
-        self._failures: dict[str, list[float]] = {}
+    키는 요청마다 새로 만들 수 있으므로, 쌓인 기록이 PURGE_AT 개를 넘으면 만료된 키를 전부 지우고
+    그래도 MAX_KEYS 를 넘으면 모두 비운다 (메모리가 무한히 늘지 않게).
+    """
+
+    PURGE_AT = 1_000
+    MAX_KEYS = 20_000
+
+    def __init__(self, limit: int, window_sec: int = WINDOW_SEC) -> None:
+        self.limit, self.window = limit, window_sec
+        self._hits: dict[str, list[float]] = {}
         self._lock = threading.Lock()
 
-    def _recent(self, username: str, now: float) -> list[float]:
-        recent = [t for t in self._failures.get(username, []) if now - t < WINDOW_SEC]
+    def _recent(self, key: str, now: float) -> list[float]:
+        recent = [t for t in self._hits.get(key, []) if now - t < self.window]
         if recent:
-            self._failures[username] = recent
+            self._hits[key] = recent
         else:
-            self._failures.pop(username, None)
+            self._hits.pop(key, None)
         return recent
 
-    def check(self, username: str) -> None:
-        with self._lock:
-            if len(self._recent(username, time.monotonic())) >= MAX_FAILURES:
-                raise ApiError(429, "RATE_LIMITED", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.")
+    def _purge(self, now: float) -> None:
+        for key in list(self._hits):
+            self._recent(key, now)
+        if len(self._hits) > self.MAX_KEYS:
+            self._hits.clear()
 
-    def fail(self, username: str) -> None:
+    def blocked(self, key: str) -> bool:
+        with self._lock:
+            return len(self._recent(key, time.monotonic())) >= self.limit
+
+    def add(self, key: str) -> None:
         with self._lock:
             now = time.monotonic()
-            self._recent(username, now)
-            self._failures.setdefault(username, []).append(now)
+            if len(self._hits) >= self.PURGE_AT:
+                self._purge(now)
+            self._recent(key, now)
+            self._hits.setdefault(key, []).append(now)
 
-    def reset(self, username: str) -> None:
+    def reset(self, key: str) -> None:
         with self._lock:
-            self._failures.pop(username, None)
+            self._hits.pop(key, None)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._hits.clear()
 
 
-throttle = LoginThrottle()
+# 로그인 실패: (접속 IP, 아이디)별 5회 + 아이디별 20회(여러 IP로 나눠 맞추는 시도 대비).
+# 다른 사람이 내 아이디로 틀려도 내 IP에서는 잠기지 않는다.
+login_by_ip = AttemptLimiter(MAX_FAILURES)
+login_by_user = AttemptLimiter(MAX_FAILURES * 4)
+# 회원가입 시도: 접속 IP별 10회 (계정 대량 생성·해시 계산으로 CPU를 쓰는 것을 막는다)
+signup_by_ip = AttemptLimiter(10)
+
+RATE_LIMITED = ApiError(429, "RATE_LIMITED", "시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.")
+
+
+def client_ip(request) -> str:
+    """접속 IP. 프록시(Railway)가 덧붙인 X-Forwarded-For 의 맨 오른쪽 값을 쓴다 (왼쪽은 클라이언트가 꾸며 보낼 수 있다)."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    last = forwarded.split(",")[-1].strip() if forwarded else ""
+    return last or (request.client.host if request.client else "unknown")
+
+
+def check_login(ip: str, username: str) -> None:
+    if login_by_ip.blocked(f"{ip}|{username}") or login_by_user.blocked(username):
+        raise ApiError(429, "RATE_LIMITED", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.")
+
+
+def login_failed(ip: str, username: str) -> None:
+    login_by_ip.add(f"{ip}|{username}")
+    login_by_user.add(username)
+
+
+def login_succeeded(ip: str, username: str) -> None:
+    login_by_ip.reset(f"{ip}|{username}")
+    login_by_user.reset(username)
+
+
+def check_signup(ip: str) -> None:
+    if signup_by_ip.blocked(ip):
+        raise ApiError(429, "RATE_LIMITED", "가입 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.")
+    signup_by_ip.add(ip)

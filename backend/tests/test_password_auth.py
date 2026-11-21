@@ -23,12 +23,20 @@ def client():
         yield c
 
 
+@pytest.fixture(autouse=True)
+def _fresh_limiters():
+    for limiter in (pw.login_by_ip, pw.login_by_user, pw.signup_by_ip):
+        limiter.clear()
+    yield
+    for limiter in (pw.login_by_ip, pw.login_by_user, pw.signup_by_ip):
+        limiter.clear()
+
+
 @pytest.fixture
 def username():
     """테스트마다 새 아이디. 끝나면 계정을 지운다."""
     name = "t" + uuid.uuid4().hex[:10]
     yield name
-    pw.throttle.reset(name)
     with transaction() as session:
         session.execute(delete(User).where(User.username == name))
 
@@ -94,21 +102,73 @@ def test_wrong_password_and_unknown_user_look_the_same(client, username):
     assert wrong.json()["error"]["code"] == "INVALID_CREDENTIALS"
 
 
+def attempt(client, username, password, ip=None):
+    headers = {"X-Forwarded-For": ip} if ip else {}
+    return client.post("/api/auth/login", json={"username": username, "password": password}, headers=headers)
+
+
 def test_too_many_failures_are_throttled_even_with_the_right_password(client, username):
     signup(client, username)
     for _ in range(pw.MAX_FAILURES):
-        assert client.post("/api/auth/login", json={"username": username, "password": "wrongpass1"}).status_code == 401
-    blocked = client.post("/api/auth/login", json={"username": username, "password": "password1"})
+        assert attempt(client, username, "wrongpass1").status_code == 401
+    blocked = attempt(client, username, "password1")
     assert blocked.status_code == 429 and blocked.json()["error"]["code"] == "RATE_LIMITED"
+
+
+def test_someone_elses_failures_do_not_lock_me_out(client, username):
+    """공격자가 내 아이디로 틀려도 다른 IP에서 오는 내 로그인은 막히지 않는다."""
+    signup(client, username)
+    for _ in range(pw.MAX_FAILURES):
+        assert attempt(client, username, "wrongpass1", ip="203.0.113.7").status_code == 401
+    assert attempt(client, username, "wrongpass1", ip="203.0.113.7").status_code == 429
+    assert attempt(client, username, "password1", ip="198.51.100.9").status_code == 200
+
+
+def test_spoofed_left_forwarded_for_does_not_reset_the_limit(client, username):
+    """X-Forwarded-For 왼쪽 값은 클라이언트가 꾸밀 수 있으므로 맨 오른쪽(프록시가 붙인 값)만 본다."""
+    signup(client, username)
+    for i in range(pw.MAX_FAILURES):
+        attempt(client, username, "wrongpass1", ip=f"10.0.0.{i}, 203.0.113.7")
+    assert attempt(client, username, "wrongpass1", ip="10.9.9.9, 203.0.113.7").status_code == 429
+
+
+def test_many_ips_still_hit_the_per_username_cap(client, username):
+    signup(client, username)
+    for i in range(pw.login_by_user.limit):
+        assert attempt(client, username, "wrongpass1", ip=f"198.51.100.{i}").status_code == 401
+    assert attempt(client, username, "password1", ip="192.0.2.1").status_code == 429
 
 
 def test_successful_login_resets_the_failure_count(client, username):
     signup(client, username)
     for _ in range(pw.MAX_FAILURES - 1):
-        client.post("/api/auth/login", json={"username": username, "password": "wrongpass1"})
-    assert client.post("/api/auth/login", json={"username": username, "password": "password1"}).status_code == 200
+        attempt(client, username, "wrongpass1")
+    assert attempt(client, username, "password1").status_code == 200
     for _ in range(pw.MAX_FAILURES - 1):
-        assert client.post("/api/auth/login", json={"username": username, "password": "wrongpass1"}).status_code == 401
+        assert attempt(client, username, "wrongpass1").status_code == 401
+
+
+def test_signup_is_rate_limited_per_ip(client):
+    created: list[str] = []
+    try:
+        for i in range(pw.signup_by_ip.limit):
+            name = "r" + uuid.uuid4().hex[:10]
+            created.append(name)
+            assert signup(client, name).status_code == 201
+        blocked = signup(client, "r" + uuid.uuid4().hex[:10])
+        assert blocked.status_code == 429 and blocked.json()["error"]["code"] == "RATE_LIMITED"
+    finally:
+        with transaction() as session:
+            session.execute(delete(User).where(User.username.in_(created)))
+
+
+def test_limiter_does_not_grow_without_bound():
+    limiter = pw.AttemptLimiter(5, window_sec=600)
+    limiter.MAX_KEYS = 50
+    limiter.PURGE_AT = 20
+    for i in range(500):
+        limiter.add(f"random-{i}")
+    assert len(limiter._hits) <= limiter.MAX_KEYS
 
 
 def test_social_and_demo_accounts_cannot_log_in_with_a_password(client):

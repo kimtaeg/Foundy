@@ -7,7 +7,7 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -103,8 +103,9 @@ def _session(db: Session, user: User) -> dict:
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
-def signup(body: SignupBody, db: Session = Depends(get_db)) -> dict:
+def signup(body: SignupBody, request: Request, db: Session = Depends(get_db)) -> dict:
     """아이디·비밀번호로 가입하고 바로 로그인한다."""
+    pw.check_signup(pw.client_ip(request))
     username = pw.validate_username(body.username)
     password = pw.validate_password(body.password)
     name = pw.validate_name(body.name)
@@ -122,15 +123,16 @@ def signup(body: SignupBody, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/login")
-def login(body: LoginBody, db: Session = Depends(get_db)) -> dict:
+def login(body: LoginBody, request: Request, db: Session = Depends(get_db)) -> dict:
     """아이디·비밀번호 로그인. 아이디가 없거나 비밀번호가 틀리면 같은 401 이다."""
     username = (body.username or "").strip().lower()
-    pw.throttle.check(username)
+    ip = pw.client_ip(request)
+    pw.check_login(ip, username)
     user = db.scalar(select(User).where(User.username == username, User.provider == "local"))
     if not pw.verify_password(body.password or "", user.password_hash if user else None):
-        pw.throttle.fail(username)
+        pw.login_failed(ip, username)
         raise ApiError(401, "INVALID_CREDENTIALS", "아이디 또는 비밀번호가 올바르지 않습니다.")
-    pw.throttle.reset(username)
+    pw.login_succeeded(ip, username)
     return _session(db, user)
 
 

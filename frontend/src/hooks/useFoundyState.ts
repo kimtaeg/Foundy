@@ -56,7 +56,7 @@ export function useFoundyState(): FoundyContextValue {
     const current = engine.getSnapshot();
     const requested = current.uid ? current.currentPage : pathRef.current.slice(1);
     const target = resolveApplicationPage(current, requested);
-    if (pathRef.current !== `/${target}`) router.push(`/${target}`);
+    if (pathRef.current !== `/${target}`) router.replace(`/${target}`);
   }, [engine, uid, router]);
 
   const api = useApiBridge(engine, baseSnapshot?.uid ?? null);
