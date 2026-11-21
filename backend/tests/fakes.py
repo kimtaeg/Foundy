@@ -19,7 +19,8 @@ def store(**kw) -> StoreInput:
     base = dict(store_id="s1", name="모노커피", address="서울 성동구 성수이로 00", address_detail="1층",
                 address_codes={"sigungu_cd": "11200"},
                 opening_date=date(2027, 3, 2),
-                answers={"sells_alcohol": True, "uses_terrace": False, "has_employees": True})
+                answers={"sells_alcohol": True, "uses_terrace": False, "has_employees": True},
+                area_sqm=40.0)  # 제1종 시설의 휴게음식점은 면적 300㎡ 미만 확인이 필요해, 기본은 작은 가게로 둔다
     base.update(kw)
     return StoreInput(**base)
 

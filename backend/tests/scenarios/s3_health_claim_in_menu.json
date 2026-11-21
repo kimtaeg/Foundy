@@ -8,6 +8,7 @@
     "address": "서울 성동구 성수이로 00",
     "address_detail": "1층",
     "opening_date": "2027-03-02",
+    "area_sqm": 40,
     "answers": {
       "sells_alcohol": false,
       "has_employees": false

@@ -89,6 +89,27 @@ def judge_building_use(pack: dict, business_type: str | None, building_uses: lis
     )
 
 
+def area_limit_reason(pack: dict, business_type: str | None, building_uses: list[str], area_sqm: float | None) -> str | None:
+    """이 업종이 이 건물 용도에서는 바닥면적 합계 제한이 있는데 기준 이상이거나 면적을 모르면 그 안내 문장을, 아니면 None.
+
+    제한은 "같은 건축물에서 해당 용도로 쓰는 바닥면적 합계"라서 가게 면적만으로 위반을 단정하지 않는다 (호출한 쪽이 low 로 둔다).
+    건물 용도에 다른 용도(제2종 등)가 섞여 있거나 못 읽는 용도가 있으면 적용하지 않는다.
+    """
+    limit = ((pack.get("building_use") or {}).get("area_limits") or {}).get(business_type or "")
+    if not limit or not building_uses:
+        return None
+    if any(normalize_use(u) != limit["use"] for u in building_uses):
+        return None
+    below = limit["below_sqm"]
+    base = (f"{limit['use']}의 {business_type}은(는) 같은 건축물에서 해당 용도로 쓰는 바닥면적 합계가 {below:g}㎡ 미만일 때만 가능해요 "
+            f"({below:g}㎡ 이상이면 제2종 근린생활시설).")
+    if area_sqm is None:
+        return base + " 영업장 면적을 입력하지 않아 기준을 확인할 수 없어요. 구청 건축과에 확인해 보세요."
+    if area_sqm >= below:
+        return base + f" 이 가게 영업장 면적은 {area_sqm:g}㎡로 기준 이상이에요. 구청 건축과에 확인해 보세요."
+    return None
+
+
 def check_spec(pack: dict, check_id: str) -> dict:
     for c in pack["checks"]:
         if c["id"] == check_id:

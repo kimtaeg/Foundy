@@ -288,10 +288,13 @@ def _building_evidence(b: ToolResult, bi, uses: list[str]) -> Evidence:
 
 
 def _rule_building_card(spec: dict, item_id: str, rr: RuleResult, uses: list[str], b: ToolResult,
-                        law: ToolResult, business_type: str | None, fallback: bool, bi=None) -> tuple[ReportItem, dict]:
-    """AI 없이 규칙표로 만든 건물 용도 카드 (AI 실패·건축물대장 없음일 때)."""
+                        law: ToolResult, business_type: str | None, fallback: bool, bi=None,
+                        area_note: str | None = None) -> tuple[ReportItem, dict]:
+    """AI 없이 규칙표로 만든 건물 용도 카드 (AI 실패·건축물대장 없음일 때). area_note 가 있으면 ok 를 low 로 낮춘다."""
     from rules.engine import render_title
 
+    if area_note and rr.verdict == "ok":
+        rr = RuleResult("low", area_note, rr.facts)
     ev = ([_building_evidence(b, bi, uses)] if uses else [])
     ev += [_law_evidence(law, a) for a in ((law.data or {}).get("articles", []) if law.ok else [])]
     title = render_title(spec, rr.verdict, business_type=business_type) or rr.reason
@@ -321,7 +324,7 @@ def judge_building_use_ai(
     서로 어긋나면 low(구청 확인 권장)로 낮춘다. 규칙표가 판단할 수 없는데 AI가 high면 low로 낮춘다.
     """
     from rules.building_use import building_input
-    from rules.engine import judge_building_use as table
+    from rules.engine import area_limit_reason, judge_building_use as table, render_title
 
     bi = building_input(pack, business_type, b.data) if b.ok else None
     if bi is not None and bi.uses is None:  # 대상 공간을 정하지 못함 (혼합 층·호실 불일치 등) → AI 없이 판단 불가
@@ -329,6 +332,7 @@ def judge_building_use_ai(
     uses = bi.uses if bi is not None else []
     rr_ok_types = [t for t in BUSINESS_TYPES if table(pack, t, uses).verdict == "ok"] if uses else []
     rr.facts["ok_business_types"] = rr_ok_types
+    area_note = area_limit_reason(pack, business_type, uses, store.area_sqm)  # 면적 기준 이상이거나 모르면 ok 를 low 로
     if not uses or business_type is None:
         return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=False, bi=bi)
     if real_law_missing(law):
@@ -348,14 +352,15 @@ def judge_building_use_ai(
         j = llm.parse(
             step="judge_building_use", tier="main", system=prompt.BUILDING_SYSTEM,
             user=prompt.BUILDING_USER.format(
-                store=json.dumps({"name": store.name, "sells_alcohol": store.answers.get("sells_alcohol")},
-                                 ensure_ascii=False),
+                store=json.dumps({"name": store.name, "sells_alcohol": store.answers.get("sells_alcohol"),
+                                  "area_sqm": store.area_sqm}, ensure_ascii=False),
                 business_type=business_type, floor_uses=json.dumps(uses, ensure_ascii=False),
                 articles=json.dumps(shown, ensure_ascii=False)),
             schema=BuildingJudgment,
         )
     except LLMError:
-        return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=True, bi=bi)
+        return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=True, bi=bi,
+                                   area_note=area_note)
 
     cited_uses = [u for u in dict.fromkeys(j.cited_uses) if u in uses]
     cited = [k for k in dict.fromkeys(j.cited) if k in by_key]
@@ -377,13 +382,17 @@ def judge_building_use_ai(
     elif verdict == "high" and rr.verdict == "unknown":
         verdict = "low"
         reason += " (규칙표로는 확인되지 않아 확인 권장으로 낮췄어요)"
+    if area_note and j.verdict in ("ok", "high") and verdict in ("ok", "low"):
+        verdict, reason = "low", area_note  # 면적 기준 이상이거나 면적을 모르면 가능·불가를 단정하지 않고 이유를 면적으로 설명한다
     evidence = [_building_evidence(b, bi, cited_uses or uses)]
     evidence += [_law_evidence(law, by_key[k], " … ".join(quotes[k]) or None) for k in (law_verified or cited)]
     ai_ok_types = [t for t in dict.fromkeys(j.ok_business_types) if t in BUSINESS_TYPES and t in rr_ok_types]
     # AI가 가능한 업종을 하나도 적지 않았으면(판단을 빼먹은 경우) 규칙표가 확인한 업종을 쓴다. 적었으면 규칙표와 겹치는 것만 쓴다.
     ok_types = ai_ok_types or list(rr_ok_types)
+    # AI 판정을 코드가 바꿨으면(낮춤·판단 불가) AI 가 쓴 단정 제목 대신 판정에 맞는 제목 템플릿을 쓴다
+    title = j.title if verdict == j.verdict else (render_title(spec, verdict, business_type=business_type) or j.title)
     item = ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="ai",
-                      verdict=verdict, title=j.title, reason=reason, evidence=evidence)
+                      verdict=verdict, title=title, reason=reason, evidence=evidence)
     return item, {"floor_uses": uses, "ok_business_types": ok_types}
 
 
