@@ -21,11 +21,21 @@ export function ReportView({ onEvent, ...state }: ReportViewProps) {
     <DataBoundary {...state} fallback={<PageSkeleton page="report" />}>
       {(report) => (
         <FeatureView page="report" onEvent={onEvent}>
-          <ReportHeader locked={report.locked} />
+          <ReportHeader locked={report.locked} live={report.live} exampleCount={report.exampleItems?.length ?? 0} />
           {report.locked ? (
             <LockedReport />
           ) : (
             <>
+              {(report.exampleItems?.length ?? 0) > 0 && (
+                <Element className="nx-note" role="status">
+                  <b>예시 자료 기준이에요.</b> 아래 항목은 실제 조회가 아니라 예시 자료로 판정했어요. 실제 결과와 다를 수 있으니 관할 기관에 확인하세요.
+                  <ul className="nx-ul">
+                    {report.exampleItems?.map((title) => (
+                      <li key={title}>{title}</li>
+                    ))}
+                  </ul>
+                </Element>
+              )}
               <Suspense fallback={<SectionSkeleton label="점검 요약" />}>
                 <ReportSummary counts={report.counts} firstByVerdict={report.firstByVerdict} />
               </Suspense>

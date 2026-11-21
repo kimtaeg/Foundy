@@ -339,6 +339,8 @@ export function createApiModel(bundle: ApiBundle) {
     },
     report: {
       obligations: bundle.obligations,
+      // 근거에 모의·예시 자료(from_mock)가 쓰인 점검 항목: 실제 조회로 판정한 결과가 아니라는 뜻이다
+      exampleItems: items.filter((item) => item.evidence.some((e) => e.from_mock)).map((item) => item.title),
       S,
       buildCards: () => cards,
       ev: (card: ReportCardData) => card.base,

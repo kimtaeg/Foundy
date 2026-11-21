@@ -161,7 +161,7 @@
 | [NotificationMenu](../src/components/navigation/NotificationMenu/NotificationMenu.tsx) | `NotificationMenuProps` | notifications, onOpen (콜백) | props / UI 상태 |
 | [NotificationPopover](../src/components/navigation/NotificationPopover/NotificationPopover.tsx) | `NotificationPopoverProps` | id, panelRef, unread, notifications, position, onOpen (콜백), onMouseEnter (콜백), onMouseLeave (콜백) | props / UI 상태 |
 | [StoreIdentity](../src/components/navigation/StoreIdentity/StoreIdentity.tsx) | `StoreIdentityProps` | name, onOpen (콜백) | props / UI 상태 |
-| [AnalysisStep](../src/components/onboarding/AnalysisStep/AnalysisStep.tsx) | `AnalysisStepProps` | storeName, steps, completed | props / UI 상태 |
+| [AnalysisStep](../src/components/onboarding/AnalysisStep/AnalysisStep.tsx) | `AnalysisStepProps` | storeName, steps, completed, server?, notes? | props / UI 상태 |
 | [BusinessQuestion](../src/components/onboarding/BusinessQuestion/BusinessQuestion.tsx) | `BusinessQuestionProps` | field, title, description, value | props / UI 상태 |
 | [BusinessQuestionsStep](../src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx) | `BusinessQuestionsStepProps` | store | props / UI 상태 |
 | [DemoScenarioBanner](../src/components/onboarding/DemoScenarioBanner/DemoScenarioBanner.tsx) | 없음 | 없음 | props / UI 상태 |
@@ -187,7 +187,7 @@
 | [ReportCardSummary](../src/components/report/ReportCardSummary/ReportCardSummary.tsx) | `ReportCardSummaryProps` | card, state, verdict, followUpPending, status | props / UI 상태 |
 | [ReportFilters](../src/components/report/ReportFilters/ReportFilters.tsx) | `ReportFiltersProps` | selected | props / UI 상태 |
 | [ReportFollowUp](../src/components/report/ReportFollowUp/ReportFollowUp.tsx) | `ReportFollowUpProps` | model | props / UI 상태 |
-| [ReportHeader](../src/components/report/ReportHeader/ReportHeader.tsx) | `ReportHeaderProps` | locked | props / UI 상태 |
+| [ReportHeader](../src/components/report/ReportHeader/ReportHeader.tsx) | `ReportHeaderProps` | locked, live?, exampleCount? | props / UI 상태 |
 | [ReportNextSteps](../src/components/report/ReportNextSteps/ReportNextSteps.tsx) | `ReportNextStepsProps` | model | props / UI 상태 |
 | [ReportOptions](../src/components/report/ReportOptions/ReportOptions.tsx) | `ReportOptionsProps` | card, state, verdict | props / UI 상태 |
 | [ReportPage](../src/components/report/ReportPage/ReportPage.tsx) | 없음 | 없음 | Page / Connected 어댑터 |

@@ -10,7 +10,7 @@
  */
 import { ApiError, apiEnabled } from "@/lib/api/client";
 import type { ApiDocumentStatus } from "@/lib/api/types";
-import { ANALYSIS_STEP_COUNT, finishedIndexes, followRun } from "@/lib/api/run-stream";
+import { ANALYSIS_STEP_COUNT, finishedIndexes, followRun, stepNote } from "@/lib/api/run-stream";
 import { createApiModel, toEvidence, type ApiModel } from "@/lib/api/contexts";
 import { useServerProfile } from "@/hooks/useServerProfile";
 import {
@@ -241,6 +241,7 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
     const register = engine.getViewContext("register");
     const fundsInput = (document.getElementById("fFunds") as HTMLInputElement | null)?.value;
     const finished = new Set<number>();
+    const notes: Record<number, string> = {}; // 예시·캐시로 대체됐거나 실패·건너뛴 단계의 실제 상태
     engine.setAnalysisProgress([]);
     try {
       const api = createStoreApi(session);
@@ -252,13 +253,15 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
         funds_krw: fundsInput ? Number(fundsInput) : register.S.funds,
       });
       const { run_id } = await api.analyze();
-      await followRun(run_id, session.token, (step, status) => {
+      await followRun(run_id, session.token, (step, status, message) => {
         finishedIndexes(step, status).forEach((index) => finished.add(index));
-        engine.setAnalysisProgress([...finished]);
+        const note = stepNote(step, status, message);
+        if (note) notes[note.index] = note.note;
+        engine.setAnalysisProgress([...finished], notes);
       });
       // 결과를 받아 두고, "내 가게 홈으로" 버튼을 눌러 마치게 한다.
       if (!(await refresh())) throw new Error("결과를 불러오지 못했어요");
-      engine.setAnalysisProgress(Array.from({ length: ANALYSIS_STEP_COUNT }, (_, index) => index));
+      engine.setAnalysisProgress(Array.from({ length: ANALYSIS_STEP_COUNT }, (_, index) => index), notes);
     } catch (error) {
       engine.showToast(`${errorMessage(error)} · 예시 분석으로 이어가요`);
       engine.handleEvent("click", { target: source, preventDefault() {} }); // 로컬 분석으로 끝까지 진행

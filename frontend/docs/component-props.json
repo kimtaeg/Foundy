@@ -4175,6 +4175,18 @@
         "optional": false,
         "type": "number[]",
         "callback": false
+      },
+      {
+        "name": "server",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "notes",
+        "optional": true,
+        "type": "Record<number, string> | undefined",
+        "callback": false
       }
     ]
   },
@@ -4719,6 +4731,18 @@
         "name": "locked",
         "optional": false,
         "type": "boolean",
+        "callback": false
+      },
+      {
+        "name": "live",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "exampleCount",
+        "optional": true,
+        "type": "number | undefined",
         "callback": false
       }
     ]

@@ -90,6 +90,8 @@ export function useReport(): ReportViewData | null {
   const openId = shown.find(needsDecision)?.id;
   return {
     obligations: context.obligations ?? [],
+    live: context.exampleItems !== undefined,
+    exampleItems: context.exampleItems ?? [],
     locked: context.S.location === "undecided",
     filter: context.reportFilter,
     counts,

@@ -72,6 +72,10 @@ export interface ReportCardModel {
 }
 export interface ReportViewData {
   obligations: ObligationData[];
+  /** 서버가 실제로 조회·판정한 결과로 그린 화면이면 true (로컬 예시 화면이면 false) */
+  live: boolean;
+  /** 실제 조회가 아니라 예시·캐시 자료로 판정한 점검 항목 제목 (서버 데이터로 그릴 때만) */
+  exampleItems: string[];
   locked: boolean;
   filter: string;
   counts: Record<Verdict, number>;
@@ -81,6 +85,7 @@ export interface ReportViewData {
 export interface ReportContext {
   /** 서버가 정한 법령 적용 결과 (서버 데이터로 그릴 때만) */
   obligations?: ObligationData[];
+  exampleItems?: string[];
   S: { location: string };
   reportFilter: string;
   buildCards(): ReportCardData[];

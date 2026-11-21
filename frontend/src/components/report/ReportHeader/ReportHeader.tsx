@@ -1,9 +1,23 @@
 import { PageHeader } from "@/components/common/PageHeader";
 import { Element } from "@/components/view/Element";
 
-export type ReportHeaderProps = { locked: boolean };
+export type ReportHeaderProps = {
+  locked: boolean;
+  /** 서버가 실제로 조회·판정한 결과로 그린 화면이면 true, 로컬 예시 화면이면 false */
+  live?: boolean;
+  /** 실제 조회가 아니라 예시 자료로 판정한 항목 수 (live 일 때만 의미) */
+  exampleCount?: number;
+};
 
-export function ReportHeader({ locked }: ReportHeaderProps) {
+/** 데이터 출처 배지: 실제 조회 결과인지, 일부 예시 자료가 섞였는지, 전부 예시인지 숨기지 않고 알린다. */
+function sourceBadge(live: boolean, exampleCount: number): { label: string; tone: string } {
+  if (!live) return { label: "예시 데이터 · 실제 조회 아님", tone: "unknown" };
+  if (exampleCount > 0) return { label: `일부 예시 자료 (${exampleCount}개 항목)`, tone: "low" };
+  return { label: "실제 조회 결과", tone: "ok" };
+}
+
+export function ReportHeader({ locked, live = false, exampleCount = 0 }: ReportHeaderProps) {
+  const badge = sourceBadge(live, exampleCount);
   return (
     <PageHeader
       eyebrow="DECISION REPORT"
@@ -15,8 +29,8 @@ export function ReportHeader({ locked }: ReportHeaderProps) {
       }
       actions={
         !locked && (
-          <Element as="span" className="nx-badge unknown">
-            예시 데이터 · 실제 조회 아님
+          <Element as="span" className={`nx-badge ${badge.tone}`}>
+            {badge.label}
           </Element>
         )
       }
