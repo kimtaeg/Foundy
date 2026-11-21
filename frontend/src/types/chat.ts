@@ -16,7 +16,7 @@ export interface ChatAction {
   state?: string;
   result?: string[];
 }
-export type ChatCitation = string | { p: string; label: string };
+export type ChatCitation = string | { p?: string; label: string; url?: string | null };
 export interface ChatProcessingStep {
   id: string;
   label: string;
@@ -76,6 +76,8 @@ export interface FocusOption {
 }
 export interface CitationItem {
   label: string;
+  /** 외부 원문 링크 (법령·공고) */
+  url?: string | null;
   cardId?: string;
   page?: string;
 }

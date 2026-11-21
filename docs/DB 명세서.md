@@ -510,6 +510,18 @@ ALTER TABLE cost_logs ADD COLUMN store_id uuid REFERENCES stores(id) ON DELETE C
 
 ---
 
+### 2-11. `chat_sessions`·`chat_messages`·`chat_tool_calls`·`chat_citations` (AI 상담, 마이그레이션 `0008_chat`)
+
+| 테이블 | 내용 |
+|--------|------|
+| `chat_sessions` | 상담방. `user_id`·`store_id`(가게를 지우면 함께 지워짐), `title`(첫 질문 30자), `updated_at` |
+| `chat_messages` | `role`: `user` · `assistant` · `tool`. AI가 도구를 요청한 중간 답은 `assistant` + `tool_calls`(OpenAI 형식), 도구 결과는 `tool` + `tool_call_id`. 최종 답의 화면 이동 버튼은 `actions` |
+| `chat_tool_calls` | 실행한 도구 이름·인자·결과(jsonb)·`status`(`done`·`failed`·`denied`). 추적용 |
+| `chat_citations` | 최종 답이 인용한 출처 (`source_type`: law·checklist·document·report·grant·profile, 제목·링크·조문 번호). 도구 결과에 있던 것만 |
+
+- 사업장 정보는 상담 테이블에 복사하지 않는다. 질문할 때마다 `stores`·`report_items`·`checklist_items`·`document_requirements`·`grant_matches`를 읽는다.
+- 대화에서 사용자가 가게 조건을 말해도 `stores`를 바꾸지 않는다 (마이페이지에서 수정하도록 안내한다).
+
 ## 3. 핵심 화면별로 읽는 쿼리
 
 | 화면(API) | 읽는 곳 | 계산 |

@@ -87,11 +87,11 @@ Foundy/
     ├── main.py               # FastAPI 앱 (CORS, 라우터 등록, 시작 시 중단된 runs 정리)
     ├── config.py             # 환경변수 설정 (pydantic-settings)
     ├── railway.json          # Railway 배포 설정 (preDeploy: alembic upgrade head)
-    ├── api/                  # 라우터 (health, demo, auth, me, stores, checklist, documents, alerts, grants, runs[분석·SSE], laws[내부 갱신])
+    ├── api/                  # 라우터 (health, demo, auth, me, stores, checklist, documents, alerts, grants, chat[AI 상담·SSE], runs[분석·SSE], laws[내부 갱신])
     ├── services/             # 분석 저장, 유효 값, 카드 상태 변경, 응답 조립(serializers), 서류함(documents), 가게 등록·수정, 로그인
     ├── calc/                 # 코드가 하는 계산: 날짜, 선택지 효과, 카드↔체크리스트 연결, 다음 할 일, 법령→체크리스트 작업(obligation_tasks)
-    ├── db/                   # 엔진·세션, ORM 모델, 예시 계정 시드, migrations/ (0001~0006)
-    ├── agent/                # 분석 루프(loop), 판정(judge), 해결 방안(advise), 챗봇, 가드레일, 프롬프트, LLM 어댑터, 비용 기록
+    ├── db/                   # 엔진·세션, ORM 모델, 예시 계정 시드, migrations/ (0001~0008)
+    ├── agent/                # 분석 루프(loop), 판정(judge), 해결 방안(advise), AI 상담 에이전트(assistant: tool calling), 가드레일, 프롬프트, LLM 어댑터, 비용 기록
     ├── law_rag/              # 법령 수집·파싱·청킹·임베딩(pgvector)·검색, 변경 감지(changes)
     ├── tools/                # 외부 API 조회 (address, providers[건축물대장·상표·법령·지원사업], analysis[캐시·모의 대체])
     ├── rules/                # 규칙 묶음(packs/cafe_restaurant.yaml), 규칙 엔진, 적용 조건(applicability), 건물 용도 코드표(data/)
@@ -131,6 +131,12 @@ Foundy/
 - **문제 항목은 결과 카드로 만든다**: 쉬운 말 결론 → 안 하면 생기는 일 → 선택지 → 추천 → 대신 만든 결과물(문의 문자·특약 문구·서류 초안) → 사용자가 할 일 1개. "~를 확인하세요"로 끝내지 않는다.
 - 선택지·초안의 종류는 규칙 묶음(`remedies`, `drafts`) 범위 안에서만 만든다(안내형 선택지는 AI가 최대 2개 더 제안할 수 있다). 기간·금액은 근거(규칙·계산·데이터)가 있을 때만 숫자로 쓰고, 없으면 "확인 필요"로 둔다. 초안은 조회한 데이터를 문장에 채우는 것으로 제한하고 모르는 칸은 `[확인 필요]`로 비운다.
 
+### AI Chat Rules (상담)
+
+- 상담은 Tool Calling 에이전트다 (`agent/assistant.py`). LLM은 DB에 직접 접근하지 않고, 백엔드 도구가 상담방의 가게 데이터만 읽는다. 상담방 소유 확인은 API가 한다.
+- 법령 질문은 `search_laws`(저장된 조문) 결과로만 답한다. 답의 출처 번호(`[S1]`)는 서버가 도구 결과에 있는 것만 남기고, 법령을 검색했는데 조문 인용이 없으면 경고 문구를 붙인다.
+- 1차는 조회 도구만 있다. 체크리스트·서류 상태를 바꾸는 도구는 사용자 승인 절차와 함께 추가한다. 대화 내용으로 `stores`를 바꾸지 않는다.
+
 ### Checklist Rules
 
 - 체크리스트 작업은 세 가지 유형이다: `legal_obligation`(필수) / `conditional`(조건부, 적용 판단 이유를 보여준다) / `preparation`(권장). 생성 출처는 `source_type`: `template`(기본 일정) · `rule_engine`(조건 규칙) · `legal_analysis`(점검 카드가 검증해 인용한 조문이 있는 법령 분석) · `inspection` · `grant`.
@@ -167,7 +173,7 @@ Foundy/
 | 국가법령정보 (법제처) | 법령 수집·조문 링크·공식 서식 링크 (OC 등록 IP 제한 있음) | `law_rag/collector.py`, `law_rag/forms.py` |
 | KIPRIS Plus (특허청) | 유사 등록 상표 검색 | `tools/providers.py` |
 | K-Startup 사업공고 (창업진흥원, 공공데이터포털 `DATA_GO_KR_KEY`) | 모집 중 지원사업 공고 → AI 자격 판정 (`grant_matches`) | `tools/kstartup.py`, `agent/grants.py`, `services/grants.py` |
-| LLM API | 판정·해결 방안·챗봇·되묻기 (`LLM_PROVIDER`: openai \| gemini) | `agent/llm.py` |
+| LLM API | 판정·해결 방안·AI 상담(tool calling은 openai만)·되묻기 (`LLM_PROVIDER`: openai \| gemini) | `agent/llm.py` |
 | 임베딩 API | 법령 조각 임베딩 (기본 OpenAI `text-embedding-3-large`, 768차원) | `law_rag/embedder.py` |
 
 ### Environment Variables

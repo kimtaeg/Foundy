@@ -924,88 +924,66 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 
 ---
 
-## 8. AI 상담 [시간되면]
+## 8. AI 상담 [구현: Tool Calling 에이전트, 1차 조회 전용]
 
-### `POST /api/stores/{store_id}/chat`
+상담은 사업장 정보를 아는 에이전트다. 백엔드가 가게 정보를 읽어 시스템 프롬프트에 넣고, LLM(`gpt-4.1`, OpenAI tool calling)이 필요한 도구를 골라 부르면 백엔드가 이 가게 데이터만 읽어 돌려준다 (`agent/assistant.py`, `services/chat.py`). LLM은 DB에 직접 접근하지 않는다. `LLM_PROVIDER`가 openai가 아니면 상담은 "쓸 수 없음"으로 답한다.
 
-요청
+| 도구 | 읽는 것 |
+|------|---------|
+| `get_business_profile` | 업종·주소·층·면적·개업일·주류·직원·배달 (선택 효과를 반영한 유효 값) |
+| `get_checklist` | 체크리스트 작업·권장 준비일·법정 기한·완료 여부 (`only_open`) |
+| `get_documents` | 서류함 서류별 상태·받는 곳·근거 (`only_open`) |
+| `get_report` | 점검 리포트 판정(4가지 판정값)·이유 |
+| `search_laws` | 저장된 현행 법령 조문 검색 (법령 RAG, `query`) |
+| `search_support_programs` | 저장된 지원사업 판정 결과 (K-Startup) |
+
+- 첫 차례에는 도구를 반드시 하나 이상 부르게 하고(`tool_choice=required`), 한 질문에 도구는 최대 4차례까지 부른다.
+- 도구 결과의 근거마다 서버가 번호(`S1`…)를 붙이고, AI는 답에 `[S1]`로 인용한다. 서버는 **도구 결과에 실제로 있는 번호만** 출처로 저장하고 없는 번호는 답에서 지운다. 법령을 검색했는데 답이 조문을 인용하지 않았으면 "법령 조문으로 확인한 근거가 없다"는 안내를 답 끝에 붙인다.
+- 화면 이동 버튼(`actions`, `type: navigate`)은 답이 인용한 출처의 화면(체크리스트·서류함·점검 리포트·지원사업)만 서버가 만든다. 1차에는 데이터를 바꾸는 동작(체크리스트 완료·서류 상태 변경)이 없다.
+- 이전 대화는 사용자 질문과 AI 최종 답변만 최근 12개를 넘긴다. 사업장 정보와 법령은 질문할 때마다 새로 읽는다.
+- AI 비용은 `cost_logs`(`run_id` 없음, `step=chat`)에 남긴다.
+
+### `POST /api/chat/sessions` — 상담방 만들기
+
+요청 `{ "store_id": "…", "title": null }` → `201` `{ "session_id", "store_id", "title", "created_at", "updated_at" }`. 내 가게가 아니면 `403`.
+
+### `GET /api/chat/sessions?store_id=…` — 상담방 목록 (최근 순)
+
+### `GET /api/chat/sessions/{session_id}/messages` — 대화 기록
 
 ```json
 {
-  "message": "위반건축물이면 아예 못 여는 건가요?",
-  "history": [
-    { "role": "user", "content": "..." },
-    { "role": "assistant", "content": "..." }
-  ],
-  "focus": { "type": "report_item", "id": "r-03" }
-}
-```
-
-- `history`는 프론트가 보관해 매번 보낸다 (서버는 대화 기록을 저장하지 않는다).
-- `focus`는 선택. `report_item` | `checklist_item` | `grant`를 지정하면 그 항목을 **우선 근거**로 삼는다. 리포트 카드의 "이 항목 질문하기"가 이것을 쓰고, 화면은 그 카드를 대화 위에 고정해 보여 준다. 다른 주제를 물으면 고정된 카드에 갇히지 않고 그 주제로 답한다.
-
-응답 `200`
-
-```json
-{
-  "kind": "grounded",
-  "answer": "건축물대장 응답에 위반건축물 표기 정보가 없어요. 위반건축물이면 영업신고가 반려될 수 있어요.",
-  "evidence": [ { "type": "data", "source": "건축물대장 표제부", "value": "위반건축물 표기 없음(필드 미제공)", "fetched_at": "…" } ],
-  "actions": [
+  "session": { "session_id": "…", "title": "휴게음식점에서 술을 팔 수 있어?" },
+  "items": [
+    { "message_id": "…", "role": "user", "content": "휴게음식점에서 술을 팔 수 있어?", "actions": [], "citations": [] },
     {
-      "type": "update_store",
-      "label": "개업일 2027-03-02 → 2027-04-01 변경",
-      "summary": ["개업일 2027-03-02 → 2027-04-01", "체크리스트 날짜 재계산 (예: 건축물대장 확인 01.05 → 02.04)"],
-      "payload": { "opening_date": "2027-04-01" },
-      "requires_confirm": true
+      "message_id": "…", "role": "assistant",
+      "content": "휴게음식점은 음주행위가 허용되지 않는 영업이라 술을 팔 수 없어요[S1].",
+      "actions": [],
+      "citations": [{ "source_type": "law", "source_id": "식품위생법 시행령 제21조", "title": "식품위생법 시행령 제21조",
+                      "url": "https://www.law.go.kr/…", "article": "제21조" }]
     }
-  ],
-  "contacts": [],
-  "call_prep": null,
-  "follow_up": ["왜 이런가요?", "안 하면 어떻게 되나요?", "전화로 문의할 땐 뭐라고 하죠?"],
-  "note": "이 가게의 점검 결과 안에서만 답했어요. 최종 판단은 관할 기관에 확인하세요."
+  ]
 }
 ```
 
-**`kind`**
+화면에는 사용자 질문과 AI 최종 답만 보여 준다 (도구 요청·결과 메시지는 `chat_tool_calls`로만 추적).
 
-| 값 | 뜻 | 화면 |
-| --- | --- | --- |
-| `grounded` | 이 가게의 저장된 근거 안에서 답함 | "근거 기반" 배지 + 근거 칩 |
-| `change` | 조건 변경·선택지 적용·체크 처리를 **제안** | "변경 제안" 배지 + 전/후 미리보기 + `[확인하고 적용]` |
-| `oos` | 근거 밖(세금·4대보험·대출 등) → 판단 불가 | "판단 불가" 배지 + 문의할 기관 전화번호(`contacts[]`) |
-| `chitchat` | 인사·안내 | 배지 없음 |
+### `POST /api/chat/sessions/{session_id}/messages` — 질문 보내기 (SSE)
 
-**규칙**
+요청 `{ "content": "…" }` (1~1000자). 응답은 `text/event-stream`이다.
 
-- 답변은 **이 가게에 저장된 근거 안에서만** 한다. 사실을 묻는 질문인데 인용할 근거(`evidence`)가 없으면 서버가 `kind`를 `oos`로 바꾸고 관할 기관을 안내한다. 근거는 AI가 쓰지 않고, AI가 고른 항목 id를 코드가 그 항목의 근거로 채운다.
-- 근거 칩(`evidence[]`)을 누르면 리포트의 "판정 근거 자세히"와 같은 창이 열린다.
-- **바꾸는 일은 제안만 한다.** `actions[]`는 `requires_confirm: true`이고 `summary[]`에 변경 전후를 담는다. 사용자가 확인하면 프론트가 아래 API를 호출한다. 확인하기 전에는 아무것도 바뀌지 않는다.
-  - `update_store`: `PATCH /stores/{store_id}` (개업일 변경은 `recomputed: ["checklist"]`, 그 밖은 `needs_reanalyze`)
-  - `choose_option`: `payload`는 `{ "item_id": "r-01", "option_id": "o-3" }`, `POST /report/items/{item_id}/choose`
-  - `check_item`: `payload`는 `{ "item_id": "c-03" }`, `PATCH /checklist/{item_id}`
-  - `navigate`: 화면 이동(확인 불필요). `payload`는 `{ "page": "report", "item_id": "r-01" }`
-- `contacts[]`: 문의할 기관 연락처 목록 `{ agency, phone, tip, is_example }`. 전화번호는 AI가 만들지 않고 규칙 묶음·기관 데이터에서만 가져온다 (2장 Contact와 같은 규칙).
-- `call_prep`: **통화 준비 도우미**. "구청에 전화하기 전에 뭘 준비하죠?"처럼 물으면 돌려준다.
+| event | data |
+|-------|------|
+| `tool` | `{ "name": "search_laws", "label": "법령 검색", "status": "done" \| "failed" }` |
+| `delta` | `{ "text": "…" }` 답변 글자 |
+| `reset` | `{}` 지금까지 받은 글자를 지운다 (AI가 도구를 더 부르기로 함) |
+| `done` | 저장된 답변 메시지 (`GET …/messages`의 항목과 같은 형식) |
+| `error` | `{ "message": "…", "reply": 메시지 }` |
 
-```json
-{ "item_id": "r-03", "contact": { "agency": "성동구청 건축과", "phone": "02-2286-5114", "is_example": true },
-  "steps": ["안녕하세요, 카페 창업을 준비 중인 예비 창업자입니다. 건축과 담당자를 연결해 주실 수 있을까요?", "…"],
-  "questions": ["이 건물(해당 층)이 위반건축물로 등재돼 있나요?", "…"] }
-```
+### `DELETE /api/chat/sessions/{session_id}` — 상담방 삭제 (`204`)
 
-  통화 후 결과는 `POST /report/items/{item_id}/action`(`sent`, `reply`)으로 기록한다. 스크립트는 가게 정보와 조회 데이터로만 채우고 모르는 칸은 `[확인 필요]`로 둔다.
-- **서류 질문**("영업신고에 필요한 서류가 뭐예요?", "근로계약서 양식 어디서 받아요?"): 해당 항목의 `documents[]`를 근거로 서류 이름·받는 곳·찾는 방법·기관 전화번호를 답하고 서류함으로 가는 `navigate` 제안을 붙인다. 링크와 안내는 규칙 묶음의 값만 쓰고 AI가 만들지 않는다. 서식을 대신 작성하거나 제출한다고 답하지 않는다.
-- **"오늘 뭐부터 하죠?"**: 결정할 것 1개와 직접 할 일 1개를 요약한다. 추천 선택지는 `choose_option` 제안으로 붙는다. 정렬은 코드(2장 NextStep)가 하고 AI는 문장만 만든다.
-- 범위 밖: **세금·4대보험 신고 일정, 대출·금리, 법률 해석, 금액 계산**은 답하지 않고 `oos`로 안내한다. 대출 안내는 제공하지 않는다.
-
-### `GET /api/stores/{store_id}/chat/suggestions` — 추천 질문
-
-```json
-{ "items": ["오늘 뭐부터 하죠?", "건물 용도·주류 선택지 뭐가 달라요?", "구청에 전화하기 전에 뭘 준비하죠?", "개업일을 4월 1일로 미루고 싶어요", "부가세는 언제 신고하나요?"] }
-```
-
-- 가게의 현재 상태(결정 대기 카드, 개업까지 남은 일수, 고정된 `focus`)로 코드가 고른다. `focus`가 있으면 그 카드에 맞는 후속 질문(왜 이런가요 / 안 하면 어떻게 되나요 / 다른 방법은 없나요 / 전화로 문의할 땐)을 돌려준다.
+다른 사람의 상담방은 모두 `404`다 (있는지도 알리지 않는다).
 
 ---
 

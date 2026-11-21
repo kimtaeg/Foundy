@@ -3,9 +3,21 @@ import { ApiError, API_BASE_URL } from "@/lib/api/client";
 
 export type SseHandler = (event: string, data: unknown) => void;
 
-export async function readEventStream(path: string, token: string, onEvent: SseHandler): Promise<void> {
+export async function readEventStream(
+  path: string,
+  token: string,
+  onEvent: SseHandler,
+  init: { method?: string; body?: unknown; signal?: AbortSignal } = {},
+): Promise<void> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { Accept: "text/event-stream", Authorization: `Bearer ${token}` },
+    method: init.method ?? "GET",
+    headers: {
+      Accept: "text/event-stream",
+      Authorization: `Bearer ${token}`,
+      ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    signal: init.signal,
   });
   if (!response.ok || !response.body) {
     throw new ApiError(response.status, "STREAM_FAILED", "진행 상황을 받을 수 없어요.");
