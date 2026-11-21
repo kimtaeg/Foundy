@@ -160,6 +160,8 @@ def apply_update(session: Session, pack: dict, store: Store, cards: list[ReportI
     if "opening_date" in fields:
         for item in items:
             item.due_date = store.opening_date + timedelta(days=item.offset_days)
+            if item.statutory_basis:  # 개업 전 법정 기한은 개업 전날이다 (권장 준비일과 별개로 같이 옮긴다)
+                item.statutory_deadline = store.opening_date - timedelta(days=1)
     for entry in _when_items_to_add(pack, items, fields, effective):
         item = ChecklistItem(
             store_id=store.id, item_key=entry["id"], rule_key=entry["id"], source="rule", task=entry["task"],

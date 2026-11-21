@@ -11,10 +11,11 @@ from dataclasses import dataclass, field
 
 from sqlalchemy import select
 
-from db.models import Alert, ApplicabilityRule, LawChangeLog, LegalObligation
+from db.models import Alert, ApplicabilityRule, ChecklistItem, DocumentRequirement, LawChangeLog, LegalObligation
 from db.session import transaction
 from law_rag.parser import ParsedLaw
 from law_rag.store import IngestResult, save_law
+from services.timeutil import now_utc
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,18 @@ def record_change(session, result: IngestResult) -> int:
     for ob in obligations:
         by_store.setdefault(ob.store_id, []).append(ob)
     effective = result.new_effective.isoformat() if result.new_effective else "시행일 확인 필요"
+    flagged_at = now_utc()
+    for store_id, items in by_store.items():
+        # 이 법령 규칙으로 만든 체크리스트 작업은 다시 확인하라고 표시한다 (완료 기록은 그대로 둔다)
+        mine = {o.rule_id: o for o in items}
+        for task in session.scalars(select(ChecklistItem).where(
+                ChecklistItem.store_id == store_id, ChecklistItem.obligation_rule_id.in_(list(mine)))):
+            art = mine[task.obligation_rule_id].article_label
+            task.review_needed, task.review_flagged_at = True, flagged_at
+            task.review_reason = f"{result.law_name}{f' {art}' if art else ''}이(가) 개정됐어요 (시행일 {effective}). 내용을 다시 확인하세요."
+        for req in session.scalars(select(DocumentRequirement).where(
+                DocumentRequirement.store_id == store_id, DocumentRequirement.rule_id.in_(list(mine)))):
+            req.review_needed, req.review_reason = True, f"{result.law_name}이(가) 개정됐어요 (시행일 {effective}). 필요한 서류가 바뀌었는지 확인하세요."
     for store_id, items in by_store.items():
         key = f"law-{result.law_key}-{result.new_mst}"
         if session.scalar(select(Alert.id).where(Alert.store_id == store_id, Alert.dedupe_key == key)):

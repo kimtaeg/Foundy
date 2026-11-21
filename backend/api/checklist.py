@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.deps import owned_store
-from api.errors import item_not_found
+from api.errors import invalid_input, item_not_found
 from db.models import Store
 from db.session import get_db
 from services import cards as card_service
@@ -27,14 +27,9 @@ def checklist(view: Literal["timeline", "category"] = Query(default="timeline"),
     return serializers.checklist(get_pack(store), store, cards, items, view)
 
 
-@router.get("/documents")
-def documents(store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
-    cards, items = card_service.load_state(db, store)
-    return serializers.documents(get_pack(store), store, cards, items)
-
-
 class ChecklistPatch(BaseModel):
-    done: bool
+    done: bool | None = None
+    review_ack: bool | None = None  # true: 법령 개정 등으로 표시된 "다시 확인" 안내를 확인했다
 
 
 @router.patch("/checklist/{item_id}")
@@ -44,7 +39,12 @@ def patch_checklist(item_id: str, body: ChecklistPatch, store: Store = Depends(o
     item = next((i for i in items if i.item_key == item_id), None)
     if item is None:
         raise item_not_found()
-    card_service.set_checklist_done(item, body.done)
+    if body.done is None and not body.review_ack:
+        raise invalid_input("done 또는 review_ack 가 필요합니다.")
+    if body.done is not None:
+        card_service.set_checklist_done(item, body.done)
+    if body.review_ack:
+        item.review_needed, item.review_reason = False, None
     db.commit()
     pack = get_pack(store)
     return serializers.checklist_item(pack, item, effective_store(pack, store, cards),

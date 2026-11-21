@@ -163,7 +163,8 @@ def documents_of(pack: dict, task_id: str, sigungu: str | None = None) -> list[d
     for d in (pack.get("documents") or {}).get(task_id, []):
         sites = pack.get("sites") or {}
         out.append({
-            "doc_id": d["id"], "name": d["name"], "agency": d.get("agency", ""), "guide": d.get("guide", ""),
+            "doc_id": d["id"], "name": d["name"], "type": d.get("type", "reference"), "form": d.get("form"),
+            "agency": d.get("agency", ""), "guide": d.get("guide", ""),
             "links": [{"label": sites[k]["label"], "url": sites[k]["url"]} for k in d.get("sites", []) if k in sites],
             "contact": contact_of(pack, d.get("contact"), sigungu),
         })

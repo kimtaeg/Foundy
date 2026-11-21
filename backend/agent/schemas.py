@@ -89,6 +89,8 @@ class Document(BaseModel):
 
     doc_id: str
     name: str
+    type: Literal["issued", "application", "certificate", "kept", "reference"] = "reference"
+    form: dict | None = None  # 법령 공식 서식 참조 {law_name, no, title}
     agency: str = ""
     guide: str = ""
     links: list[dict] = Field(default_factory=list)  # [{label, url}] 규칙 묶음 sites의 검증된 첫 화면 주소만
@@ -125,6 +127,10 @@ class ReportItem(BaseModel):
     added_to_checklist: list[str] = Field(default_factory=list)
 
 
+TaskType = Literal["legal_obligation", "conditional", "preparation"]  # 필수 / 조건부 / 권장
+SourceType = Literal["template", "rule_engine", "legal_analysis", "inspection", "grant"]
+
+
 class ChecklistItem(BaseModel):
     item_id: str
     task: str
@@ -143,6 +149,19 @@ class ChecklistItem(BaseModel):
     auto_checked: bool = False  # 점검 카드 완료로 자동 체크됐는지 (직접 한 체크는 False)
     origin_item_id: str | None = None  # source="report": 이 항목을 만든 점검 카드
     origin_option: str | None = None  # source="report": 이 항목을 만든 선택지
+    # 법적 의무 중심 체크리스트: due_date·dday 는 "권장 준비일", 법령이 기한을 정했으면 statutory_deadline 에 따로 둔다
+    task_type: TaskType = "preparation"
+    source_type: SourceType = "template"
+    priority: Literal["high", "normal", "low"] = "normal"
+    deadline_type: Literal["before_opening", "after_opening"] = "before_opening"
+    statutory_deadline: date | None = None
+    statutory_basis: str | None = None  # 법정 기한의 근거 문구 (예: 영업 시작 전). 없으면 권장 준비일만 있는 것이다
+    reason: str | None = None  # 왜 이 작업이 필요한지 (적용 조건·판단 이유)
+    law_basis: dict | None = None  # {law_name, article, url}
+    obligation_rule_id: str | None = None  # 이 작업을 만든 적용 조건 규칙
+    sources: list[dict] = Field(default_factory=list)  # [{type: law|inspection|rule|template, ...}]
+    review_needed: bool = False
+    review_reason: str | None = None
 
 
 class NextStep(BaseModel):

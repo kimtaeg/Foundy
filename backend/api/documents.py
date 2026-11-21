@@ -1,0 +1,139 @@
+"""서류함 (API 명세서 7장): 서류별 상태·파일·이력. 체크리스트 완료와 별개로 관리한다."""
+
+import uuid
+from datetime import date
+from urllib.parse import unquote
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from api.deps import owned_store
+from api.errors import ApiError, invalid_input
+from db.models import DocumentRequirement, Store, UserDocument
+from db.session import get_db
+from services import cards as card_service
+from services import documents as docs
+from services.pack import get_pack
+from services.serializers import DOCUMENTS_DISCLAIMER
+from services.timeutil import today_kst
+
+router = APIRouter(prefix="/api/stores/{store_id}/documents")
+
+
+def _not_found() -> ApiError:
+    return ApiError(404, "DOCUMENT_NOT_FOUND", "서류를 찾을 수 없습니다.")
+
+
+def _wrap(error: docs.DocumentError) -> ApiError:
+    return ApiError(error.status, error.code, error.message)
+
+
+def _state(db: Session, store: Store):
+    cards, items = card_service.load_state(db, store)
+    pack = get_pack(store)
+    rows = docs.sync_requirements(db, pack, store, cards, items)
+    return pack, items, rows
+
+
+def _row(db: Session, store: Store, doc_key: str):
+    pack, items, rows = _state(db, store)
+    row = next((r for r in rows if r.doc_key == doc_key), None)
+    if row is None:
+        raise _not_found()
+    return pack, items, row
+
+
+def _view(db: Session, pack: dict, store: Store, items: list, row: DocumentRequirement, history: bool = True) -> dict:
+    files = docs.load_files(db, [row])[row.id]
+    return docs.requirement_view(db, pack, row, {i.item_key: i for i in items}, files, today_kst(),
+                                 (store.address_codes or {}).get("sigungu_cd"), with_history=history)
+
+
+@router.get("")
+def list_documents(store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
+    pack, items, rows = _state(db, store)
+    body = docs.documents_response(db, pack, store, rows, items, today_kst(), DOCUMENTS_DISCLAIMER)
+    db.commit()  # 요구사항 동기화 결과를 저장한다 (멱등)
+    return body
+
+
+@router.get("/{doc_key}")
+def get_document(doc_key: str, store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
+    pack, items, row = _row(db, store, doc_key)
+    body = _view(db, pack, store, items, row)
+    db.commit()
+    return body
+
+
+class StatusBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    note: str | None = Field(default=None, max_length=500)
+
+
+@router.patch("/{doc_key}")
+def patch_document(doc_key: str, body: StatusBody, store: Store = Depends(owned_store),
+                   db: Session = Depends(get_db)) -> dict:
+    pack, items, row = _row(db, store, doc_key)
+    try:
+        docs.set_status(db, row, body.status, body.note)
+    except docs.DocumentError as e:
+        raise _wrap(e)
+    db.commit()
+    return _view(db, pack, store, items, row)
+
+
+@router.put("/{doc_key}/files", status_code=201)
+async def upload_file(doc_key: str, request: Request, store: Store = Depends(owned_store),
+                      db: Session = Depends(get_db)) -> dict:
+    """파일 본문을 그대로 보낸다. 이름은 X-File-Name(URL 인코딩), 종류는 Content-Type, 발급일은 X-Issued-On(선택)."""
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > docs.MAX_FILE_BYTES:
+        raise ApiError(413, "FILE_TOO_LARGE", "파일은 10MB 이하만 올릴 수 있어요.")
+    data = await request.body()
+    issued = None
+    if request.headers.get("x-issued-on"):
+        try:
+            issued = date.fromisoformat(request.headers["x-issued-on"])
+        except ValueError:
+            raise invalid_input("X-Issued-On 은 YYYY-MM-DD 형식이어야 합니다.")
+    pack, items, row = _row(db, store, doc_key)
+    try:
+        docs.add_file(db, row, unquote(request.headers.get("x-file-name", "")),
+                      request.headers.get("content-type", ""), data, issued)
+    except docs.DocumentError as e:
+        raise _wrap(e)
+    db.commit()
+    return _view(db, pack, store, items, row)
+
+
+def _file(db: Session, row: DocumentRequirement, file_id: str) -> UserDocument:
+    try:
+        key = uuid.UUID(file_id)
+    except ValueError:
+        raise _not_found()
+    f = db.scalar(select(UserDocument).where(UserDocument.id == key, UserDocument.requirement_id == row.id))
+    if f is None:
+        raise _not_found()
+    return f
+
+
+@router.get("/{doc_key}/files/{file_id}")
+def download_file(doc_key: str, file_id: str, store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> Response:
+    _, _, row = _row(db, store, doc_key)
+    f = _file(db, row, file_id)
+    db.commit()
+    return Response(content=f.content, media_type=f.content_type,
+                    headers={"Content-Disposition": docs.content_disposition(f.file_name), "X-Content-Type-Options": "nosniff"})
+
+
+@router.delete("/{doc_key}/files/{file_id}")
+def delete_file(doc_key: str, file_id: str, store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
+    pack, items, row = _row(db, store, doc_key)
+    docs.remove_file(db, row, _file(db, row, file_id))
+    db.commit()
+    return _view(db, pack, store, items, row)
