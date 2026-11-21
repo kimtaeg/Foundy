@@ -19,6 +19,14 @@ from services.timeutil import now_utc
 MOCK = Path(__file__).resolve().parents[1] / "mocks" / "demo" / "seoyeon_inputs.json"
 
 
+def _current_building_payload(payload: dict | None) -> bool:
+    """캐시된 건물 조회 결과가 지금 형식(원본 용도 코드·대상 공간 포함)인지."""
+    from rules.building_use import SPACE_SCHEMA
+
+    data = (payload or {}).get("data") or {}
+    return data.get("schema") == SPACE_SCHEMA and isinstance(data.get("space"), dict)
+
+
 class UnavailableLLM:
     def __init__(self, cost):
         self.cost = cost
@@ -52,6 +60,8 @@ class AnalysisTools:
             row = session.get(ApiCache, key)
             if row is None or (fresh and row.expires_at <= now_utc()):
                 return None
+            if row.source == "building" and not _current_building_payload(row.payload):
+                return None  # 원본 용도 코드·대상 공간이 없는 옛 건물 캐시는 새 용도 매핑을 우회하므로 쓰지 않는다
             return ToolResult.model_validate(row.payload).model_copy(update={"from_cache": True})
 
     def _query(self, source, params, fetch, check_id=None):

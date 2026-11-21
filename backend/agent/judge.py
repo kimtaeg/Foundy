@@ -271,17 +271,35 @@ class ViolationJudgment(BaseModel):
 BUSINESS_TYPES = ("휴게음식점", "일반음식점")
 
 
+def _building_evidence(b: ToolResult, bi, uses: list[str]) -> Evidence:
+    """건물 용도 근거. 판단 범위(호실 확인 / 층 전체 후보·호실 미확인)와 후보 전체를 남긴다 (옛 형식은 용도만)."""
+    if bi is None or bi.scope == "legacy":
+        return _data_evidence(b, ", ".join(uses))
+    return _data_evidence(b, f"{bi.scope_text} · 후보: {' / '.join(bi.candidates) or '없음'}")
+
+
 def _rule_building_card(spec: dict, item_id: str, rr: RuleResult, uses: list[str], b: ToolResult,
-                        law: ToolResult, business_type: str | None, fallback: bool) -> tuple[ReportItem, dict]:
+                        law: ToolResult, business_type: str | None, fallback: bool, bi=None) -> tuple[ReportItem, dict]:
     """AI 없이 규칙표로 만든 건물 용도 카드 (AI 실패·건축물대장 없음일 때)."""
     from rules.engine import render_title
 
-    ev = ([_data_evidence(b, ", ".join(uses))] if uses else [])
+    ev = ([_building_evidence(b, bi, uses)] if uses else [])
     ev += [_law_evidence(law, a) for a in ((law.data or {}).get("articles", []) if law.ok else [])]
     title = render_title(spec, rr.verdict, business_type=business_type) or rr.reason
     return (ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], title=title, verdict=rr.verdict,
                        decided_by="rule", ai_fallback=fallback, reason=rr.reason, evidence=ev),
             {"floor_uses": uses, "ok_business_types": rr.facts.get("ok_business_types", [])})
+
+
+def _unresolved_building_card(spec: dict, item_id: str, b: ToolResult, bi) -> tuple[ReportItem, dict]:
+    """대상 공간을 정하지 못한 건물 용도 카드. AI 를 부르지 않고 판단 불가로 두며, 후보와 판단 범위를 근거로 남긴다."""
+    from rules.engine import render_title
+
+    ev = [_building_evidence(b, bi, [])] if bi.candidates else []
+    return (ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"],
+                       title=render_title(spec, "unknown") or "건물 용도를 확인해야 해요", verdict="unknown",
+                       decided_by="rule", reason=bi.reason, evidence=ev),
+            {"floor_uses": [], "ok_business_types": []})
 
 
 def judge_building_use_ai(
@@ -293,13 +311,17 @@ def judge_building_use_ai(
     코드 검증: 인용한 용도는 건축물대장에 있어야 하고, high는 조문 인용이 검증돼야 한다. 규칙표(rr)와 high·ok가
     서로 어긋나면 low(구청 확인 권장)로 낮춘다. 규칙표가 판단할 수 없는데 AI가 high면 low로 낮춘다.
     """
+    from rules.building_use import building_input
     from rules.engine import judge_building_use as table
 
-    uses = (b.data or {}).get("floor_uses", []) if b.ok else []
+    bi = building_input(pack, business_type, b.data) if b.ok else None
+    if bi is not None and bi.uses is None:  # 대상 공간을 정하지 못함 (혼합 층·호실 불일치 등) → AI 없이 판단 불가
+        return _unresolved_building_card(spec, item_id, b, bi)
+    uses = bi.uses if bi is not None else []
     rr_ok_types = [t for t in BUSINESS_TYPES if table(pack, t, uses).verdict == "ok"] if uses else []
     rr.facts["ok_business_types"] = rr_ok_types
     if not uses or business_type is None:
-        return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=False)
+        return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=False, bi=bi)
 
     arts = [a for a in ((law.data or {}).get("articles", []) if law.ok else []) if a.get("text")]
     by_key = {f"{a.get('law_name')} {a.get('article')}": a for a in arts}
@@ -315,7 +337,7 @@ def judge_building_use_ai(
             schema=BuildingJudgment,
         )
     except LLMError:
-        return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=True)
+        return _rule_building_card(spec, item_id, rr, uses, b, law, business_type, fallback=True, bi=bi)
 
     cited_uses = [u for u in dict.fromkeys(j.cited_uses) if u in uses]
     cited = [k for k in dict.fromkeys(j.cited) if k in by_key]
@@ -337,7 +359,7 @@ def judge_building_use_ai(
     elif verdict == "high" and rr.verdict == "unknown":
         verdict = "low"
         reason += " (규칙표로는 확인되지 않아 확인 권장으로 낮췄어요)"
-    evidence = [_data_evidence(b, ", ".join(cited_uses or uses))]
+    evidence = [_building_evidence(b, bi, cited_uses or uses)]
     evidence += [_law_evidence(law, by_key[k], " … ".join(quotes[k]) or None) for k in (law_verified or cited)]
     ai_ok_types = [t for t in dict.fromkeys(j.ok_business_types) if t in BUSINESS_TYPES and t in rr_ok_types]
     # AI가 가능한 업종을 하나도 적지 않았으면(판단을 빼먹은 경우) 규칙표가 확인한 업종을 쓴다. 적었으면 규칙표와 겹치는 것만 쓴다.
@@ -349,8 +371,15 @@ def judge_building_use_ai(
 
 def judge_violation_ai(llm: LLM, b: ToolResult, spec: dict, item_id: str) -> ReportItem:
     """AI가 건축물대장의 위반건축물 표기를 읽고 판정한다. 표기 정보가 없으면 AI를 부르지 않고 판단 불가다."""
+    from rules.building_use import building_identified
     from rules.engine import render_title
 
+    if b.ok and not building_identified(b.data):
+        # 같은 주소에 건물이 여럿이거나 층·호로 건물을 정하지 못했다. 다른 건물의 표기로 판정하지 않는다
+        reason = "대상 건물을 하나로 확인하지 못해 위반건축물 표기를 판단할 수 없어요. 동·층·호를 확인하고 구청 건축과에 문의해 주세요."
+        return ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"],
+                          title=render_title(spec, "unknown") or reason, verdict="unknown", decided_by="rule",
+                          reason=reason, evidence=[])
     violation = (b.data or {}).get("violation") if b.ok else None
 
     def rule_card(fallback: bool) -> ReportItem:
