@@ -88,6 +88,13 @@ def test_real_mode_does_not_judge_trademark_with_mock_fallback_list():
     assert by_check(mock_res)["trademark_similar"].verdict == "low"
 
 
+def test_trademark_step_message_says_when_example_data_was_used():
+    """진행 화면이 상표 단계가 예시 자료를 썼는지 알 수 있게 단계 메시지에 출처를 적는다."""
+    _, events = run()  # FakeTools.trademark 는 모의 자료(from_mock)를 돌려준다
+    done = next(d for e, d in events if e == "step" and d["step"] == "trademark" and d["status"] != "running")
+    assert done["status"] == "fallback" and "예시 자료" in done["message"]
+
+
 def test_trademark_ai_item_never_high_and_has_rename_options():
     tm = by_check(run()[0])["trademark_similar"]
     assert tm.verdict == "low" and tm.decided_by == "ai"

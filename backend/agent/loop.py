@@ -164,7 +164,8 @@ def run_analysis(
             # 그걸로 "겹치는 상표가 없다"고 판정하면 거짓 안심이 되므로 조회 실패로 두고 판단 불가로 판정하게 한다
             t = ToolResult(ok=False, source=t.source, error="REAL_TRADEMARK_UNAVAILABLE", from_mock=True)
         n_sim = len((t.data or {}).get("similar", [])) if t.ok else 0
-        step("trademark", _status(t), f"비슷한 상표 {n_sim}건" if t.ok else "상표 조회 실패", source=t.source)
+        origin = " · 예시 자료" if t.from_mock else (" · 저장된 조회 결과" if t.from_cache else "")
+        step("trademark", _status(t), f"비슷한 상표 {n_sim}건{origin}" if t.ok else "상표 조회 실패", source=t.source)
 
     # 2. 규칙 판정 + AI 판정 (점검 항목 순서는 규칙 묶음의 순서)
     law_ids = ["building_use", "permit_docs", *[c for c in law_card_ids if c not in skipped_checks]]
