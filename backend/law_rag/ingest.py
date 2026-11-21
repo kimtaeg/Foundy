@@ -3,7 +3,7 @@
 - 기본: 규칙 묶음 law_sources 의 현행 법령을 법제처 API 에서 받아 저장한다 (OC 에 등록된 IP 에서만 가능).
 - --mock: mocks/ 에 저장해 둔 실제 응답(식품위생법·건축법 시행령)으로 저장한다. 법제처에 접속하지 않는다.
 - --no-embed: 임베딩을 만들지 않는다 (키워드 검색만 가능). 나중에 같은 명령을 다시 실행하면 임베딩 없는 조문은 건너뛰므로 --reembed 를 쓴다.
-- --reembed: 저장된 조문 중 임베딩이 없는 조각만 다시 만든다.
+- --reembed: 임베딩이 없거나 현재 모델과 다른 모델로 만든 조각을 다시 만든다 (모델을 바꾼 뒤 한 번 실행).
 """
 
 from __future__ import annotations
@@ -43,21 +43,25 @@ def ingest_mocks(embedder, embed: bool) -> list:
 
 
 def reembed(embedder) -> int:
-    """임베딩이 없는 조각을 채운다."""
+    """임베딩이 없거나 현재 모델과 다른 모델로 만든 조각을 현재 모델로 다시 만든다. 50개씩 나눠 저장해 중간에 멈춰도 이어서 할 수 있다."""
     if embedder is None:
         return 0
+    from sqlalchemy import or_
+
     filled = 0
-    with transaction() as session:
-        rows = session.execute(
-            select(LawEmbedding, LawArticle, Law).join(LawArticle, LawArticle.id == LawEmbedding.article_id)
-            .join(Law, Law.id == LawArticle.law_id).where(LawEmbedding.embedding.is_(None))).all()
-        for start in range(0, len(rows), 50):
-            batch = rows[start:start + 50]
-            vectors = embedder.embed_documents([embed_text(l.name, a.label, a.title, e.content) for e, a, l in batch])
-            for (e, _, _), vector in zip(batch, vectors):
+    while True:
+        with transaction() as session:
+            rows = session.execute(
+                select(LawEmbedding, LawArticle, Law).join(LawArticle, LawArticle.id == LawEmbedding.article_id)
+                .join(Law, Law.id == LawArticle.law_id)
+                .where(or_(LawEmbedding.embedding.is_(None), LawEmbedding.model != embedder.model)).limit(50)).all()
+            if not rows:
+                return filled
+            vectors = embedder.embed_documents([embed_text(l.name, a.label, a.title, e.content) for e, a, l in rows])
+            for (e, _, _), vector in zip(rows, vectors):
                 e.embedding, e.model = vector, embedder.model
                 filled += 1
-    return filled
+        print(f"  임베딩 {filled}개 완료", flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:

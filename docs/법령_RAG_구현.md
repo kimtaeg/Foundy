@@ -23,7 +23,7 @@
 | --- | --- |
 | Law Collector | `backend/law_rag/collector.py` (법제처 `lawSearch`·`lawService`), 실행은 `python -m law_rag.ingest` |
 | 조문 단위 분할 | `law_rag/parser.py` (조·별표·가지번호), `law_rag/chunker.py` (항·호·목 경계로 1,200자 이내 조각) |
-| 임베딩 + pgvector | `law_rag/embedder.py` (Gemini `gemini-embedding-001`, 768차원), `law_embeddings.embedding vector(768)` + HNSW 코사인 인덱스 |
+| 임베딩 + pgvector | `law_rag/embedder.py` (기본 OpenAI `text-embedding-3-large`를 768차원으로 줄여 사용, 키가 없으면 Gemini `gemini-embedding-001`), `law_embeddings.embedding vector(768)` + HNSW 코사인 인덱스. 조각마다 만든 모델을 `model`에 저장하고 검색은 같은 모델이 만든 벡터끼리만 비교한다 |
 | RAG Retriever | `law_rag/retriever.py`: 법령명·현행 필터 + 키워드(조각 본문) + 벡터 유사도를 RRF로 합침, 규칙이 지정한 조문(pins)은 항상 포함 |
 | Rule Engine | `rules/applicability.py` + `rules/packs/cafe_restaurant.yaml`의 `applicability_rules` |
 | AI Service | `agent/judge.py` `judge_law_card` (영업신고·원산지 표시·소방·근로계약 등 법령 카드를 하나의 흐름으로 처리) |
@@ -62,13 +62,13 @@ cd backend
 python -m law_rag.ingest --mock          # 저장해 둔 실제 응답(식품위생법·건축법 시행령)으로 적재, 법제처 접속 없음
 python -m law_rag.ingest                 # law_sources 전체를 법제처에서 수집 (OC에 등록된 IP에서만 가능)
 python -m law_rag.ingest --only 근로기준법 최저임금법
-python -m law_rag.ingest --reembed       # 임베딩이 비어 있는 조각만 채움
+python -m law_rag.ingest --reembed       # 임베딩이 없거나 현재 모델과 다른 모델로 만든 조각을 다시 만듦
 ```
 
 - 법제처 OC는 등록된 서버 IP에서만 동작한다. 수집은 배포 서버(Railway)나 등록한 PC에서 실행한다.
-- 임베딩에 `LLM_API_KEY`(Gemini)가 필요하다. 없으면 조각은 저장되고 키워드 검색만 한다. 목 모드(`USE_MOCK=true`)에서는 검색 때도 외부 호출 없이 키워드만 쓴다.
+- 임베딩에 `EMBEDDING_API_KEY`(OpenAI, 모델은 `EMBEDDING_MODEL`, OpenAI 호환 서비스는 `EMBEDDING_BASE_URL`) 또는 `LLM_API_KEY`(Gemini)가 필요하다. 둘 다 없으면 조각은 저장되고 키워드 검색만 한다. 모델을 바꾼 뒤에는 `python -m law_rag.ingest --reembed`로 다른 모델이 만든 조각을 모두 다시 만든다. 목 모드(`USE_MOCK=true`)에서는 검색 때도 외부 호출 없이 키워드만 쓴다.
 - 예약 갱신: 배포 환경의 스케줄러가 `POST /internal/laws/refresh`(`Authorization: Bearer INTERNAL_TOKEN`)를 부른다. 백그라운드로 재수집하고, 바뀐 조문이 걸린 규칙이 적용·확인 필요인 가게에만 `change` 알림을 만든다.
-- 환경변수: `LAW_RAG_ENABLED`(기본 true), `INTERNAL_TOKEN`, `LAW_OC`, `LLM_API_KEY`.
+- 환경변수: `LAW_RAG_ENABLED`(기본 true), `INTERNAL_TOKEN`, `LAW_OC`, `EMBEDDING_API_KEY`·`EMBEDDING_MODEL`·`EMBEDDING_BASE_URL`, `LLM_API_KEY`.
 
 ## 6. 담당자가 확인할 것
 
