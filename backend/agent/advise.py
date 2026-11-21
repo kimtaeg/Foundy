@@ -1,15 +1,17 @@
 """결과 카드 생성: 문제가 나온 항목에 선택지·추천·사용자가 할 일을 붙인다.
 
 역할 분담
-- 코드: 선택지의 종류와 적용 방법(apply, 체크리스트에 추가되는 항목), 기관 연락처(contact), id 부여
-- AI: 쉬운 말 설명, 추천과 이유, 사용자가 할 일 문장
-선택지는 규칙 묶음의 remedies 범위 안에서만 만든다. 문의 문구·특약·서류 초안은 만들지 않는다
+- 코드: 규칙 묶음 remedies 에 있는 선택지의 종류와 적용 방법(apply, 체크리스트에 추가되는 항목), 기관 연락처(contact), id 부여
+- AI: 쉬운 말 설명, 추천과 이유, 사용자가 할 일 문장, **그리고 코드가 만든 선택지 외에 필요한 선택지(최대 2개) 제안**
+AI가 제안한 선택지(remedy="ai_suggested")는 가게 정보·체크리스트를 바꾸지 않는 안내형이다(apply 없음).
+기간·금액 숫자가 들어간 제안은 버린다(근거 없는 숫자 금지). 문의 문구·특약·서류 초안은 만들지 않는다
 (foundy 확정: 기관 전화번호와 통화 질문 목록으로 대체).
 """
 
 from __future__ import annotations
 
 import json
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -26,15 +28,30 @@ from .schemas import ApplyAction, Contact, Option, Recommendation, ReportItem, U
 VERIFIED_REMEDIES = {"change_business_type"}
 
 
+AI_REMEDY = "ai_suggested"
+MAX_AI_OPTIONS = 2
+MAX_OPTIONS = 5
+# 근거 없는 기간·금액 숫자 (예: "3일", "50만원", "2주"). 있으면 그 제안은 버린다.
+_NUMERIC_CLAIM = re.compile(r"\d[\d,.]*\s*(원|만원|억|일|주|개월|달|시간|분|%|퍼센트)")
+
+
 class OptionSummary(BaseModel):
     option_id: str
+    summary: str
+
+
+class ExtraOption(BaseModel):
+    """AI가 제안하는 추가 선택지. 가게 정보를 바꾸지 않는 안내형이다."""
+
+    label: str
     summary: str
 
 
 class AdviceDraft(BaseModel):
     consequence: str
     option_summaries: list[OptionSummary] = Field(default_factory=list)
-    recommended_option_id: str | None = None
+    extra_options: list[ExtraOption] = Field(default_factory=list)  # 최대 2개, 코드가 검증해서 남긴다
+    recommended_option_id: str | None = None  # 코드가 만든 선택지의 id, 또는 extra-1·extra-2 (제안한 추가 선택지)
     recommendation_reason: str = ""
     user_action_text: str
     user_action_type: Literal["send", "sign", "visit", "decide"]
@@ -92,6 +109,38 @@ def build_options(
     return options
 
 
+def _normalize(text: str) -> str:
+    return re.sub(r"[\s\W_]+", "", text or "").lower()
+
+
+def add_ai_options(options: list[Option], extras: list[ExtraOption]) -> tuple[list[Option], dict[str, str]]:
+    """AI가 제안한 선택지를 검증해서 붙인다. 돌려주는 dict 는 extra-N → 실제 option_id 이다.
+
+    버리는 것: 기간·금액 숫자가 있는 제안, 라벨·설명이 비었거나 너무 긴 제안, 이미 있는 선택지와 같은 라벨, 최대 개수 초과.
+    붙이는 선택지는 가게 정보를 바꾸지 않는 안내형이다 (apply 없음, 기간·금액은 '확인 필요').
+    """
+    result = list(options)
+    ids: dict[str, str] = {}
+    seen = {_normalize(o.label) for o in result}
+    taken = 0
+    for number, extra in enumerate(extras, start=1):
+        label, summary = (extra.label or "").strip(), (extra.summary or "").strip()
+        if not label or not summary or len(label) > 40 or len(summary) > 160:
+            continue
+        if _NUMERIC_CLAIM.search(label) or _NUMERIC_CLAIM.search(summary):
+            continue
+        if _normalize(label) in seen:
+            continue
+        if taken >= MAX_AI_OPTIONS or len(result) >= MAX_OPTIONS:
+            break
+        option = Option(option_id=f"o-{len(result) + 1}", label=label, summary=summary, remedy=AI_REMEDY)
+        result.append(option)
+        ids[f"extra-{number}"] = option.option_id
+        seen.add(_normalize(label))
+        taken += 1
+    return result, ids
+
+
 def advise_item(
     llm: LLM, pack: dict, store: StoreInput, item: ReportItem, spec: dict, extras: dict,
     business_type: str | None,
@@ -101,7 +150,7 @@ def advise_item(
     contact = contact_for(pack, spec, store.address_codes.get("sigungu_cd"))
     base = {"options": options, "contact": contact}
     fixed = spec.get("action")  # 선택지가 없는 항목의 할 일·결과는 규칙 묶음에 정해 둔다 (AI 호출 없음)
-    if not options:
+    if not options and not spec.get("ai_options"):  # ai_options: true 인 항목은 코드 선택지가 없어도 AI가 선택지를 제안한다
         update = {"contact": contact}
         if spec.get("consequence"):
             update["consequence"] = spec["consequence"]
@@ -136,10 +185,12 @@ def advise_item(
 
     summaries = {s.option_id: s.summary.strip() for s in d.option_summaries if s.summary.strip()}
     options = [o.model_copy(update={"summary": summaries.get(o.option_id, o.summary)}) for o in options]
+    options, extra_ids = add_ai_options(options, d.extra_options)
 
     recommendation = None
-    if d.recommended_option_id in {o.option_id for o in options}:
-        recommendation = Recommendation(option_id=d.recommended_option_id, reason=d.recommendation_reason.strip())
+    recommended = extra_ids.get(d.recommended_option_id, d.recommended_option_id)
+    if recommended in {o.option_id for o in options}:
+        recommendation = Recommendation(option_id=recommended, reason=d.recommendation_reason.strip())
 
     user_action = UserAction(
         type=d.user_action_type, text=d.user_action_text.strip(),

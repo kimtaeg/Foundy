@@ -339,7 +339,9 @@ def judge_building_use_ai(
         reason += " (규칙표로는 확인되지 않아 확인 권장으로 낮췄어요)"
     evidence = [_data_evidence(b, ", ".join(cited_uses or uses))]
     evidence += [_law_evidence(law, by_key[k], " … ".join(quotes[k]) or None) for k in (law_verified or cited)]
-    ok_types = [t for t in dict.fromkeys(j.ok_business_types) if t in BUSINESS_TYPES and t in rr_ok_types]
+    ai_ok_types = [t for t in dict.fromkeys(j.ok_business_types) if t in BUSINESS_TYPES and t in rr_ok_types]
+    # AI가 가능한 업종을 하나도 적지 않았으면(판단을 빼먹은 경우) 규칙표가 확인한 업종을 쓴다. 적었으면 규칙표와 겹치는 것만 쓴다.
+    ok_types = ai_ok_types or list(rr_ok_types)
     item = ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="ai",
                       verdict=verdict, title=j.title, reason=reason, evidence=evidence)
     return item, {"floor_uses": uses, "ok_business_types": ok_types}

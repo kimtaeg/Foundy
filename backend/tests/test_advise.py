@@ -95,3 +95,83 @@ def test_prompt_marks_verified_options():
     user = llm.calls[0]["user"]
     assert '"label": "용도변경 신청", "verified": false' in user
     assert '"label": "술 빼고 휴게음식점으로 시작", "verified": true' in user
+
+
+# ---------------------------------------------------------------- AI가 제안하는 추가 선택지
+
+from agent.advise import AI_REMEDY, ExtraOption, add_ai_options  # noqa: E402
+from agent.guardrails import enforce  # noqa: E402
+
+EXTRAS = {"floor_uses": ["제1종근린생활시설"], "ok_business_types": ["휴게음식점"]}
+
+
+def advice(**kw):
+    base = dict(BUILDING_ADVICE.model_dump())
+    base.update(kw)
+    return AdviceDraft.model_validate(base)
+
+
+def run_advice(draft):
+    return advise_item(FakeLLM({"advise_building_use": draft}), PACK, store(), high_item(), SPEC, EXTRAS, "일반음식점")
+
+
+def test_ai_can_add_options_that_do_not_change_the_store():
+    out = run_advice(advice(extra_options=[
+        {"label": "건물주에게 용도 확인 요청", "summary": "계약 전에 건물주에게 해당 층 용도를 서면으로 확인받아요."}]))
+    added = out.options[-1]
+    assert added.remedy == AI_REMEDY and added.option_id == "o-4"
+    assert added.apply.type == "none" and not added.apply.adds_checklist and not added.apply.needs_reanalyze
+    assert added.time.text == "확인 필요" and added.cost.text == "확인 필요"  # AI가 기간·금액을 정하지 않는다
+    assert [o.remedy for o in out.options[:3]] == ["change_business_type", "request_use_change", "find_other_site"]
+
+
+def test_ai_can_recommend_its_own_option_by_extra_id():
+    out = run_advice(advice(
+        extra_options=[{"label": "임대인과 계약 조건 협의", "summary": "용도가 맞을 때까지 계약을 미룰 수 있는지 협의해요."}],
+        recommended_option_id="extra-1", recommendation_reason="계약 전이라 협의가 가장 안전해요."))
+    assert out.recommendation.option_id == out.options[-1].option_id == "o-4"
+
+
+def test_extra_options_with_invented_numbers_are_dropped():
+    out = run_advice(advice(extra_options=[
+        {"label": "용도변경 대행 맡기기", "summary": "비용은 약 50만원이고 2주 안에 끝나요."},
+        {"label": "3일 안에 계약 취소", "summary": "계약을 취소해요."},
+        {"label": "구청에 서면 문의", "summary": "용도가 맞는지 구청에 서면으로 물어봐요."}]))
+    assert [o.label for o in out.options if o.remedy == AI_REMEDY] == ["구청에 서면 문의"]
+
+
+def test_extra_options_are_deduplicated_and_capped():
+    existing = options(store())
+    extras = [ExtraOption(label="다른 자리를 알아보기", summary="이미 있는 선택지와 같아요."),
+              ExtraOption(label="A 방법", summary="첫째 제안이에요."), ExtraOption(label="B 방법", summary="둘째 제안이에요."),
+              ExtraOption(label="C 방법", summary="셋째 제안이에요."), ExtraOption(label="", summary="라벨이 없어요.")]
+    result, ids = add_ai_options(existing, extras)
+    assert [o.label for o in result[len(existing):]] == ["A 방법", "B 방법"]  # 중복·빈 라벨·초과는 버림
+    assert ids == {"extra-2": "o-4", "extra-3": "o-5"} and len(result) <= 5
+
+
+def test_bad_extra_recommendation_id_is_ignored():
+    out = run_advice(advice(extra_options=[], recommended_option_id="extra-1"))
+    assert out.recommendation is None  # 제안한 추가 선택지가 없는데 extra-1 을 추천하면 버린다
+
+
+def test_guardrail_keeps_ai_suggested_options_but_still_removes_unknown_remedies():
+    item = run_advice(advice(extra_options=[{"label": "구청에 서면 문의", "summary": "서면으로 물어봐요."}]))
+    stray = item.options[0].model_copy(update={"option_id": "o-9", "remedy": "made_up"})
+    guarded, changes = enforce(item.model_copy(update={"options": [*item.options, stray]}),
+                               allowed_remedies=SPEC["remedies"], ai_high_allowed=True)
+    assert AI_REMEDY in [o.remedy for o in guarded.options] and "made_up" not in [o.remedy for o in guarded.options]
+    assert any("허용되지 않은 선택지 1개 제거" in c for c in changes)
+
+
+def test_ai_options_flag_lets_cards_without_code_options_get_ai_options():
+    spec = {**check_spec(PACK, "permit_docs"), "ai_options": True}
+    item = ReportItem(item_id="r-04", check_id="permit_docs", stage="개업 전", title="t", verdict="low",
+                      decided_by="ai", reason="r", evidence=[])
+    draft = AdviceDraft(consequence="c", user_action_text="구청에 문의하기", user_action_type="send",
+                        extra_options=[ExtraOption(label="위생교육 먼저 신청", summary="영업신고 전에 위생교육을 신청해요.")])
+    out = advise_item(FakeLLM({"advise_permit_docs": draft}), PACK, store(), item, spec, {}, "일반음식점")
+    assert [o.remedy for o in out.options] == [AI_REMEDY]
+    # 플래그가 없으면 예전처럼 AI를 부르지 않는다
+    plain = advise_item(FakeLLM({}), PACK, store(), item, check_spec(PACK, "permit_docs"), {}, "일반음식점")
+    assert plain.options == []
