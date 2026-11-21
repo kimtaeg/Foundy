@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, Numeric, Text, text
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -407,7 +407,6 @@ class DocumentRequirement(Base):
     agency: Mapped[str | None] = mapped_column(Text)
     guide: Mapped[str | None] = mapped_column(Text)
     site_keys: Mapped[list] = _jsonb()
-    contact_key: Mapped[str | None] = mapped_column(Text)
     form: Mapped[dict | None] = _jsonb(nullable=True)
     applicability_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'applies'"))
     source_type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'template'"))
@@ -422,20 +421,6 @@ class DocumentRequirement(Base):
     review_reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
-
-
-class UserDocument(Base):
-    __tablename__ = "user_documents"
-
-    id: Mapped[uuid.UUID] = _id()
-    requirement_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("document_requirements.id", ondelete="CASCADE"), nullable=False)
-    file_name: Mapped[str] = mapped_column(Text, nullable=False)
-    content_type: Mapped[str] = mapped_column(Text, nullable=False)
-    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    issued_on: Mapped[date | None] = mapped_column(Date)
-    uploaded_at: Mapped[datetime] = _ts()
 
 
 class DocumentHistory(Base):
