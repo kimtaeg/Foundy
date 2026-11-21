@@ -78,7 +78,7 @@ def test_checklist_is_foundy_set_with_fixed_groups_and_offsets():
 
 def test_documents_links_come_only_from_verified_sites():
     docs = documents_of(PACK, "c-04", "11200")
-    assert docs[0]["name"] == "영업신고 접수" and docs[0]["links"] == [{"label": "정부24", "url": "https://www.gov.kr/"}]
+    assert docs[0]["name"] == "영업신고서 (식품위생법 시행규칙 별지 제37호서식)" and docs[0]["type"] == "application" and docs[0]["links"] == [{"label": "정부24", "url": "https://www.gov.kr/"}]
     assert docs[0]["contact"] == {"agency": "성동구청 위생과", "phone": "02-2286-5114", "is_example": True, "tip": None}
     assert documents_of(PACK, "c-04", "26110")[0]["contact"]["phone"] == "110"  # 표에 없는 지역은 110으로 대체
     assert documents_of(PACK, "c-05") == []  # 발급처를 확정하지 못한 서류는 목록에 없다
