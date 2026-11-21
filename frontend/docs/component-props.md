@@ -3,7 +3,7 @@
 `npm run docs:props`로 실제 TypeScript 선언에서 생성합니다. 데이터와 이벤트 콜백은 별도 필드입니다.
 페이지 데이터 계약과 Promise/스켈레톤 사용법은 [API 연결 가이드](./api-props-and-loading.md)를 참고하세요.
 
-총 221개 컴포넌트. 상세 필드 타입: [component-props.json](./component-props.json).
+총 220개 컴포넌트. 상세 필드 타입: [component-props.json](./component-props.json).
 
 | 컴포넌트 | 공개 Props 타입 | 입력 필드 | 상태 연결 |
 | --- | --- | --- | --- |
@@ -61,11 +61,10 @@
 | [StoreSummary](../src/components/dashboard/StoreSummary/StoreSummary.tsx) | `StoreSummaryProps` | store, name, days, undecided | props / UI 상태 |
 | [TaskItem](../src/components/dashboard/TaskItem/TaskItem.tsx) | `TaskItemProps` | task | props / UI 상태 |
 | [TaskList](../src/components/dashboard/TaskList/TaskList.tsx) | `TaskListProps` | actions, tasks | props / UI 상태 |
-| [DocCard](../src/components/docs/DocCard/DocCard.tsx) | `DocCardProps` | document, contact? | props / UI 상태 |
-| [DocFiles](../src/components/docs/DocFiles/DocFiles.tsx) | `DocFilesProps` | document | props / UI 상태 |
+| [DocCard](../src/components/docs/DocCard/DocCard.tsx) | `DocCardProps` | document | props / UI 상태 |
 | [DocOfficialForm](../src/components/docs/DocOfficialForm/DocOfficialForm.tsx) | `DocOfficialFormProps` | form | props / UI 상태 |
-| [DocRow](../src/components/docs/DocRow/DocRow.tsx) | `DocRowProps` | document, contact? | props / UI 상태 |
-| [DocSectionCard](../src/components/docs/DocSectionCard/DocSectionCard.tsx) | `DocSectionCardProps` | section, contacts | props / UI 상태 |
+| [DocRow](../src/components/docs/DocRow/DocRow.tsx) | `DocRowProps` | document | props / UI 상태 |
+| [DocSectionCard](../src/components/docs/DocSectionCard/DocSectionCard.tsx) | `DocSectionCardProps` | section | props / UI 상태 |
 | [DocsHeader](../src/components/docs/DocsHeader/DocsHeader.tsx) | 없음 | 없음 | props / UI 상태 |
 | [DocsPage](../src/components/docs/DocsPage/DocsPage.tsx) | 없음 | 없음 | Page / Connected 어댑터 |
 | [DocsProgressSummary](../src/components/docs/DocsProgressSummary/DocsProgressSummary.tsx) | `DocsProgressSummaryProps` | data | props / UI 상태 |
@@ -73,8 +72,8 @@
 | [DocStatusSelect](../src/components/docs/DocStatusSelect/DocStatusSelect.tsx) | `DocStatusSelectProps` | id, name, status | props / UI 상태 |
 | [DocStatusTabs](../src/components/docs/DocStatusTabs/DocStatusTabs.tsx) | `DocStatusTabsProps` | filter, counts, onChange (콜백) | props / UI 상태 |
 | [DocsView](../src/components/docs/DocsView/DocsView.tsx) | `DocsViewProps` | onEvent? (콜백), data?, loading?, error?, onRetry? (콜백) | props / UI 상태 |
-| [DocTaskCard](../src/components/docs/DocTaskCard/DocTaskCard.tsx) | `DocTaskCardProps` | row, contacts | props / UI 상태 |
-| [ManagedDocsBoard](../src/components/docs/ManagedDocsBoard/ManagedDocsBoard.tsx) | `ManagedDocsBoardProps` | data, contacts | props / UI 상태 |
+| [DocTaskCard](../src/components/docs/DocTaskCard/DocTaskCard.tsx) | `DocTaskCardProps` | row | props / UI 상태 |
+| [ManagedDocsBoard](../src/components/docs/ManagedDocsBoard/ManagedDocsBoard.tsx) | `ManagedDocsBoardProps` | data | props / UI 상태 |
 | [Modal](../src/components/feedback/Modal/Modal.tsx) | `ModalProps` | title, children, onClose (콜백) | props / UI 상태 |
 | [Toast](../src/components/feedback/Toast/Toast.tsx) | `ToastProps` | message | props / UI 상태 |
 | [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) | `FootTrafficMapProps` | appKey?, dataSource?, dataset?, loading?, error?, onRetry? (콜백), center, onCenterChange (콜백), radius, onRadiusChange (콜백), shops, selectedShopId, onSelectShop (콜백), address?, settingsOpen, onSettingsOpenChange (콜백), hour, lastHour, onHourChange (콜백) | props / UI 상태 |
