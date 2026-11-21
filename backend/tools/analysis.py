@@ -83,7 +83,7 @@ class AnalysisTools:
                 with transaction() as session:
                     stmt = insert(ApiCache).values(key=key, source=source, payload=result.model_dump(mode="json"),
                                                    fetched_at=result.fetched_at,
-                                                   expires_at=now + timedelta(days=1 if source == "law" else 7))
+                                                   expires_at=now + timedelta(days=1 if source in ("law", "grants") else 7))
                     session.execute(stmt.on_conflict_do_update(index_elements=[ApiCache.key], set_={
                         "payload": stmt.excluded.payload, "fetched_at": stmt.excluded.fetched_at,
                         "expires_at": stmt.excluded.expires_at}))
@@ -103,6 +103,14 @@ class AnalysisTools:
             return self._mock("building")
         return self._cached(self._key("building", self._building_params(store))) or ToolResult(
             ok=False, source="건축물대장", error="부분 분석에 재사용할 건물 조회 결과 없음")
+
+    def grants(self, store):
+        """지원사업 공고. 같은 날·같은 시·도면 저장된 조회 결과를 쓴다."""
+        from services.timeutil import today_kst
+        from tools.kstartup import sido_of
+
+        params = {"sido": sido_of(store.address), "day": today_kst().isoformat()}
+        return self._query("grants", params, lambda: self.providers.grants(store))
 
     def trademark(self, name):
         return self._query("trademark", {"name": name}, lambda: self.providers.trademark(name))

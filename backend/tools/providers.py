@@ -12,6 +12,7 @@ from services.pack import get_pack
 from services.timeutil import now_utc, today_kst
 from rules import building_use
 from tools import address as address_tool
+from tools import kstartup
 
 KAKAO_URL = address_tool.KAKAO_URL
 BUILDING_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrFlrOulnInfo"
@@ -107,6 +108,15 @@ class Providers:
         }
         source = "건축HUB 전유부·층별개요" if space["status"] == building_use.UNIT_MATCHED else "건축HUB 층별개요"
         return ToolResult(ok=True, source=source, fetched_at=now_utc(), data=data)
+
+    def grants(self, store):
+        """K-Startup 모집 중 공고에서 이 가게가 볼 만한 공고를 고른다 (자격 판정은 agent/grants.py)."""
+        if not self.settings.data_go_kr_key:
+            raise ValueError("MISSING_DATA_GO_KR_KEY")
+        rows = kstartup.fetch(self.client, self.settings.data_go_kr_key)
+        grants, counts = kstartup.select(rows, store.address, today_kst())
+        return ToolResult(ok=True, source=kstartup.SOURCE, fetched_at=now_utc(),
+                          data={"grants": grants, "screened": counts, "total": len(rows)})
 
     def trademark(self, name):
         if not self.settings.kipris_api_key:
