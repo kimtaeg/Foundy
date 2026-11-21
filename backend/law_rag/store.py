@@ -29,7 +29,7 @@ class IngestResult:
 
 
 def _embed_chunks(session: Session, article: LawArticle, law_name: str, title: str | None, embedder) -> int:
-    chunks = chunk_text(article.content)
+    chunks = chunk_text(article.content, keep_heading=article.label.startswith("별표"))
     vectors: list = [None] * len(chunks)
     model = "keyword-only"
     if embedder is not None:
