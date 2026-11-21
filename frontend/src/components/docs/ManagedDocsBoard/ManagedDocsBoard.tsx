@@ -5,16 +5,14 @@ import { DocStatusTabs } from "@/components/docs/DocStatusTabs";
 import { DocsProgressSummary } from "@/components/docs/DocsProgressSummary";
 import { Element } from "@/components/view/Element";
 import { DOC_FILTER_MATCH } from "@/data/documents";
-import type { Contact } from "@/types/contact";
 import type { DocFilter, ManagedDocsData } from "@/types/documents";
 
 export interface ManagedDocsBoardProps {
   data: ManagedDocsData;
-  contacts: Record<string, Contact>;
 }
 
-/** 서류별 상태·파일을 관리하는 서류함 (서버 연결 모드). 보기 필터는 이 화면 안에서만 쓴다. */
-export function ManagedDocsBoard({ data, contacts }: ManagedDocsBoardProps) {
+/** 서류별 상태를 관리하는 서류함 (서버 연결 모드). 보기 필터는 이 화면 안에서만 쓴다. */
+export function ManagedDocsBoard({ data }: ManagedDocsBoardProps) {
   const [filter, setFilter] = useState<DocFilter>("all");
   const all = data.sections.flatMap((section) => section.documents);
   const counts = Object.fromEntries(
@@ -35,7 +33,7 @@ export function ManagedDocsBoard({ data, contacts }: ManagedDocsBoardProps) {
       <DocStatusTabs filter={filter} counts={counts} onChange={setFilter} />
       {sections.length === 0 && <Element className="nx-empty">이 상태의 서류가 없어요.</Element>}
       {sections.map((section) => (
-        <DocSectionCard key={section.title} section={section} contacts={contacts} />
+        <DocSectionCard key={section.title} section={section} />
       ))}
     </>
   );

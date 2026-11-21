@@ -1,4 +1,4 @@
-"""서류함: 체크리스트와 독립된 서류 요구사항·상태·파일 관리 (코드가 한다. AI 아님).
+"""서류함: 체크리스트와 독립된 서류 요구사항·상태 관리 (코드가 한다. AI 아님).
 
 서류는 세 곳에서 만들어진다. 어느 쪽이든 같은 document_requirements 로 들어와 같은 방식으로 관리한다.
 - template: 규칙 묶음 documents (체크리스트 항목에 붙은 기본 서류)
@@ -12,18 +12,16 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import date
 from typing import Any
-from urllib.parse import quote
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.models import DocumentHistory, DocumentRequirement, LawForm, LegalObligation, Store, UserDocument
-from rules.applicability import APPLIES, NEEDS_CHECK, NOT_APPLICABLE
+from db.models import DocumentHistory, DocumentRequirement, LawForm, LegalObligation, Store
+from rules.applicability import APPLIES, NEEDS_CHECK
 from services.effective import effective_store
-from services.pack import contact_for, hidden_categories
+from services.pack import hidden_categories
 from services.timeutil import iso_kst, now_utc
 
 DOC_TYPES = {
@@ -35,14 +33,6 @@ STATUSES = {
     "needs_fix": "보완 필요", "not_applicable": "해당 없음",
 }
 DONE = {"obtained", "submitted"}
-UPLOAD_PENDING = {"not_started", "in_progress", "needs_fix"}  # 파일을 올리면 발급·취득 완료로 바꾼다
-MAX_FILE_BYTES = 10 * 1024 * 1024
-MAX_FILES = 5
-ALLOWED_TYPES = {
-    "application/pdf": {".pdf"}, "image/png": {".png"}, "image/jpeg": {".jpg", ".jpeg"}, "image/webp": {".webp"},
-    "application/x-hwp": {".hwp"}, "application/haansofthwp": {".hwp"}, "application/vnd.hancom.hwp": {".hwp"},
-    "application/vnd.hancom.hwpx": {".hwpx"}, "application/octet-stream": {".hwp", ".hwpx"},
-}
 LAW_WEB = "https://www.law.go.kr"
 STALE_PREFIX = "이 서류는 더 이상 필요하지 않을 수 있어요"
 
@@ -60,7 +50,7 @@ def _spec(d: dict, *, source_type: str, applicability: str, rule_id: str | None,
     return {
         "doc_key": d["id"], "name": d["name"], "document_type": d.get("type", "reference"),
         "agency": d.get("agency") or None, "guide": d.get("guide") or None, "site_keys": list(d.get("sites") or []),
-        "contact_key": d.get("contact"), "form": d.get("form"), "applicability_status": applicability,
+        "form": d.get("form"), "applicability_status": applicability,
         "source_type": source_type, "rule_id": rule_id, "reason": reason, "law_basis": law_basis, "task_keys": [],
     }
 
@@ -110,7 +100,7 @@ def desired_requirements(pack: dict, items: list[Any], obligations: list[Any], e
 
 
 def sync_requirements(session: Session, pack: dict, store: Any, cards: list[Any], items: list[Any]) -> list[DocumentRequirement]:
-    """가게의 서류 요구사항을 지금 상태에 맞춘다 (멱등). 서류의 상태·메모·파일은 건드리지 않는다.
+    """가게의 서류 요구사항을 지금 상태에 맞춘다 (멱등). 서류의 상태·메모는 건드리지 않는다.
 
     더는 필요 없어진 서류는, 손대지 않았으면 지우고 사용자가 진행했으면 남기고 재검토를 표시한다.
     """
@@ -140,19 +130,17 @@ def sync_requirements(session: Session, pack: dict, store: Any, cards: list[Any]
     for key, row in list(by_key.items()):
         if key in desired:
             continue
-        has_files = bool(session.scalar(select(UserDocument.id).where(UserDocument.requirement_id == row.id).limit(1))) \
-            if row.id else False
-        if row.status in ("not_started", "not_applicable") and not has_files:
+        if row.status in ("not_started", "not_applicable"):
             session.delete(row)
             rows.remove(row)
         else:
             row.review_needed = True
-            row.review_reason = f"{STALE_PREFIX}. 올린 파일과 기록은 남겨 둘게요."
+            row.review_reason = f"{STALE_PREFIX}. 진행한 기록은 남겨 둘게요."
     session.flush()
     return rows
 
 
-# ---------------------------------------------------------------- 상태·파일
+# ---------------------------------------------------------------- 상태
 
 def read_requirements(session: Session, store: Any) -> list[DocumentRequirement] | None:
     """저장된 서류 요구사항만 읽는다 (동기화하지 않는다). 아직 하나도 없으면 None."""
@@ -182,50 +170,6 @@ def set_status(session: Session, row: DocumentRequirement, status: str, note: st
     return changed
 
 
-def _check_file(file_name: str, content_type: str, size: int) -> tuple[str, str]:
-    name = (file_name or "").strip().replace("\\", "/").split("/")[-1][:200]
-    if not name:
-        raise DocumentError("INVALID_FILE", "파일 이름이 필요합니다.")
-    ctype = (content_type or "").split(";")[0].strip().lower()
-    ext = "." + name.rsplit(".", 1)[-1].lower() if "." in name else ""
-    if ctype not in ALLOWED_TYPES or ext not in ALLOWED_TYPES[ctype]:
-        raise DocumentError("UNSUPPORTED_FILE", "PDF, 이미지(PNG·JPG·WEBP), 한글(HWP·HWPX) 파일만 올릴 수 있어요.", 415)
-    if size <= 0:
-        raise DocumentError("INVALID_FILE", "빈 파일은 올릴 수 없어요.")
-    if size > MAX_FILE_BYTES:
-        raise DocumentError("FILE_TOO_LARGE", "파일은 10MB 이하만 올릴 수 있어요.", 413)
-    return name, ctype
-
-
-def add_file(session: Session, row: DocumentRequirement, file_name: str, content_type: str, data: bytes,
-             issued_on: date | None = None) -> UserDocument:
-    name, ctype = _check_file(file_name, content_type, len(data))
-    count = len(list(session.scalars(select(UserDocument.id).where(UserDocument.requirement_id == row.id))))
-    if count >= MAX_FILES:
-        raise DocumentError("TOO_MANY_FILES", f"서류 하나에 파일은 {MAX_FILES}개까지 올릴 수 있어요.", 409)
-    f = UserDocument(requirement_id=row.id, file_name=name, content_type=ctype, size_bytes=len(data), content=data,
-                     issued_on=issued_on)
-    session.add(f)
-    if row.status in UPLOAD_PENDING:
-        set_status(session, row, "obtained", f"파일 업로드: {name}")
-    else:
-        _history(session, row, row.status, row.status, f"파일 업로드: {name}")
-    row.updated_at = now_utc()
-    session.flush()
-    return f
-
-
-def remove_file(session: Session, row: DocumentRequirement, file: UserDocument) -> None:
-    name = file.file_name
-    session.delete(file)
-    _history(session, row, row.status, row.status, f"파일 삭제: {name}")
-    row.updated_at = now_utc()
-
-
-def content_disposition(file_name: str) -> str:
-    return f"attachment; filename*=UTF-8''{quote(file_name)}"
-
-
 # ---------------------------------------------------------------- 응답 만들기
 
 def _form_view(session: Session, form: dict | None) -> dict | None:
@@ -248,7 +192,7 @@ def _links(pack: dict, site_keys: list[str]) -> list[dict]:
 
 
 def requirement_view(session: Session, pack: dict, row: DocumentRequirement, items_by_key: dict[str, Any],
-                     files: list[UserDocument], today: date, sigungu: str | None, with_history: bool = False) -> dict:
+                     today: date, with_history: bool = False) -> dict:
     tasks = [items_by_key[k] for k in row.task_keys or [] if k in items_by_key]
     dues = sorted(t.due_date for t in tasks if t.due_date)
     statutory = sorted(t.statutory_deadline for t in tasks if getattr(t, "statutory_deadline", None))
@@ -261,7 +205,6 @@ def requirement_view(session: Session, pack: dict, row: DocumentRequirement, ite
         "added_by_ai": row.source_type in ("rule_engine", "legal_analysis"),
         "reason": row.reason, "law_basis": row.law_basis, "agency": row.agency or "", "guide": row.guide or "",
         "links": _links(pack, row.site_keys or []),
-        "contact": contact_for(pack, row.contact_key, sigungu) if row.contact_key else None,
         "form": _form_view(session, row.form),
         "tasks": [{"item_id": t.item_key, "task": t.task, "done": t.done, "category": t.category,
                    "group_label": t.group_label} for t in tasks],
@@ -269,9 +212,6 @@ def requirement_view(session: Session, pack: dict, row: DocumentRequirement, ite
         "dday": (dues[0] - today).days if dues else None,
         "statutory_deadline": statutory[0].isoformat() if statutory else None,
         "review_needed": row.review_needed, "review_reason": row.review_reason,
-        "files": [{"file_id": str(f.id), "file_name": f.file_name, "content_type": f.content_type,
-                   "size_bytes": f.size_bytes, "issued_on": f.issued_on.isoformat() if f.issued_on else None,
-                   "uploaded_at": iso_kst(f.uploaded_at)} for f in files],
     }
     if with_history:
         hist = session.scalars(select(DocumentHistory).where(DocumentHistory.requirement_id == row.id)
@@ -288,26 +228,11 @@ def progress(rows: list[DocumentRequirement]) -> dict:
     return {"finished": finished, "total": len(counted)}
 
 
-def load_files(session: Session, rows: list[DocumentRequirement]) -> dict[uuid.UUID, list[UserDocument]]:
-    ids = [r.id for r in rows]
-    out: dict[uuid.UUID, list[UserDocument]] = {i: [] for i in ids}
-    if ids:
-        # 파일 본문은 읽지 않는다 (목록에는 이름·크기만 필요하다)
-        from sqlalchemy.orm import defer
-        q = select(UserDocument).where(UserDocument.requirement_id.in_(ids)).options(defer(UserDocument.content)) \
-            .order_by(UserDocument.uploaded_at)
-        for f in session.scalars(q):
-            out[f.requirement_id].append(f)
-    return out
-
-
 def documents_response(session: Session, pack: dict, store: Any, rows: list[DocumentRequirement], items: list[Any],
                        today: date, disclaimer: str) -> dict:
     """GET /documents. groups 는 예전 모양(체크리스트 항목별)을 유지하고, 서류별 상태는 requirements·sections 로 준다."""
-    sigungu = (store.address_codes or {}).get("sigungu_cd")
     by_key = {i.item_key: i for i in items}
-    files = load_files(session, rows)
-    views = {r.doc_key: requirement_view(session, pack, r, by_key, files[r.id], today, sigungu) for r in rows}
+    views = {r.doc_key: requirement_view(session, pack, r, by_key, today) for r in rows}
     ordered = sorted(views.values(), key=lambda v: (v["due_date"] or "9999", v["name"]))
 
     groups = []

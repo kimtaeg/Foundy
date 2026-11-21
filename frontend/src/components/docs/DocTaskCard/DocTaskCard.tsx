@@ -1,13 +1,11 @@
 import { DocRow } from "@/components/docs/DocRow";
 import { Element } from "@/components/view/Element";
-import type { Contact } from "@/types/contact";
 import type { DocumentTaskViewData } from "@/types/documents";
 
 export interface DocTaskCardProps {
   row: DocumentTaskViewData;
-  contacts: Record<string, Contact>;
 }
-export function DocTaskCard({ row, contacts }: DocTaskCardProps) {
+export function DocTaskCard({ row }: DocTaskCardProps) {
   const { task, documents, deadline } = row;
   return (
     <Element as="section" className="nx-card" id={`doc-${task.id}`}>
@@ -26,11 +24,7 @@ export function DocTaskCard({ row, contacts }: DocTaskCardProps) {
         )}
       </div>
       {documents.map((document) => (
-        <DocRow
-          key={document.id}
-          document={document}
-          contact={document.contact ? contacts[document.contact] : undefined}
-        />
+        <DocRow key={document.id} document={document} />
       ))}
     </Element>
   );

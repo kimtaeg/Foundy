@@ -1,4 +1,4 @@
-// 서류함·체크리스트의 서버 연결 화면: 서류별 상태·파일·서식·재검토와 작업 유형·법정 기한 표시를 렌더링으로 확인한다.
+// 서류함·체크리스트의 서버 연결 화면: 서류별 상태·서식·재검토와 작업 유형·법정 기한 표시를 렌더링으로 확인한다.
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -43,13 +43,12 @@ test('서류함: 서류마다 유형·상태 선택·AI 추가·근거 법령·�
   assert.ok(html.includes('id="doc-c-05"'), '체크리스트의 "서류함에서 보기"가 찾아올 위치');
 });
 
-test('서류함: 파일 올리기·내려받기·삭제와 공식 서식 링크', () => {
-  const file = { id: 'f1', name: '건축물대장.pdf', size: '12KB', uploadedAt: '2027-02-10', issuedOn: '2027-02-09' };
+test('서류함: 공식 서식 링크는 열 수 있고 파일 올리기·전화번호는 없다', () => {
   const form = { title: '식품 영업 신고서', pdfUrl: 'https://www.law.go.kr/LSW/flDownload.do?flSeq=1', fileUrl: null, revision: '2026-09-01' };
-  const html = render(DocsView, { data: docs(managed([doc({ files: [file], form, status: 'obtained', statusLabel: '발급·취득 완료' })])) });
-  assert.ok(html.includes('data-doc-upload="edu_cert"'));
-  assert.ok(html.includes('data-nx="docget"') && html.includes('data-nx="docdel"') && html.includes('건축물대장.pdf'));
+  const html = render(DocsView, { data: docs(managed([doc({ form, status: 'obtained', statusLabel: '발급·취득 완료' })])) });
   assert.ok(html.includes('공식 서식 열기') && html.includes('2026-09-01 공포'));
+  for (const gone of ['data-doc-upload', 'docget', 'docdel', '파일 올리기', '내려받기', '내 파일', '번호 복사', '☎', 'tel:'])
+    assert.ok(!html.includes(gone), `${gone} 는 서류함에서 없앴다`);
 });
 
 test('서류함: 서식 링크를 못 받았으면 지어내지 않고 안내한다', () => {
@@ -69,6 +68,7 @@ test('서류함: 서버 연결이 아니면 예전 체크리스트 항목별 안
     total: 1, finished: 0, remaining: 1, contacts: {} };
   const html = render(DocsView, { data: legacy });
   assert.ok(html.includes('예전 화면 작업') && html.includes('건축물대장') && !html.includes('data-doc-status'));
+  assert.ok(!html.includes('번호 복사') && !html.includes('☎'), '예전 화면의 서류 안내에도 전화번호는 없다');
 });
 
 const task = (over = {}) => ({ id: 'c-05', task: '식품위생교육 이수', category: '영업 인허가', group: '개업 4주 전', due: '2027-02-08',

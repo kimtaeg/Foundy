@@ -1,14 +1,10 @@
-import { DocFiles } from "@/components/docs/DocFiles";
 import { DocOfficialForm } from "@/components/docs/DocOfficialForm";
 import { DocStatusSelect } from "@/components/docs/DocStatusSelect";
-import { PhoneContact } from "@/components/common/PhoneContact";
 import { Element } from "@/components/view/Element";
-import type { Contact } from "@/types/contact";
 import type { ManagedDocument } from "@/types/documents";
 
 export interface DocCardProps {
   document: ManagedDocument;
-  contact?: Contact;
 }
 
 const TONE: Record<ManagedDocument["status"], string> = {
@@ -22,8 +18,8 @@ const TONE: Record<ManagedDocument["status"], string> = {
 
 const monthDay = (date: string) => date.slice(5).replace("-", ".");
 
-/** 서류 한 장: 유형·상태·준비 방법·공식 서식·내 파일·연결된 작업. */
-export function DocCard({ document, contact }: DocCardProps) {
+/** 서류 한 장: 유형·상태·준비 방법·공식 서식·연결된 작업. */
+export function DocCard({ document }: DocCardProps) {
   const dim = document.status === "not_applicable";
   return (
     <Element className="nx-doc mt-4 block border-t border-neutral-200 pt-4 first-of-type:mt-0 first-of-type:border-t-0 first-of-type:pt-0" style={{ opacity: dim ? 0.6 : 1 }}>
@@ -60,7 +56,6 @@ export function DocCard({ document, contact }: DocCardProps) {
           )}
         </Element>
       )}
-      <PhoneContact contact={contact} />
       <Element className="nx-row" style={{ marginTop: 8 }}>
         {document.sites.map((site) => (
           <Element key={site.url} as="a" className="nx-btn outline slim" href={site.url} target="_blank" rel="noopener noreferrer">
@@ -91,7 +86,6 @@ export function DocCard({ document, contact }: DocCardProps) {
           </Element>
         </Element>
       )}
-      <DocFiles document={document} />
     </Element>
   );
 }

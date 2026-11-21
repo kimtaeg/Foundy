@@ -57,7 +57,6 @@ export const TASK_DOCUMENTS: Record<string, TaskDocument[]> = {
       guide:
         "정부24에서 “영업신고”를 검색해 신청하거나, 관할 구청 위생과에 직접 제출해요. 신고 업종과 필요 서류는 구청에 먼저 확인하세요",
       sites: ["gov"],
-      contact: "hyg",
     },
   ],
   "c-07": [
@@ -68,7 +67,6 @@ export const TASK_DOCUMENTS: Record<string, TaskDocument[]> = {
       guide:
         "정부24에서 “옥외광고물”을 검색하고, 신고·허가 대상인지 관할 구청에 확인하세요",
       sites: ["gov"],
-      contact: "build",
     },
   ],
   "c-08": [
@@ -147,7 +145,3 @@ export const DOC_FILTER_MATCH: Record<DocFilter, (status: ManagedDocumentStatus)
   fix: (status) => status === "needs_fix",
   done: (status) => status === "obtained" || status === "submitted",
 };
-
-/** 업로드 허용 형식 (서버와 같다: PDF·이미지·한글, 10MB) */
-export const DOC_UPLOAD_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.hwp,.hwpx";
-export const DOC_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;

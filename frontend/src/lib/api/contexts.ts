@@ -129,11 +129,6 @@ function toTask(item: ApiChecklistItem, documentNames?: string[]): ChecklistTask
   };
 }
 
-function fileSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
-}
-
 /** 서류함 응답 → 화면 데이터. 서류는 연결된 첫 작업의 카테고리로 묶고, 기한이 빠른 순으로 둔다. */
 function toManagedDocs(bundle: ApiBundle): ManagedDocsData | null {
   const documents = bundle.documents;
@@ -153,7 +148,6 @@ function toManagedDocs(bundle: ApiBundle): ManagedDocsData | null {
     agency: req.agency,
     guide: req.guide,
     sites: req.links.map((link) => ({ label: link.label, url: link.url })),
-    contact: req.contact ? `docreq:${req.doc_key}` : undefined,
     form: req.form
       ? {
           title: req.form.title ?? req.name,
@@ -168,13 +162,6 @@ function toManagedDocs(bundle: ApiBundle): ManagedDocsData | null {
     deadline: dday(req.due_date),
     statutoryDate: req.statutory_deadline,
     review: req.review_needed ? (req.review_reason ?? "다시 확인이 필요해요") : null,
-    files: req.files.map((file) => ({
-      id: file.file_id,
-      name: file.file_name,
-      size: fileSize(file.size_bytes),
-      uploadedAt: file.uploaded_at.slice(0, 10),
-      issuedOn: file.issued_on,
-    })),
   });
   const sections = new Map<string, ManagedDocumentSection>();
   const claimed = new Set<string>();
@@ -298,9 +285,6 @@ export function createApiModel(bundle: ApiBundle) {
         doc.contact ? [[`doc:${item.item_id}:${doc.doc_id}`, toContact(doc.contact)] as const] : [],
       ),
     ),
-    ...(bundle.documents?.requirements ?? []).flatMap((req) =>
-      req.contact ? [[`docreq:${req.doc_key}`, toContact(req.contact)] as const] : [],
-    ),
   ]);
   const managedDocs = toManagedDocs(bundle);
   // 체크리스트 행은 기관 이름으로 연락처를 찾는다. 같은 기관이면 서버가 준 관할 연락처를 쓴다.
@@ -308,11 +292,6 @@ export function createApiModel(bundle: ApiBundle) {
     const contact = checklistItems.find((item) => (item.agency ?? item.contact?.agency) === agency && item.contact)?.contact;
     return contact ? { phone: contact.phone, ex: Boolean(contact.is_example) } : null;
   };
-
-  /** 서류함의 파일 이름 (내려받을 때 저장 이름으로 쓴다) */
-  const documentFileName = (docKey: string, fileId: string) =>
-    bundle.documents?.requirements.find((req) => req.doc_key === docKey)?.files.find((file) => file.file_id === fileId)
-      ?.file_name ?? "서류";
 
   const notifications: NotificationSummary[] = bundle.alerts.map((alert) => ({
     id: alert.alert_id,
@@ -341,7 +320,6 @@ export function createApiModel(bundle: ApiBundle) {
     taskCount,
     calEvents,
     documentsOf,
-    documentFileName,
     nextSteps,
     dashboard: {
       S,
@@ -393,7 +371,6 @@ export function createApiModel(bundle: ApiBundle) {
     docs: {
       allTasks,
       dday,
-      CONTACT: { ...CONTACT, ...docContacts },
       documentsOf,
       managedDocuments: () => managedDocs,
     },

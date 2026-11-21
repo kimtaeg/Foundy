@@ -1,5 +1,5 @@
 /** 예시 계정 세션과 화면별 API 호출. */
-import { apiDownload, apiFetch, apiUpload } from "@/lib/api/client";
+import { apiFetch } from "@/lib/api/client";
 import type {
   ApiAlert,
   ApiBundle,
@@ -106,12 +106,6 @@ export function createStoreApi(session: ApiSession) {
       call<ApiDocumentRequirement>(`/documents/${docKey}`, "PATCH", { status }),
     ackDocumentReview: (docKey: string) =>
       call<ApiDocumentRequirement>(`/documents/${docKey}`, "PATCH", { review_ack: true }),
-    uploadDocument: (docKey: string, file: File) =>
-      apiUpload<ApiDocumentRequirement>(`${base}/documents/${docKey}/files`, file, session.token),
-    deleteDocumentFile: (docKey: string, fileId: string) =>
-      call<ApiDocumentRequirement>(`/documents/${docKey}/files/${fileId}`, "DELETE"),
-    downloadDocumentFile: (docKey: string, fileId: string) =>
-      apiDownload(`${base}/documents/${docKey}/files/${fileId}`, session.token),
     readAlert: (alertId: string) => call<unknown>(`/alerts/${alertId}`, "PATCH", { read: true }),
     /** 가게 정보 수정. dryRun 이면 저장하지 않고 영향(impacts·reset_items)만 돌려준다. 미리보기와 저장은 같은 본문을 쓴다. */
     patchStore: (body: Record<string, unknown>, dryRun = false) =>

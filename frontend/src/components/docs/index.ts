@@ -1,5 +1,4 @@
 export * from "./DocCard";
-export * from "./DocFiles";
 export * from "./DocOfficialForm";
 export * from "./DocRow";
 export * from "./DocSectionCard";

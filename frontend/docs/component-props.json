@@ -1459,28 +1459,6 @@
         "optional": false,
         "type": "ManagedDocument",
         "callback": false
-      },
-      {
-        "name": "contact",
-        "optional": true,
-        "type": "Contact | undefined",
-        "callback": false
-      }
-    ]
-  },
-  {
-    "component": "DocFiles",
-    "source": "src/components/docs/DocFiles/DocFiles.tsx",
-    "propsType": "DocFilesProps",
-    "exportedProps": true,
-    "nativeHtmlProps": false,
-    "connected": false,
-    "props": [
-      {
-        "name": "document",
-        "optional": false,
-        "type": "ManagedDocument",
-        "callback": false
       }
     ]
   },
@@ -1513,12 +1491,6 @@
         "optional": false,
         "type": "DocumentViewData",
         "callback": false
-      },
-      {
-        "name": "contact",
-        "optional": true,
-        "type": "Contact | undefined",
-        "callback": false
       }
     ]
   },
@@ -1534,12 +1506,6 @@
         "name": "section",
         "optional": false,
         "type": "ManagedDocumentSection",
-        "callback": false
-      },
-      {
-        "name": "contacts",
-        "optional": false,
-        "type": "Record<string, Contact>",
         "callback": false
       }
     ]
@@ -1715,12 +1681,6 @@
         "optional": false,
         "type": "DocumentTaskViewData",
         "callback": false
-      },
-      {
-        "name": "contacts",
-        "optional": false,
-        "type": "Record<string, Contact>",
-        "callback": false
       }
     ]
   },
@@ -1736,12 +1696,6 @@
         "name": "data",
         "optional": false,
         "type": "ManagedDocsData",
-        "callback": false
-      },
-      {
-        "name": "contacts",
-        "optional": false,
-        "type": "Record<string, Contact>",
         "callback": false
       }
     ]
