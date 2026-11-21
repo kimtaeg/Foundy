@@ -9,6 +9,8 @@ export * from "./ChecklistView";
 export * from "./ChecklistViewTabs";
 export * from "./OpeningDateDialog";
 export * from "./TaskGroupCard";
+export * from "./TaskKindBadge";
 export * from "./TaskMetadata";
+export * from "./TaskReason";
 export * from "./TaskRow";
 export * from "./ChecklistPage";

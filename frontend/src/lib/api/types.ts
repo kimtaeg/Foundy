@@ -73,13 +73,87 @@ export interface ApiReport {
   is_example?: boolean;
 }
 
+export type ApiTaskType = "legal_obligation" | "conditional" | "preparation";
+export type ApiDocumentType = "issued" | "application" | "certificate" | "kept" | "reference";
+export type ApiDocumentStatus =
+  | "not_started"
+  | "in_progress"
+  | "obtained"
+  | "submitted"
+  | "needs_fix"
+  | "not_applicable";
+
+/** 체크리스트 항목에 붙은 서류 안내 (서류별 상태는 ApiDocumentRequirement) */
 export interface ApiDocument {
   doc_id: string;
   name: string;
+  type?: ApiDocumentType;
   agency: string;
   guide: string;
   links: { label: string; url: string }[];
   contact?: ApiContact | null;
+}
+
+export interface ApiLawBasis {
+  law_name?: string | null;
+  article?: string | null;
+  url?: string | null;
+}
+
+/** GET /api/stores/{id}/documents 의 서류 하나: 체크리스트와 따로 자기 상태·파일을 가진다 */
+export interface ApiDocumentRequirement {
+  doc_key: string;
+  name: string;
+  type: ApiDocumentType;
+  type_label: string;
+  status: ApiDocumentStatus;
+  status_label: string;
+  note: string | null;
+  applicability: "applies" | "needs_check" | "not_applicable";
+  source_type: "template" | "rule_engine" | "legal_analysis";
+  added_by_ai: boolean;
+  reason: string | null;
+  law_basis: ApiLawBasis | null;
+  agency: string;
+  guide: string;
+  links: { label: string; url: string }[];
+  contact?: ApiContact | null;
+  form: {
+    law_name: string;
+    form_no: string;
+    title: string | null;
+    pdf_url: string | null;
+    file_url: string | null;
+    revision_date: string | null;
+  } | null;
+  tasks: { item_id: string; task: string; done: boolean; category?: string; group_label?: string }[];
+  due_date: string | null;
+  dday: number | null;
+  statutory_deadline: string | null;
+  review_needed: boolean;
+  review_reason: string | null;
+  files: {
+    file_id: string;
+    file_name: string;
+    content_type: string;
+    size_bytes: number;
+    issued_on: string | null;
+    uploaded_at: string;
+  }[];
+}
+
+export interface ApiDocuments {
+  summary: {
+    total: number;
+    finished: number;
+    remaining: number;
+    not_applicable: number;
+    by_status: Record<ApiDocumentStatus, number>;
+    to_obtain: number;
+    to_write_or_keep: number;
+    review_needed: number;
+  };
+  requirements: ApiDocumentRequirement[];
 }
 
 export interface ApiChecklistItem {
@@ -96,11 +170,23 @@ export interface ApiChecklistItem {
   report_item_ids: string[];
   done: boolean;
   auto_checked: boolean;
+  /** 필수 / 조건부 / 권장. due_date·dday 는 권장 준비일이고 법령이 정한 기한은 statutory_deadline 이다 */
+  task_type?: ApiTaskType;
+  source_type?: "template" | "rule_engine" | "legal_analysis" | "inspection" | "grant";
+  statutory_deadline?: string | null;
+  statutory_basis?: string | null;
+  reason?: string | null;
+  law_basis?: ApiLawBasis | null;
+  added_by_ai?: boolean;
+  review_needed?: boolean;
+  review_reason?: string | null;
 }
 
 export interface ApiChecklist {
   opening_date: string;
   progress: { done: number; total: number };
+  type_counts?: Record<ApiTaskType, number>;
+  review_needed?: number;
   hidden_categories: { category: string; hidden_reason: string }[];
   groups: { group_label: string; items: ApiChecklistItem[] }[];
 }
@@ -127,6 +213,7 @@ export interface ApiDashboard {
   store: { store_id: string; name: string; business_type: string | null; opening_date: string; d_day: number };
   next_steps: ApiNextStep[];
   checklist_progress: { done: number; total: number };
+  documents_progress?: { finished: number; total: number };
   alerts: { unread: number };
 }
 
@@ -182,6 +269,8 @@ export interface ApiBundle {
   checklist: ApiChecklist;
   alerts: ApiAlert[];
   obligations: ApiObligation[];
+  /** 서류함. 못 받아도 화면은 체크리스트에 붙은 서류 안내로 그린다 */
+  documents: ApiDocuments | null;
 }
 
 /** POST /api/auth/signup · /api/auth/login 응답 */

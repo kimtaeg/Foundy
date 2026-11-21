@@ -7,7 +7,9 @@ export interface TaskMetadataProps {
 export function TaskMetadata({ task, contact }: TaskMetadataProps) {
   return (
     <Element className="nx-muted">
-      {task.category} · 필요 서류: {task.documents} · 담당: {task.agency}
+      {task.category}
+      {task.documents && <> · 필요 서류: {task.documents}</>}
+      {task.agency && <> · 담당: {task.agency}</>}
       {contact && (
         <>
           {" "}

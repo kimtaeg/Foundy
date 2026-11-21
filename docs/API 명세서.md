@@ -894,7 +894,7 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 | --- | --- | --- |
 | GET | `/api/stores/{store_id}/documents` | 서류함 목록. 조회할 때 필요한 서류를 지금 가게 상태에 맞춰 동기화한다 (멱등) |
 | GET | `/api/stores/{store_id}/documents/{doc_key}` | 서류 하나 + 상태 변경 이력(`history`) |
-| PATCH | `/api/stores/{store_id}/documents/{doc_key}` | 상태 변경 `{ "status": "obtained", "note": "정부24에서 발급" }`. 알 수 없는 상태는 400 |
+| PATCH | `/api/stores/{store_id}/documents/{doc_key}` | 상태 변경 `{ "status": "obtained", "note": "정부24에서 발급" }` 또는 재검토 안내 확인 `{ "review_ack": true }`. 알 수 없는 상태는 400 |
 | PUT | `/api/stores/{store_id}/documents/{doc_key}/files` | 파일 업로드. 본문은 파일 그대로, `Content-Type`·`X-File-Name`(URL 인코딩)·`X-Issued-On`(선택, YYYY-MM-DD). 201 |
 | GET | `/api/stores/{store_id}/documents/{doc_key}/files/{file_id}` | 파일 내려받기 |
 | DELETE | `/api/stores/{store_id}/documents/{doc_key}/files/{file_id}` | 파일 삭제 |
@@ -913,13 +913,14 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
       "status": "not_started", "status_label": "준비 전", "note": null, "applicability": "applies", "source_type": "rule_engine", "added_by_ai": true,
       "reason": "이 가게가 신고 업종 일반음식점 조건에 해당해 적용돼요.", "law_basis": { "law_name": "식품위생법", "article": "제41조", "url": null },
       "agency": "식품위생교육전문기관 · 동업자조합 · 한국식품산업협회", "guide": "…", "links": [], "contact": null, "form": null,
-      "tasks": [ { "item_id": "c-05", "task": "식품위생교육 이수", "done": false } ], "due_date": "2027-02-08", "dday": -22, "statutory_deadline": "2027-03-01",
+      "tasks": [ { "item_id": "c-05", "task": "식품위생교육 이수", "done": false, "category": "영업 인허가", "group_label": "개업 4주 전" } ], "due_date": "2027-02-08", "dday": -22, "statutory_deadline": "2027-03-01",
       "review_needed": false, "review_reason": null, "files": [] }
   ],
   "disclaimer": "…"
 }
 ```
 
+- 대시보드의 `documents_progress`도 같은 기준이다. 대시보드는 저장된 서류만 읽고(동기화하지 않음), 서류 동기화는 서류함 조회와 분석 저장이 한다.
 - `summary.total·finished`: **서류 자신의 상태**로 센다 (`obtained`·`submitted`가 완료). `groups`는 예전 화면 호환용으로 체크리스트 항목별로 다시 묶은 것이고 `requirements`가 서류 기준 목록이다.
 - `form`: 법령에 첨부된 공식 서식이 있는 서류만. 파일 링크(`pdf_url`·`file_url`)와 `revision_date`는 법제처 API(별표·서식 검색)로 수집해 저장한 값이다 (`python -m law_rag.forms`, 법령 갱신 때 같이 확인). 수집 전이면 링크가 null이다.
 - 법령이 개정되거나 서식이 개정되면 관련 서류에 `review_needed`가 켜진다. 더는 필요 없어진 서류는 손대지 않았으면 지우고, 진행했거나 파일이 있으면 남기고 재검토를 표시한다.

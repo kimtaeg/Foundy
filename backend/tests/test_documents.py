@@ -162,6 +162,42 @@ def test_status_change_is_separate_from_checklist_and_recorded(account):
 
 
 @needs_db
+def test_requirement_lists_task_category_and_review_ack_clears_the_notice(account):
+    """서류함 화면은 연결된 작업의 카테고리로 묶고, 재검토 안내는 확인 처리(review_ack)로 지운다."""
+    from sqlalchemy import select, update
+
+    from db.models import DocumentRequirement
+    from db.session import transaction
+
+    client, base, headers = account
+    body = client.get(base, headers=headers).json()
+    doc = next(r for r in body["requirements"] if r["tasks"])
+    assert doc["tasks"][0]["category"] and doc["tasks"][0]["group_label"]
+    with transaction() as s:  # 법령 개정이 감지된 것과 같은 상태를 만든다
+        s.execute(update(DocumentRequirement).where(DocumentRequirement.doc_key == doc["doc_key"],
+                                                    DocumentRequirement.store_id == uuid.UUID(base.split("/")[3]))
+                  .values(review_needed=True, review_reason="식품위생법이 개정됐어요"))
+    flagged = client.get(f"{base}/{doc['doc_key']}", headers=headers).json()
+    assert flagged["review_needed"] is True and flagged["review_reason"] == "식품위생법이 개정됐어요"
+    assert client.patch(f"{base}/{doc['doc_key']}", headers=headers, json={}).status_code == 400  # 상태도 확인도 없으면 거절
+    acked = client.patch(f"{base}/{doc['doc_key']}", headers=headers, json={"review_ack": True}).json()
+    assert acked["review_needed"] is False and acked["status"] == "not_started"  # 상태는 그대로다
+
+
+@needs_db
+def test_dashboard_reads_document_progress_without_creating_documents(account):
+    """대시보드는 서류를 만들지 않고 저장된 서류의 상태로 진행률을 센다 (동시 요청이 겹치지 않게)."""
+    client, base, headers = account
+    store_base = base.rsplit("/documents", 1)[0]
+    first = client.get(store_base + "/dashboard", headers=headers).json()["documents_progress"]
+    assert first["finished"] == 0
+    docs = client.get(base, headers=headers).json()  # 서류함을 열면 서류가 만들어진다
+    client.patch(f"{base}/{docs['requirements'][0]['doc_key']}", headers=headers, json={"status": "submitted"})
+    after = client.get(store_base + "/dashboard", headers=headers).json()["documents_progress"]
+    assert after == {"finished": 1, "total": docs["summary"]["total"]}
+
+
+@needs_db
 def test_invalid_status_and_unknown_document_are_rejected(account):
     client, base, headers = account
     key = client.get(base, headers=headers).json()["requirements"][0]["doc_key"]

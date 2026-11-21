@@ -55,6 +55,8 @@ export function useChecklist(): ChecklistViewData | null {
     colors: model.CATCOLOR,
     groups,
     count: model.taskCount(),
+    kinds: model.typeCounts?.() ?? null,
+    reviewCount: tasks.filter((task) => task.review).length,
     calendar: {
       year,
       month,

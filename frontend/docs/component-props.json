@@ -419,7 +419,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ChatViewData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<ChatViewData> | undefined",
         "callback": false
       },
       {
@@ -615,13 +615,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ChatViewData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<ChatViewData> | undefined",
         "callback": false
       },
       {
@@ -922,6 +922,18 @@
         "optional": false,
         "type": "number",
         "callback": false
+      },
+      {
+        "name": "kinds",
+        "optional": true,
+        "type": "Record<TaskKind, number> | null | undefined",
+        "callback": false
+      },
+      {
+        "name": "reviewCount",
+        "optional": true,
+        "type": "number | undefined",
+        "callback": false
       }
     ]
   },
@@ -936,13 +948,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ChecklistViewData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<ChecklistViewData> | undefined",
         "callback": false
       },
       {
@@ -1014,6 +1026,28 @@
     ]
   },
   {
+    "component": "TaskKindBadge",
+    "source": "src/components/checklist/TaskKindBadge/TaskKindBadge.tsx",
+    "propsType": "TaskKindBadgeProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "kind",
+        "optional": true,
+        "type": "TaskKind | undefined",
+        "callback": false
+      },
+      {
+        "name": "aiAdded",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
     "component": "TaskMetadata",
     "source": "src/components/checklist/TaskMetadata/TaskMetadata.tsx",
     "propsType": "TaskMetadataProps",
@@ -1036,6 +1070,22 @@
     ]
   },
   {
+    "component": "TaskReason",
+    "source": "src/components/checklist/TaskReason/TaskReason.tsx",
+    "propsType": "TaskReasonProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "task",
+        "optional": false,
+        "type": "ChecklistTask",
+        "callback": false
+      }
+    ]
+  },
+  {
     "component": "TaskRow",
     "source": "src/components/checklist/TaskRow/TaskRow.tsx",
     "propsType": "TaskRowProps",
@@ -1046,13 +1096,13 @@
       {
         "name": "task",
         "optional": false,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/checklist\").ChecklistTask",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/checklist\").ChecklistTask",
         "callback": false
       },
       {
         "name": "contact",
         "optional": false,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/checklist\").ChecklistContact | null",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/checklist\").ChecklistContact | null",
         "callback": false
       },
       {
@@ -1257,13 +1307,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<DashboardViewData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<DashboardViewData> | undefined",
         "callback": false
       },
       {
@@ -1397,6 +1447,60 @@
     ]
   },
   {
+    "component": "DocCard",
+    "source": "src/components/docs/DocCard/DocCard.tsx",
+    "propsType": "DocCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "document",
+        "optional": false,
+        "type": "ManagedDocument",
+        "callback": false
+      },
+      {
+        "name": "contact",
+        "optional": true,
+        "type": "Contact | undefined",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DocFiles",
+    "source": "src/components/docs/DocFiles/DocFiles.tsx",
+    "propsType": "DocFilesProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "document",
+        "optional": false,
+        "type": "ManagedDocument",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DocOfficialForm",
+    "source": "src/components/docs/DocOfficialForm/DocOfficialForm.tsx",
+    "propsType": "DocOfficialFormProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "form",
+        "optional": false,
+        "type": "{ title: string; pdfUrl: string | null; fileUrl: string | null; revision: string | null; }",
+        "callback": false
+      }
+    ]
+  },
+  {
     "component": "DocRow",
     "source": "src/components/docs/DocRow/DocRow.tsx",
     "propsType": "DocRowProps",
@@ -1419,6 +1523,28 @@
     ]
   },
   {
+    "component": "DocSectionCard",
+    "source": "src/components/docs/DocSectionCard/DocSectionCard.tsx",
+    "propsType": "DocSectionCardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "section",
+        "optional": false,
+        "type": "ManagedDocumentSection",
+        "callback": false
+      },
+      {
+        "name": "contacts",
+        "optional": false,
+        "type": "Record<string, Contact>",
+        "callback": false
+      }
+    ]
+  },
+  {
     "component": "DocsHeader",
     "source": "src/components/docs/DocsHeader/DocsHeader.tsx",
     "propsType": null,
@@ -1435,6 +1561,22 @@
     "nativeHtmlProps": false,
     "connected": true,
     "props": []
+  },
+  {
+    "component": "DocsProgressSummary",
+    "source": "src/components/docs/DocsProgressSummary/DocsProgressSummary.tsx",
+    "propsType": "DocsProgressSummaryProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": false,
+        "type": "ManagedDocsData",
+        "callback": false
+      }
+    ]
   },
   {
     "component": "DocsSummary",
@@ -1465,6 +1607,62 @@
     ]
   },
   {
+    "component": "DocStatusSelect",
+    "source": "src/components/docs/DocStatusSelect/DocStatusSelect.tsx",
+    "propsType": "DocStatusSelectProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "id",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "name",
+        "optional": false,
+        "type": "string",
+        "callback": false
+      },
+      {
+        "name": "status",
+        "optional": false,
+        "type": "ManagedDocumentStatus",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "DocStatusTabs",
+    "source": "src/components/docs/DocStatusTabs/DocStatusTabs.tsx",
+    "propsType": "DocStatusTabsProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "filter",
+        "optional": false,
+        "type": "DocFilter",
+        "callback": false
+      },
+      {
+        "name": "counts",
+        "optional": false,
+        "type": "Record<DocFilter, number>",
+        "callback": false
+      },
+      {
+        "name": "onChange",
+        "optional": false,
+        "type": "(filter: DocFilter) => void",
+        "callback": true
+      }
+    ]
+  },
+  {
     "component": "DocsView",
     "source": "src/components/docs/DocsView/DocsView.tsx",
     "propsType": "DocsViewProps",
@@ -1475,13 +1673,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<DocsViewData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<DocsViewData> | undefined",
         "callback": false
       },
       {
@@ -1516,6 +1714,28 @@
         "name": "row",
         "optional": false,
         "type": "DocumentTaskViewData",
+        "callback": false
+      },
+      {
+        "name": "contacts",
+        "optional": false,
+        "type": "Record<string, Contact>",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ManagedDocsBoard",
+    "source": "src/components/docs/ManagedDocsBoard/ManagedDocsBoard.tsx",
+    "propsType": "ManagedDocsBoardProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "data",
+        "optional": false,
+        "type": "ManagedDocsData",
         "callback": false
       },
       {
@@ -2688,13 +2908,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<GrantsViewData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<GrantsViewData> | undefined",
         "callback": false
       },
       {
@@ -2750,13 +2970,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ApplicationFeedbackData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<ApplicationFeedbackData> | undefined",
         "callback": false
       },
       {
@@ -2799,7 +3019,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<NavbarData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<NavbarData> | undefined",
         "callback": false
       },
       {
@@ -2829,7 +3049,7 @@
       {
         "name": "onOpenNotification",
         "optional": false,
-        "type": "(notification: import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/notifications\").NotificationSummary) => void",
+        "type": "(notification: import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/notifications\").NotificationSummary) => void",
         "callback": true
       },
       {
@@ -2925,7 +3145,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<Props> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<Props> | undefined",
         "callback": false
       },
       {
@@ -2971,7 +3191,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<T> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<T> | undefined",
         "callback": false
       },
       {
@@ -3337,6 +3557,18 @@
         "optional": false,
         "type": "Record<string, string>",
         "callback": false
+      },
+      {
+        "name": "answered",
+        "optional": true,
+        "type": "Partial<Record<\"alcohol\" | \"terrace\" | \"employees\" | \"delivery\", boolean | null>> | undefined",
+        "callback": false
+      },
+      {
+        "name": "notes",
+        "optional": true,
+        "type": "Partial<Record<\"name\" | \"type\" | \"address\" | \"detail\" | \"opening\" | \"region\" | \"location\" | \"birth\" | \"funds\" | \"area\" | \"alcohol\" | \"terrace\" | \"employees\" | \"delivery\", string>> | undefined",
+        "callback": false
       }
     ]
   },
@@ -3360,7 +3592,7 @@
       {
         "name": "changes",
         "optional": false,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/profile\").StoreChange[]",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/profile\").StoreChange[]",
         "callback": false
       },
       {
@@ -3372,7 +3604,13 @@
       {
         "name": "resetCards",
         "optional": false,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/profile\").ResetCard[]",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/profile\").ResetCard[]",
+        "callback": false
+      },
+      {
+        "name": "preview",
+        "optional": true,
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/profile\").ServerPreview | undefined",
         "callback": false
       }
     ]
@@ -3413,13 +3651,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ProfileViewModel> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<ProfileViewModel> | undefined",
         "callback": false
       },
       {
@@ -3465,13 +3703,19 @@
       {
         "name": "value",
         "optional": false,
-        "type": "boolean",
+        "type": "boolean | null",
         "callback": false
       },
       {
         "name": "hints",
         "optional": false,
         "type": "string[]",
+        "callback": false
+      },
+      {
+        "name": "note",
+        "optional": true,
+        "type": "string | undefined",
         "callback": false
       }
     ]
@@ -3667,7 +3911,7 @@
       {
         "name": "onOpenNotification",
         "optional": false,
-        "type": "(notification: import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/notifications\").NotificationSummary) => void",
+        "type": "(notification: import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/notifications\").NotificationSummary) => void",
         "callback": true
       },
       {
@@ -3691,13 +3935,13 @@
       {
         "name": "notifications",
         "optional": false,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/notifications\").NotificationSummary[]",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/notifications\").NotificationSummary[]",
         "callback": false
       },
       {
         "name": "destinations",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/navigation\").NavigationDestination[] | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/navigation\").NavigationDestination[] | undefined",
         "callback": false
       },
       {
@@ -4069,13 +4313,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<OnboardingViewModel> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<OnboardingViewModel> | undefined",
         "callback": false
       },
       {
@@ -4287,6 +4531,22 @@
         "name": "step",
         "optional": false,
         "type": "NextStep",
+        "callback": false
+      }
+    ]
+  },
+  {
+    "component": "ObligationsSection",
+    "source": "src/components/report/ObligationsSection/ObligationsSection.tsx",
+    "propsType": "ObligationsSectionProps",
+    "exportedProps": true,
+    "nativeHtmlProps": false,
+    "connected": false,
+    "props": [
+      {
+        "name": "items",
+        "optional": false,
+        "type": "ObligationData[]",
         "callback": false
       }
     ]
@@ -4583,13 +4843,13 @@
       {
         "name": "onEvent",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/events\").ViewEventHandler | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/events\").ViewEventHandler | undefined",
         "callback": true
       },
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<ReportViewData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<ReportViewData> | undefined",
         "callback": false
       },
       {
@@ -5251,7 +5511,7 @@
       {
         "name": "data",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").AsyncData<SitesViewData> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").AsyncData<SitesViewData> | undefined",
         "callback": false
       },
       {
@@ -5281,13 +5541,13 @@
       {
         "name": "footTrafficData",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/foot-traffic\").FootTrafficDataset | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/foot-traffic\").FootTrafficDataset | undefined",
         "callback": false
       },
       {
         "name": "footTrafficSource",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/foot-traffic\").FootTrafficDataSource | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/foot-traffic\").FootTrafficDataSource | undefined",
         "callback": false
       },
       {
@@ -5311,31 +5571,31 @@
       {
         "name": "populationData",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationDataset | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/population-insights\").PopulationDataset | undefined",
         "callback": false
       },
       {
         "name": "populationSource",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationInsightsDataSource | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/population-insights\").PopulationInsightsDataSource | undefined",
         "callback": false
       },
       {
         "name": "populationInsights",
         "optional": true,
-        "type": "DataState<import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationInsights | null> | undefined",
+        "type": "DataState<import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/population-insights\").PopulationInsights | null> | undefined",
         "callback": false
       },
       {
         "name": "onAnalysisChange",
         "optional": true,
-        "type": "((selection: import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/market\").SitesAnalysisSelection) => void) | undefined",
+        "type": "((selection: import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/market\").SitesAnalysisSelection) => void) | undefined",
         "callback": true
       },
       {
         "name": "onPriceChange",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
         "callback": true
       },
       {
@@ -5369,13 +5629,13 @@
       {
         "name": "footTrafficData",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/foot-traffic\").FootTrafficDataset | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/foot-traffic\").FootTrafficDataset | undefined",
         "callback": false
       },
       {
         "name": "footTrafficSource",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/foot-traffic\").FootTrafficDataSource | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/foot-traffic\").FootTrafficDataSource | undefined",
         "callback": false
       },
       {
@@ -5399,31 +5659,31 @@
       {
         "name": "populationData",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationDataset | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/population-insights\").PopulationDataset | undefined",
         "callback": false
       },
       {
         "name": "populationSource",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationInsightsDataSource | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/population-insights\").PopulationInsightsDataSource | undefined",
         "callback": false
       },
       {
         "name": "populationInsights",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/data-state\").DataState<import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/population-insights\").PopulationInsights | null> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/data-state\").DataState<import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/population-insights\").PopulationInsights | null> | undefined",
         "callback": false
       },
       {
         "name": "onAnalysisChange",
         "optional": true,
-        "type": "((selection: import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/src/types/market\").SitesAnalysisSelection) => void) | undefined",
+        "type": "((selection: import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/src/types/market\").SitesAnalysisSelection) => void) | undefined",
         "callback": true
       },
       {
         "name": "onPriceChange",
         "optional": true,
-        "type": "import(\"/Users/kimtg1017/Desktop/startup_agent/frontend/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
+        "type": "import(\"/Users/airm4/Desktop/\\u1112\\u1162\\u110F\\u1165\\u1110\\u1169\\u11AB/frontend/node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
         "callback": true
       },
       {

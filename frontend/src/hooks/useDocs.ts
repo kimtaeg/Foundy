@@ -28,11 +28,14 @@ export function useDocs(): DocsViewData | null {
   const finished = rows
     .filter((row) => row.task.done)
     .reduce((sum, row) => sum + row.documents.length, 0);
+  // 서버 연결 모드: 서류별 상태·파일을 관리한다. 진행률도 서류 상태로 센다 (체크리스트 완료와 별개).
+  const managed = "managedDocuments" in context ? (context.managedDocuments?.() ?? undefined) : undefined;
   return {
     rows,
-    total,
-    finished,
-    remaining: total - finished,
+    total: managed?.total ?? total,
+    finished: managed?.finished ?? finished,
+    remaining: managed?.remaining ?? total - finished,
     contacts: context.CONTACT,
+    managed,
   };
 }

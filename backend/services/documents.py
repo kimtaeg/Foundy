@@ -20,7 +20,7 @@ from urllib.parse import quote
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from db.models import DocumentHistory, DocumentRequirement, LawForm, LegalObligation, UserDocument
+from db.models import DocumentHistory, DocumentRequirement, LawForm, LegalObligation, Store, UserDocument
 from rules.applicability import APPLIES, NEEDS_CHECK, NOT_APPLICABLE
 from services.effective import effective_store
 from services.pack import contact_for, hidden_categories
@@ -114,6 +114,8 @@ def sync_requirements(session: Session, pack: dict, store: Any, cards: list[Any]
 
     더는 필요 없어진 서류는, 손대지 않았으면 지우고 사용자가 진행했으면 남기고 재검토를 표시한다.
     """
+    # 같은 가게에 동시에 들어온 요청이 같은 서류를 두 번 만들지 않게 가게 행을 잠그고 시작한다 (트랜잭션이 끝나면 풀린다)
+    session.execute(select(Store.id).where(Store.id == store.id).with_for_update())
     eff = effective_store(pack, store, cards)
     hidden = {h["category"] for h in hidden_categories(pack, eff)}
     obligations = list(session.scalars(select(LegalObligation).where(LegalObligation.store_id == store.id)))
@@ -151,6 +153,12 @@ def sync_requirements(session: Session, pack: dict, store: Any, cards: list[Any]
 
 
 # ---------------------------------------------------------------- 상태·파일
+
+def read_requirements(session: Session, store: Any) -> list[DocumentRequirement] | None:
+    """저장된 서류 요구사항만 읽는다 (동기화하지 않는다). 아직 하나도 없으면 None."""
+    rows = list(session.scalars(select(DocumentRequirement).where(DocumentRequirement.store_id == store.id)))
+    return rows or None
+
 
 def _history(session: Session, row: DocumentRequirement, before: str | None, after: str, note: str | None) -> None:
     session.add(DocumentHistory(requirement_id=row.id, from_status=before, to_status=after, note=note))
@@ -255,7 +263,8 @@ def requirement_view(session: Session, pack: dict, row: DocumentRequirement, ite
         "links": _links(pack, row.site_keys or []),
         "contact": contact_for(pack, row.contact_key, sigungu) if row.contact_key else None,
         "form": _form_view(session, row.form),
-        "tasks": [{"item_id": t.item_key, "task": t.task, "done": t.done} for t in tasks],
+        "tasks": [{"item_id": t.item_key, "task": t.task, "done": t.done, "category": t.category,
+                   "group_label": t.group_label} for t in tasks],
         "due_date": dues[0].isoformat() if dues else None,
         "dday": (dues[0] - today).days if dues else None,
         "statutory_deadline": statutory[0].isoformat() if statutory else None,
