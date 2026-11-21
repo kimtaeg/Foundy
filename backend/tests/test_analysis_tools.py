@@ -35,18 +35,23 @@ def test_building_uses_selected_floor_and_never_invents_violation_flag():
     def respond(req):
         assert req.url.path.endswith("getBrFlrOulnInfo")
         assert req.url.params["bun"] == "0113"
-        items = [{"flrNo": "1", "flrGbCdNm": "지상", "mainAtchGbCdNm": "주건축물", "mainPurpsCdNm": "제1종근린생활시설"},
-                 {"flrNo": "2", "flrGbCdNm": "지상", "mainAtchGbCdNm": "주건축물", "mainPurpsCdNm": "업무시설"}]
+        items = [{"flrNo": "1", "flrGbCdNm": "지상", "mainAtchGbCdNm": "주건축물", "mainPurpsCd": "03000",
+                  "mainPurpsCdNm": "제1종근린생활시설", "mgmBldrgstPk": 1},
+                 {"flrNo": "2", "flrGbCdNm": "지상", "mainAtchGbCdNm": "주건축물", "mainPurpsCd": "14000",
+                  "mainPurpsCdNm": "업무시설", "mgmBldrgstPk": 1}]
         return httpx.Response(200, json={"response": {"header": {"resultCode": "00"},
             "body": {"totalCount": 2, "items": {"item": items}}}})
+    codes = {"sigungu_cd": "11200", "bjdong_cd": "11500", "bun": "0113", "ji": "0000"}
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         provider = Providers(client, settings())
-        result = provider.building(store(address_codes={"sigungu_cd": "11200", "bjdong_cd": "11500", "bun": "0113", "ji": "0000"}))
-        assert result.data == {"floor_uses": ["제1종근린생활시설"], "violation": None,  # 위반 표기는 지어내지 않는다
-                               "address_codes": {"sigungu_cd": "11200", "bjdong_cd": "11500", "bun": "0113", "ji": "0000"}}
+        result = provider.building(store(address_codes=codes))
+        assert result.data["violation"] is None  # 위반 표기는 지어내지 않는다
+        assert result.data["address_codes"] == codes
+        assert [c["code"] for c in result.data["space"]["candidates"]] == ["03000"]  # 가게 층(1층)만
         assert result.fetched_at and not result.from_mock
-        with pytest.raises(ValueError, match="FLOOR_REQUIRED"):
-            provider.building(store(address_detail=None, address_codes={"sigungu_cd": "11200", "bjdong_cd": "11500", "bun": "0113", "ji": "0000"}))
+        # 층이 없으면 예외(→ 모의 응답 대체)가 아니라 판단할 수 없다는 상태값
+        missing = provider.building(store(address_detail=None, address_codes=codes))
+        assert missing.ok and missing.data["space"]["status"] == "floor_missing"
 
 
 def test_address_ambiguity_is_not_silently_resolved():
@@ -135,3 +140,42 @@ def test_cache_preserves_provenance_and_failure_uses_expired_cache_then_mock():
     finally:
         with transaction() as session:
             session.execute(delete(ApiCache).where(ApiCache.key.in_([key, tools._key("trademark", {"name": name + "-missing"})])))
+
+
+@pytest.mark.skipif(not get_settings().database_url, reason="테스트 PostgreSQL 필요")
+def test_old_building_cache_without_space_is_not_reused():
+    """원본 용도 코드·대상 공간이 없는 옛 건물 캐시는 새 매핑을 우회하므로 쓰지 않는다 (#121)."""
+    from rules.building_use import SPACE_SCHEMA
+
+    s = store(address="캐시 테스트 " + uuid.uuid4().hex)
+    stamp = now_utc() - timedelta(days=1)
+
+    class Provider:
+        calls = 0
+        def building(self, store):
+            self.calls += 1
+            raise httpx.TimeoutException("의도한 테스트 장애")
+
+    provider = Provider()
+    tools = AnalysisTools(providers=provider, use_mock=False)
+    key = tools._key("building", tools._building_params(s))
+    old = ToolResult(ok=True, source="건축HUB 층별개요", fetched_at=stamp,
+                     data={"floor_uses": ["휴게음식점"], "violation": None}).model_dump(mode="json")
+    new = ToolResult(ok=True, source="건축HUB 층별개요", fetched_at=stamp,
+                     data={"schema": SPACE_SCHEMA, "space": {"status": "floor", "candidates": []}, "violation": None}).model_dump(mode="json")
+    try:
+        for expires in (now_utc() + timedelta(days=1), now_utc() - timedelta(days=1)):  # 유효한 캐시·만료된 캐시 모두
+            with transaction() as session:
+                session.merge(ApiCache(key=key, source="building", payload=old, fetched_at=stamp, expires_at=expires))
+            result = tools.building(s)
+            assert result.from_mock and not result.from_cache  # 옛 캐시 대신 조회 → 실패 → 모의 응답 (실제 모드에서는 판정 안 함)
+            assert tools.cached_building(s).ok is False
+        with transaction() as session:
+            session.merge(ApiCache(key=key, source="building", payload=new, fetched_at=stamp,
+                                   expires_at=now_utc() + timedelta(days=1)))
+        cached = tools.building(s)
+        assert cached.from_cache and cached.data["schema"] == SPACE_SCHEMA
+        assert provider.calls == 2
+    finally:
+        with transaction() as session:
+            session.execute(delete(ApiCache).where(ApiCache.key == key))

@@ -203,9 +203,22 @@ export interface ApiRegisterBody {
 
 /** PATCH /api/stores/{id} 응답 (변경 반영 결과) */
 export interface ApiPatchResult {
+  dry_run?: boolean;
   changed: { field: string; from: unknown; to: unknown }[];
   impacts: string[];
   reset_items: { item_id: string; title: string; chosen_label?: string | null }[];
+  recomputed?: string[];
+  /** 미리보기면 저장 시 재분석 예정, 저장이면 실제로 새 run 을 만들었는지 */
   needs_reanalyze: boolean;
   run_id: string | null;
+}
+
+/** GET /api/stores/{id}/changes 항목 */
+export interface ApiChangeLog {
+  change_id: string;
+  at: string;
+  changed: { field: string; from: unknown; to: unknown }[];
+  impacts: string[];
+  reset_items: { item_id: string; title: string; chosen_label?: string | null }[];
+  lines: string[];
 }

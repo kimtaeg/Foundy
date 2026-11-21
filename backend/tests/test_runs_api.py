@@ -131,7 +131,9 @@ def test_full_analysis_saved_and_readable(context):
     assert [e["event"] for e in done["events"]].count("done") == 1
     assert done["events"][-1]["data"]["run_id"] == rid
     body, cards = report(client, base, headers)
-    assert body["run_id"] == rid and len(cards) == 5
+    # 직원이 있는 가게라 #113의 근로계약 카드(r-07)가 붙는다. 면적을 모르면 소방 카드(r-06)는 만들지 않는다
+    assert body["run_id"] == rid and sorted(cards) == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-07"]
+    assert cards["r-07"]["check_id"] == "labor_contract"
     assert cards["r-05"]["verdict"] == "unknown"
     assert client.get(base + "/dashboard", headers=headers).json()["last_run"]["run_id"] == rid
     assert client.get(base + "/checklist", headers=headers).json()["progress"] == {"done": 2, "total": 9}
@@ -141,7 +143,8 @@ def test_full_analysis_saved_and_readable(context):
     (["building"], ["building"]),
     (["trademark"], ["trademark"]),
     (["checklist"], []),
-    (["law"], ["cached_building", "law:building_use", "law:permit_docs"]),
+    # 법령 범위는 조문을 읽는 카드 전부(영업신고·표시 의무·근로계약)의 조문을 다시 조회한다 (#113). 소방은 면적을 몰라 건너뛴다
+    (["law"], ["cached_building", "law:building_use", "law:permit_docs", "law:labeling", "law:labor_contract"]),
 ])
 def test_partial_scope_does_not_call_unselected_providers(context, scope, expected):
     client, base, headers, tools, *_ = context
@@ -440,7 +443,7 @@ def test_first_analysis_creates_results_and_checklist(context):
         session.get(Store, sid).onboarded_at = None
     rid = start(context)
     assert wait(client, rid, headers)["status"] == "done"
-    assert len(report(client, base, headers)[1]) == 5
+    assert sorted(report(client, base, headers)[1]) == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-07"]
     assert client.get(base + "/checklist", headers=headers).json()["progress"] == {"done": 0, "total": 9}
 
 

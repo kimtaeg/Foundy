@@ -30,10 +30,10 @@ export function MypageView({ onEvent, ...state }: MypageViewProps) {
               <StoreDetailsCard draft={model.draft} fields={model.fields} impacts={model.impacts} regions={model.regions} />
             </Suspense>
             <Suspense fallback={<SectionSkeleton variant="form" label="영업 조건" />}>
-              <BusinessConditionsCard draft={model.draft} fields={model.fields} impacts={model.impacts} />
+              <BusinessConditionsCard draft={model.draft} fields={model.fields} impacts={model.impacts} answered={model.answered} notes={model.notes} />
             </Suspense>
             <Suspense fallback={<SectionSkeleton variant="list" label="변경 영향" />}>
-              <ImpactCard changes={model.changes} affectedLabels={model.affectedLabels} resetCards={model.resetCards} />
+              <ImpactCard changes={model.changes} affectedLabels={model.affectedLabels} resetCards={model.resetCards} preview={model.preview} />
             </Suspense>
             <DataManagementCard />
           </Element>

@@ -81,6 +81,7 @@ export function useFoundyState(): FoundyContextValue {
     snapshot,
     api: api.model,
     apiPending: api.pending,
+    profileView: api.profileView,
     onEvent(type, event) {
       if (!api.handleEvent(type, event)) engine?.handleEvent(type, event);
       syncRoute();

@@ -9,10 +9,9 @@
  *   가게가 아직 없으면 가게 등록·되묻기·분석(SSE)을 서버로 처리하고, 마이페이지 수정은 PATCH 로 저장한다.
  */
 import { ApiError, apiEnabled } from "@/lib/api/client";
-import { IMP } from "@/data/store";
 import { ANALYSIS_STEP_COUNT, finishedIndexes, followRun } from "@/lib/api/run-stream";
-import { canPatchOnServer, toStorePatch, type ProfileChange } from "@/lib/api/store-update";
 import { createApiModel, toEvidence, type ApiModel } from "@/lib/api/contexts";
+import { useServerProfile } from "@/hooks/useServerProfile";
 import {
   clearSession,
   createAccountApi,
@@ -25,8 +24,6 @@ import {
 import { optionMeta } from "@/lib/report/option-meta";
 import { iso, realToday } from "@/lib/date";
 import { type FoundyStore } from "@/types/foundy";
-import type { FeatureContextMap } from "@/types/features";
-import type { StoreDraft } from "@/types/profile";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const RUN_POLL_MS = 1500;
@@ -267,44 +264,13 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
     }
   };
 
-  /** 마이페이지 수정: 서버에 저장하고, 다시 점검이 필요하면 진행을 보여 준 뒤 결과를 반영한다. */
-  const saveProfile = async (profile: FeatureContextMap["mypage"], diff: ProfileChange[]) => {
-    const session = sessionRef.current;
-    if (!engine || !session?.storeId) return;
-    const lines = diff.map((change) => {
-      const key = change.k as keyof StoreDraft;
-      return `${profile.MPF[key][0]}: ${profile.fmtMp(key, change.from)} → ${profile.fmtMp(key, change.to)}`;
-    });
-    engine.showToast("저장하는 중이에요…");
-    try {
-      const result = await createStoreApi(session).patchStore(toStorePatch(diff));
-      result.reset_items.forEach((item) => lines.push(`${item.title} 카드 선택 초기화 (다시 결정 대기)`));
-      const title = "변경 내용을 다시 반영하고 있어요";
-      const steps = [...result.impacts.map((impact) => IMP[impact] ?? impact), "변경 요약 정리"];
-      const show = (completed: number) =>
-        engine.showModal(title, { kind: "analysis-progress", steps, completed, changes: lines });
-      if (result.run_id) {
-        show(0);
-        let finished = 0;
-        await followRun(result.run_id, session.token, (_step, status) => {
-          if (status === "done" || status === "fallback") {
-            finished += 1;
-            show(Math.min(steps.length - 1, finished));
-          }
-        });
-      }
-      const next = await refresh();
-      if (next) engine.adoptServerStore(next.S);
-      if (result.run_id) show(steps.length);
-      engine.showToast("가게 정보를 저장했어요");
-    } catch (error) {
-      engine.showToast(errorMessage(error));
-    }
-  };
+  // 마이페이지 가게 정보 수정: 서버 저장값으로 폼을 채우고, 서버 미리보기(dry_run)와 같은 본문으로 저장한다.
+  const profile = useServerProfile({ engine, sessionRef, model: active ? model : null, refresh });
 
   /** 서버 데이터가 필요한 이벤트만 처리하고 true 를 돌려준다. 나머지(이동·필터·보기 전환)는 로컬 엔진이 처리한다. */
   const handleEvent = (type: string, event: { target: EventTarget; preventDefault(): void }): boolean => {
       if (active && !model && account && handleOnboarding(type, event)) return true;
+      if (active && model && engine && profile.handleEvent(type, event)) return true;
       if (!active || !model || !engine || type !== "click") return false;
       const target = event.target as HTMLElement;
       const taskRow = target.closest?.("[data-task]") as HTMLElement | null;
@@ -386,13 +352,6 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
           });
           return true;
         }
-        case "mpsave": {
-          const profile = engine.getViewContext("mypage");
-          const diff = profile.mpDiff() as unknown as ProfileChange[];
-          if (!canPatchOnServer(diff)) return false; // 바뀐 값이 없거나 서버가 모르는 항목(지역·자리 상태)은 로컬 처리
-          void saveProfile(profile, diff);
-          return true;
-        }
         case "mpwipe":
           engine.showToast("서버에 저장된 가게는 처음부터 다시 설정할 수 없어요. 정보는 수정으로 바꿔 주세요");
           return true;
@@ -427,5 +386,7 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
     pending: active && !model && (uid === "demo" || loading),
     handleEvent,
     openNotification,
+    /** 서버 연결 모드면 마이페이지 화면 모델을 서버 미리보기 기준으로 바꾼다 (아니면 null → 로컬 데모 계산) */
+    profileView: active && model && profile.active ? profile.view : null,
   };
 }

@@ -101,11 +101,14 @@ def test_next_steps_order_and_limit():
     steps = next_steps(PACK, items, cl, excl=bu.item_id)
     kinds = [s.kind for s in steps]
     assert kinds[0] == "new" and steps[0].go == {"page": "checklist", "item_id": "x-0"}
-    assert kinds == ["new", "decide", "do", "do", "do"]  # 직접 할 일(위반건축물·영업신고·표시 의무·근로계약) 중 3개가 먼저 온다.
+    assert kinds == ["new", "decide", "do", "do", "do"]  # 표시 의무 확인까지 직접 할 일 3개가 먼저 온다.
     assert steps[kinds.index("decide")].sub.startswith("추천:")
+    # 직접 할 일은 위반건축물 문의·영업신고·표시 의무·근로계약(직원이 있어 #113부터 생김) 4개다. 그중 2개를 끝내면 2개가 남는다
+    assert sum(1 for i in items if i.user_action and i.verdict != "ok" and i.check_id != bu.check_id
+               and i.check_id != "trademark_similar") == 4
     items = [i.model_copy(update={"action_status": "done"}) if i.check_id in ("labeling", "labor_contract") else i for i in items]
     steps = next_steps(PACK, items, cl, excl=bu.item_id)
-    assert [s.kind for s in steps] == ["new", "decide", "do", "do", "task"]  # 직접 할 일이 2개로 줄면 체크리스트가 뒤에 온다.
+    assert [s.kind for s in steps] == ["new", "decide", "do", "do", "task"]  # 직접 할 일이 줄면 체크리스트가 뒤에 온다.
     assert len(steps) == 5
 
 
