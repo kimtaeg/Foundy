@@ -183,7 +183,7 @@ def test_today_when_everything_done():
 
 def test_document_question_uses_rule_documents_and_never_claims_to_submit():
     r = chat(no_llm(), full_ctx(), "영업신고에 필요한 서류가 뭐예요?")
-    assert r.kind == "grounded" and "영업신고 접수" in r.answer and "정부24" in r.answer
+    assert r.kind == "grounded" and "영업신고서" in r.answer and "정부24" in r.answer
     assert "대신 작성하거나 제출하지는 않아요" in r.answer
     assert r.contacts[0].agency == "성동구청 위생과" and r.actions[0].payload["page"] == "docs"
     assert "근로계약" in chat(no_llm(), full_ctx(), "근로계약서 양식 어디서 받아요?").answer

@@ -32,6 +32,9 @@ def checklist_entry(pack: dict, task: str) -> dict | None:
 
 def linked_check_ids(pack: dict, item: Any) -> list[str]:
     """규칙 묶음 report_links의 check_id. 옛 항목 ID를 새 규칙에 임의로 연결하지 않는다."""
+    inspected = [x["check_id"] for x in (getattr(item, "sources", None) or []) if x.get("type") == "inspection"]
+    if inspected and getattr(item, "source_type", "template") in ("rule_engine", "legal_analysis"):
+        return inspected  # 법령 규칙이 새로 만든 작업은 그 규칙의 점검 카드와 연결한다
     if item.source == "report":
         key = item.rule_key or item.item_key
     elif item.source == "rule":

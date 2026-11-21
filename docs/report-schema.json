@@ -656,6 +656,115 @@
         },
         "auto_checked": {
           "type": "boolean"
+        },
+        "task_type": {
+          "enum": [
+            "legal_obligation",
+            "conditional",
+            "preparation"
+          ],
+          "description": "필수 / 조건부 / 권장"
+        },
+        "source_type": {
+          "enum": [
+            "template",
+            "rule_engine",
+            "legal_analysis",
+            "inspection",
+            "grant"
+          ]
+        },
+        "priority": {
+          "enum": [
+            "high",
+            "normal",
+            "low"
+          ]
+        },
+        "deadline_type": {
+          "enum": [
+            "before_opening",
+            "after_opening"
+          ]
+        },
+        "recommended_due_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "권장 준비일 (due_date 와 같다)"
+        },
+        "statutory_deadline": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "법령이 개업 전 기한을 정한 경우만. 없으면 null"
+        },
+        "statutory_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "왜 이 작업이 필요한지 (적용 조건)"
+        },
+        "law_basis": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "law_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "article": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "added_by_ai": {
+          "type": "boolean",
+          "description": "법령 분석·규칙으로 새로 발견해 추가한 작업"
+        },
+        "review_needed": {
+          "type": "boolean"
+        },
+        "review_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -755,6 +864,74 @@
               "type": "null"
             }
           ]
+        },
+        "type": {
+          "enum": [
+            "issued",
+            "application",
+            "certificate",
+            "kept",
+            "reference"
+          ],
+          "description": "발급 / 작성·제출 / 교육·검사로 취득 / 보관 / 확인 자료"
+        },
+        "form": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "law_name": {
+                  "type": "string"
+                },
+                "form_no": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pdf_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "file_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "revision_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "법령 공식 서식. 파일 링크는 법제처 API 로 수집한 값만"
+        },
+        "status": {
+          "enum": [
+            "not_started",
+            "in_progress",
+            "obtained",
+            "submitted",
+            "needs_fix",
+            "not_applicable"
+          ]
+        },
+        "status_label": {
+          "type": "string"
         }
       },
       "required": [

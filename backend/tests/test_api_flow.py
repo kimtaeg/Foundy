@@ -105,8 +105,10 @@ def test_1_demo_dashboard(demo, client):
     store = demo("GET").json()
     assert store["answers"]["sells_alcohol"] is True and store["effective"]["business_type"] == "일반음식점"
     docs = demo("GET", "/documents").json()
-    assert docs["summary"] == {"total": 8, "finished": 1, "remaining": 7}
-    assert all(d["links"] for g in docs["groups"] for d in g["documents"])
+    # 서류 진행률은 서류 자신의 상태로 센다: 체크리스트 항목이 완료돼 있어도 서류를 준비하기 전이면 0이다
+    assert (docs["summary"]["total"], docs["summary"]["finished"], docs["summary"]["remaining"]) == (8, 0, 8)
+    assert dash["documents_progress"] == {"finished": 0, "total": 8}
+    assert all(d["links"] for g in docs["groups"] for d in g["documents"] if d["source_type"] == "template")  # 법령 규칙 서류는 링크 없이 받는 곳만 안내
 
 
 def test_2_choose_drop_alcohol(demo):

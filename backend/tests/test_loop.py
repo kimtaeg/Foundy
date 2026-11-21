@@ -100,14 +100,17 @@ def test_ad_claims_is_deferred_and_never_built():
 def test_checklist_is_foundy_set_dates_from_calc_and_employee_item():
     res, _ = run()
     items = {c.item_id: c for c in res.checklist}
-    assert list(items) == [f"c-0{n}" for n in range(1, 10)]
+    assert list(items)[:9] == [f"c-0{n}" for n in range(1, 10)]  # 기본 일정 9개 뒤에 법령 규칙이 만든 작업이 붙는다
+    # 40㎡ 가게라 다중이용업소(100㎡ 이상)는 만들지 않고, 직원이 있어 최저임금 확인이 붙는다
+    assert list(items)[9:] == ["o-facility", "o-minwage", "o-zoning"]
+    assert items["c-04"].task_type == "legal_obligation" and items["o-minwage"].source_type == "rule_engine"
     c04 = items["c-04"]
     assert c04.task == "일반음식점 영업신고에 필요한 서류 준비"  # 신고 업종은 규칙이 정한다
     assert c04.dday == -28 and str(c04.due_date) == "2027-02-02" and c04.group_label == "개업 4주 전"
     assert c04.contact.agency == "성동구청 위생과" and c04.report_item_ids == ["r-04"]
     assert items["c-09"].group_label == "개업 후" and items["c-09"].dday == 7
     none = run(store(answers={"sells_alcohol": True, "has_employees": False}))[0]
-    assert "c-08" not in {c.item_id for c in none.checklist}
+    assert not {"c-08", "o-minwage"} & {c.item_id for c in none.checklist}
 
 
 def test_events_and_done_summary():

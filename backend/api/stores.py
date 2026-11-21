@@ -15,6 +15,7 @@ from db.models import Alert, ChangeLog, ReportItem, Run, Store, User
 from db.session import get_db
 from rules.engine import impact_of
 from services import cards as card_service
+from services import documents as document_service
 from services import serializers
 from services import store_register
 from services import store_update
@@ -105,7 +106,11 @@ def get_store(store: Store = Depends(owned_store), db: Session = Depends(get_db)
 def dashboard(store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
     cards, items = card_service.load_state(db, store)
     alerts = list(db.scalars(select(Alert).where(Alert.store_id == store.id)))
-    return serializers.dashboard(get_pack(store), store, cards, items, alerts, latest_run(db, store))
+    pack = get_pack(store)
+    requirements = document_service.sync_requirements(db, pack, store, cards, items)  # 서류 진행률은 서류 상태로 센다
+    body = serializers.dashboard(pack, store, cards, items, alerts, latest_run(db, store), requirements)
+    db.commit()
+    return body
 
 
 @router.get("/report")

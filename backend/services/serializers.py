@@ -168,6 +168,9 @@ def report(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistI
 
 # ---------- 체크리스트·서류 ----------
 
+TASK_TYPES = ("legal_obligation", "conditional", "preparation")  # 필수 · 조건부 · 권장
+
+
 def checklist_item(pack: dict, item: ChecklistItem, eff: dict, links: dict[str, list[str]], today: date,
                    sigungu: str | None = None) -> dict:
     return {
@@ -185,6 +188,20 @@ def checklist_item(pack: dict, item: ChecklistItem, eff: dict, links: dict[str, 
         "evidence": evidence(item.evidence),
         "done": item.done,
         "auto_checked": item.auto_checked,
+        # 유형·출처·기한: due_date 와 dday 는 권장 준비일이고, 법령이 기한을 정한 경우만 statutory_deadline 이 있다
+        "task_type": item.task_type,
+        "source_type": item.source_type,
+        "priority": item.priority,
+        "deadline_type": item.deadline_type,
+        "recommended_due_date": item.due_date.isoformat(),
+        "statutory_deadline": item.statutory_deadline.isoformat() if item.statutory_deadline else None,
+        "statutory_basis": item.statutory_basis,
+        "reason": item.reason,
+        "law_basis": item.law_basis,
+        "sources": item.sources or [],
+        "added_by_ai": item.source_type in ("rule_engine", "legal_analysis"),
+        "review_needed": item.review_needed,
+        "review_reason": item.review_reason,
     }
 
 
@@ -203,6 +220,8 @@ def checklist(pack: dict, s: Store, cards: list[ReportItem], items: list[Checkli
     out = {
         "opening_date": s.opening_date.isoformat(),
         "progress": {"done": sum(1 for i in visible if i.done), "total": len(visible)},
+        "type_counts": {t: sum(1 for i in visible if i.task_type == t) for t in TASK_TYPES},
+        "review_needed": sum(1 for i in visible if i.review_needed),
         "groups": [g for g in groups if g["items"]],
         "hidden_categories": hidden,
     }
@@ -212,33 +231,16 @@ def checklist(pack: dict, s: Store, cards: list[ReportItem], items: list[Checkli
     return out
 
 
-def documents(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistItem]) -> dict:
-    eff = effective_store(pack, s, cards)
-    hidden_set = {h["category"] for h in hidden_categories(pack, eff)}
-    today = today_kst()
-    groups, total, finished = [], 0, 0
-    for i in sorted(items, key=lambda i: (i.due_date, i.item_key)):
-        docs = documents_for(pack, i.rule_key, (s.address_codes or {}).get("sigungu_cd"))
-        if i.category in hidden_set or not docs:
-            continue
-        total += len(docs)
-        finished += len(docs) if i.done else 0
-        groups.append({"item_id": i.item_key, "task": task_title(pack, i.task, eff, i.rule_key), "group_label": i.group_label,
-                       "due_date": i.due_date.isoformat(), "dday": dday(i.due_date, today), "agency": i.agency,
-                       "done": i.done, "documents": docs})
-    return {"summary": {"total": total, "finished": finished, "remaining": total - finished},
-            "groups": groups, "disclaimer": DOCUMENTS_DISCLAIMER}
-
-
-def documents_progress(pack: dict, items: list[ChecklistItem], hidden_set: set[str]) -> dict:
-    total = finished = 0
+def documents_progress(pack: dict, items: list[ChecklistItem], hidden_set: set[str], requirements: list | None = None) -> dict:
+    """서류함 진행률. 서류마다 자기 상태(발급·취득·제출)로 센다. 서류 요구사항이 아직 없으면 규칙 묶음 기준 개수만 센다."""
+    if requirements is not None:
+        from services.documents import progress
+        return progress(requirements)
+    total = 0
     for i in items:
-        if i.category in hidden_set:
-            continue
-        n = len(documents_for(pack, i.rule_key))
-        total += n
-        finished += n if i.done else 0
-    return {"finished": finished, "total": total}
+        if i.category not in hidden_set:
+            total += len(documents_for(pack, i.rule_key))
+    return {"finished": 0, "total": total}
 
 
 # ---------- 알림 ----------
@@ -250,7 +252,8 @@ def alert(a: Alert) -> dict:
 
 # ---------- 대시보드 ----------
 
-def dashboard(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistItem], alerts: list[Alert], run: Any) -> dict:
+def dashboard(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistItem], alerts: list[Alert], run: Any,
+              requirements: list | None = None) -> dict:
     eff = effective_store(pack, s, cards)
     hidden_set = {h["category"] for h in hidden_categories(pack, eff)}
     visible = [i for i in items if i.category not in hidden_set]
@@ -281,7 +284,7 @@ def dashboard(pack: dict, s: Store, cards: list[ReportItem], items: list[Checkli
         "today_todos": todos,
         "next_steps": next_steps(cards, items, hidden=hidden_set),
         "checklist_progress": {"done": sum(1 for i in visible if i.done), "total": len(visible)},
-        "documents_progress": documents_progress(pack, items, hidden_set),
+        "documents_progress": documents_progress(pack, items, hidden_set, requirements),
         "alerts": {"unread": sum(1 for a in alerts if not a.read),
                    "latest": [{"title": a.title, "type": a.type, "is_example": a.is_example} for a in sorted_alerts[:3]]},
         "menus": {"report": demo_or_ready, "checklist": demo_or_ready, "documents": demo_or_ready,

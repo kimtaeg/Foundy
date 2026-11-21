@@ -76,6 +76,9 @@ def _run_refresh(names: list[str]) -> None:
     collector = LawCollector()
     try:
         report = refresh(collector, names, make_embedder())
+        from law_rag.forms import collect_forms
+
+        collect_forms(collector, get_pack())  # 공식 서식 링크·개정도 같이 확인한다
     finally:
         collector.close()
     logger.info("법령 갱신: 변경 %d건, 실패 %d건, 알림 %d건", len(report.changed), len(report.failed), report.alerts_created)

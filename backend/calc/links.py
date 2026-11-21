@@ -19,6 +19,8 @@ def sync_links(
     auto: list[str] = []
     for c in checklist:
         cards = (pack.get("report_links") or {}).get(c.item_id)
+        if not cards and c.source_type in ("rule_engine", "legal_analysis"):
+            cards = [x["check_id"] for x in c.sources if x.get("type") == "inspection"]
         if cards and all(card in present for card in cards):
             all_done = all(card in done_checks for card in cards)
             if all_done and not c.done:

@@ -10,7 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from rules.applicability import APPLIES, NEEDS_CHECK, RuleOutcome, evaluate_rules
+from calc.obligation_tasks import apply_obligations
+from rules.applicability import APPLIES, NEEDS_CHECK, RuleOutcome, evaluate_rules, facts_of
 from rules.building_use import building_input
 from rules.engine import (
     active_checks, base_checklist, check_spec, contact_of, derive_business_type, documents_of,
@@ -255,6 +256,10 @@ def run_analysis(
             contact=Contact(**contact) if contact else None,
             documents=[Document(**doc) for doc in documents_of(pack, base["id"], sigungu)], source="rule",
             report_item_ids=[card_of[c] for c in links.get(base["id"], []) if c in card_of]))
+    if "checklist" in selected:
+        # 법령 분석 결과를 작업으로: 규칙 엔진이 적용·확인 필요로 정한 의무사항만 체크리스트에 합친다
+        checklist = apply_obligations(pack, obligations, checklist, items, card_of, calc, store.opening_date, sigungu,
+                                      facts_of(store, business_type))
     for idx, item in enumerate(items):
         task_id = check_spec(pack, item.check_id).get("checklist_task")
         if item.verdict == "ok" or not task_id or not any(c.item_id == task_id for c in checklist):

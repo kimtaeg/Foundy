@@ -22,6 +22,7 @@ from config import get_settings
 from db.models import Alert, ChecklistItem, CostLog, ReportItem, Run, Store
 from db.session import transaction
 from services.cards import current_verdict, decision_alert, is_pending_decision, load_state
+from services.documents import sync_requirements
 from services.effective import effective_store
 from services.links import sync_links
 from services.pack import get_pack
@@ -188,6 +189,14 @@ def save_failed_costs(run_id, cost):
                                 input_tokens=c.input_tokens, output_tokens=c.output_tokens, cost_krw=c.cost_krw))
 
 
+def obligation_spec(pack: dict, item_key: str) -> dict:
+    """법령 규칙(applicability_rules)의 task 중 id 가 item_key 인 것. 없으면 빈 값 (연락처 등을 지어내지 않는다)."""
+    for rule in pack.get("applicability_rules") or []:
+        if (rule.get("task") or {}).get("id") == item_key:
+            return rule["task"]
+    return {}
+
+
 def _save_obligations(session, store_id, run_id, outcomes) -> None:
     """규칙 엔진이 정한 법령 적용 결과를 가게별로 저장한다 (같은 규칙은 덮어쓴다)."""
     from db.models import LegalObligation
@@ -265,12 +274,31 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None):
                                          done=False, auto_checked=False)
                     session.add(task)
                     tasks.append(task)
-                spec = next(t for t in pack["checklist"] if t["id"] == item.item_id)
+                spec = next((t for t in pack["checklist"] if t["id"] == item.item_id), None) or obligation_spec(pack, item.item_id)
                 task.rule_key, task.contact_key = item.rule_key, spec.get("contact")
                 for key in ("task", "category", "group_label", "due_date", "agency"):
                     setattr(task, key, getattr(item, key))
                 task.offset_days = (item.due_date - snapshot.opening_date).days
                 task.evidence = [e.model_dump(mode="json") for e in item.evidence]
+                lost = bool(task.obligation_rule_id) and not item.obligation_rule_id  # 이전엔 의무였는데 이번엔 적용 안 됨
+                for key in ("task_type", "source_type", "priority", "deadline_type", "statutory_deadline",
+                            "statutory_basis", "reason", "obligation_rule_id"):
+                    setattr(task, key, getattr(item, key))
+                task.law_basis, task.sources = item.law_basis, item.sources
+                task.review_needed, task.review_reason = False, None  # 방금 새 법령으로 다시 분석했으니 재검토 표시는 푼다
+                if lost and task.done:  # 완료 기록은 남기고 사용자가 알 수 있게 표시한다
+                    task.review_needed, task.review_reason = True, "이 규정이 더 이상 적용되지 않는 것으로 다시 분석됐어요. 완료 기록은 남겨 둡니다."
+                    task.review_flagged_at = now_utc()
+            made = {i.item_id for i in result.checklist}
+            for task in list(tasks):  # 이전 분석에서 만든 법령 작업이 이번에는 만들어지지 않았다
+                if task.source_type not in ("rule_engine", "legal_analysis") or task.item_key in made:
+                    continue
+                if task.done:
+                    task.review_needed, task.review_flagged_at = True, now_utc()
+                    task.review_reason = "이 규정이 더 이상 적용되지 않는 것으로 다시 분석됐어요. 완료 기록은 남겨 둡니다."
+                else:
+                    session.delete(task)
+                    tasks.remove(task)
         store.business_type, store.onboarded_at = result.business_type, store.onboarded_at or now_utc()
         if getattr(result, "address_codes", None) and not store.address_codes:
             # 주소를 바꿔 비워 둔 코드를 새 주소의 실제 조회 결과로 채운다. 조회에 실패하면 비운 채로 둔다 (110 안내)
@@ -280,6 +308,7 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None):
                                 input_tokens=c.input_tokens, output_tokens=c.output_tokens, cost_krw=c.cost_krw))
         session.flush()
         sync_links(pack, cards, tasks, now_utc())
+        sync_requirements(session, pack, store, cards, tasks)  # 서류함: 법령 판정 결과로 필요한 서류를 맞춘다
         alerts = {a.dedupe_key: a for a in session.scalars(select(Alert).where(Alert.store_id == store.id))}
         for card in cards:
             key = f"dec-{card.item_key}"

@@ -136,7 +136,7 @@ def test_full_analysis_saved_and_readable(context):
     assert cards["r-07"]["check_id"] == "labor_contract"
     assert cards["r-05"]["verdict"] == "unknown"
     assert client.get(base + "/dashboard", headers=headers).json()["last_run"]["run_id"] == rid
-    assert client.get(base + "/checklist", headers=headers).json()["progress"] == {"done": 2, "total": 9}
+    assert client.get(base + "/checklist", headers=headers).json()["progress"] == {"done": 2, "total": 13}  # 기본 9개 + 법령 규칙 작업 4개(시설기준·소방 확인·최저임금·용도지역)
 
 
 @pytest.mark.parametrize("scope,expected", [
@@ -444,7 +444,7 @@ def test_first_analysis_creates_results_and_checklist(context):
     rid = start(context)
     assert wait(client, rid, headers)["status"] == "done"
     assert sorted(report(client, base, headers)[1]) == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-07"]
-    assert client.get(base + "/checklist", headers=headers).json()["progress"] == {"done": 0, "total": 9}
+    assert client.get(base + "/checklist", headers=headers).json()["progress"] == {"done": 0, "total": 13}
 
 
 def test_failed_run_preserves_incurred_costs(context, monkeypatch):

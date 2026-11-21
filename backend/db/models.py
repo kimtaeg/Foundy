@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, Text, text
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, Numeric, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -160,6 +160,20 @@ class ChecklistItem(Base):
     done: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     done_at: Mapped[datetime | None] = _ts(nullable=True)
     auto_checked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # 0005: 유형(필수·조건부·권장), 생성 출처, 법정 기한(due_date 는 권장 준비일), 근거·연결·재검토
+    task_type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'preparation'"))
+    source_type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'template'"))
+    priority: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'normal'"))
+    deadline_type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'before_opening'"))
+    statutory_deadline: Mapped[date | None] = mapped_column(Date)
+    statutory_basis: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text)
+    law_basis: Mapped[dict | None] = _jsonb(nullable=True)
+    obligation_rule_id: Mapped[str | None] = mapped_column(Text)
+    sources: Mapped[list] = _jsonb()
+    review_needed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    review_reason: Mapped[str | None] = mapped_column(Text)
+    review_flagged_at: Mapped[datetime | None] = _ts(nullable=True)
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
 
@@ -379,3 +393,72 @@ class LawChangeLog(Base):
     affected_rules: Mapped[list] = _jsonb()
     affected_stores: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     detected_at: Mapped[datetime] = _ts()
+
+
+# 서류함 (0006): 서류마다 자기 상태를 가진다. 체크리스트 완료와 별개다.
+class DocumentRequirement(Base):
+    __tablename__ = "document_requirements"
+
+    id: Mapped[uuid.UUID] = _id()
+    store_id: Mapped[uuid.UUID] = _store_fk()
+    doc_key: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    document_type: Mapped[str] = mapped_column(Text, nullable=False)
+    agency: Mapped[str | None] = mapped_column(Text)
+    guide: Mapped[str | None] = mapped_column(Text)
+    site_keys: Mapped[list] = _jsonb()
+    contact_key: Mapped[str | None] = mapped_column(Text)
+    form: Mapped[dict | None] = _jsonb(nullable=True)
+    applicability_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'applies'"))
+    source_type: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'template'"))
+    rule_id: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text)
+    law_basis: Mapped[dict | None] = _jsonb(nullable=True)
+    task_keys: Mapped[list] = _jsonb()
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'not_started'"))
+    status_updated_at: Mapped[datetime | None] = _ts(nullable=True)
+    note: Mapped[str | None] = mapped_column(Text)
+    review_needed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    review_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _ts()
+    updated_at: Mapped[datetime] = _ts()
+
+
+class UserDocument(Base):
+    __tablename__ = "user_documents"
+
+    id: Mapped[uuid.UUID] = _id()
+    requirement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_requirements.id", ondelete="CASCADE"), nullable=False)
+    file_name: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str] = mapped_column(Text, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    issued_on: Mapped[date | None] = mapped_column(Date)
+    uploaded_at: Mapped[datetime] = _ts()
+
+
+class DocumentHistory(Base):
+    __tablename__ = "document_history"
+
+    id: Mapped[uuid.UUID] = _id()
+    requirement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_requirements.id", ondelete="CASCADE"), nullable=False)
+    from_status: Mapped[str | None] = mapped_column(Text)
+    to_status: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _ts()
+
+
+class LawForm(Base):
+    __tablename__ = "law_forms"
+
+    id: Mapped[uuid.UUID] = _id()
+    law_name: Mapped[str] = mapped_column(Text, nullable=False)
+    form_no: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    file_path: Mapped[str | None] = mapped_column(Text)
+    pdf_path: Mapped[str | None] = mapped_column(Text)
+    promulgated_on: Mapped[date | None] = mapped_column(Date)
+    collected_at: Mapped[datetime] = _ts()
+    is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
