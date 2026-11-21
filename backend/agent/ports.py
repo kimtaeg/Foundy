@@ -7,7 +7,7 @@ tools 반환값의 data 형태 (필수 키 기준):
 - building(store).data = {"floor_uses": ["제1종근린생활시설", ...],   # 이 가게 층의 용도 목록
                           "violation": True | False | None}           # None = 응답에 위반건축물 표기가 없음
 - trademark(name).data = {"similar": [{"reg_no", "name", "class_code", "status", "url"}, ...]}
-- law(check_id).data   = {"articles": [{"law_name", "article", "text", "url"}, ...]}  # 해당 점검 항목의 근거 조문
+- law(check_id, store).data = {"articles": [{"law_name", "article", "text", "url"}, ...]}  # 해당 점검 항목의 근거 조문 (store 가 있으면 그 가게 조건으로 검색)
 - grants(store).data   = {"grants": [{"grant_id", "title", "source", "url", "deadline": "YYYY-MM-DD" | None,
                                        "text": "공고문 본문(대상·조건·지원 내용·제출 서류 등)"}, ...]}
 조회에 실패하면 ok=False로 돌려준다 (예외를 던지지 않는다). 캐시·모의 응답이면 from_cache/from_mock을 켠다.
@@ -42,6 +42,7 @@ class StoreInput(BaseModel):
     answers: dict = Field(default_factory=dict)
     menu_text: str | None = None
     owner_birth_year: int | None = None
+    area_sqm: float | None = None  # 영업장 면적(㎡). 입력하지 않았으면 None
 
 
 class Tools(Protocol):
@@ -49,7 +50,7 @@ class Tools(Protocol):
 
     def trademark(self, name: str) -> ToolResult: ...
 
-    def law(self, check_id: str) -> ToolResult: ...
+    def law(self, check_id: str, store: StoreInput | None = None) -> ToolResult: ...
 
     def grants(self, store: StoreInput) -> ToolResult: ...  # 정책 알림에서만 쓴다
 

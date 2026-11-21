@@ -71,7 +71,10 @@ def user(u: User) -> dict:
 
 def answers(src: Any) -> dict:
     get = (lambda k: src.get(k)) if isinstance(src, dict) else (lambda k: getattr(src, k))
-    return {k: get(k) for k in ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw")}
+    out = {k: get(k) for k in ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw", "does_delivery")}
+    area = get("area_sqm")
+    out["area_sqm"] = float(area) if area is not None else None
+    return out
 
 
 def store(pack: dict, s: Store, cards: list[ReportItem]) -> dict:

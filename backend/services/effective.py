@@ -6,7 +6,7 @@ from services.pack import business_type
 
 # 카드 효과로 바꿀 수 있는 가게 값 (DB 명세서 2-4 applied_effects 허용 키)
 EFFECT_KEYS = ("sells_alcohol", "name")
-STORE_KEYS = ("name", "sells_alcohol", "uses_terrace", "has_employees", "funds_krw")
+STORE_KEYS = ("name", "sells_alcohol", "uses_terrace", "has_employees", "funds_krw", "does_delivery", "area_sqm")
 
 
 def effective_store(pack: dict, store: Any, cards: list[Any]) -> dict:

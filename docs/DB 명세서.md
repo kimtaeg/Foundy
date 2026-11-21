@@ -11,6 +11,7 @@
 
 | 날짜 | 내용 |
 | --- | --- |
+| 2026-11-21 | 법령 RAG: `laws`·`law_articles`·`law_article_history`·`law_embeddings`(pgvector `vector(768)`)·`applicability_rules`·`legal_obligations`·`law_change_logs` 추가(11장), `stores.area_sqm`·`does_delivery` 추가, 마이그레이션 `0004_law_rag` |
 | 2026-11-21 | 아이디·비밀번호 로그인: `users.username`·`password_hash` 추가, `provider`에 `local` 허용, 마이그레이션 `0003_password_login` |
 | 2026-11-20 | 최초 작성. `foundy` 확정 기능 기준. **상권 분석(상권 테이블·캐시)과 메뉴 광고 문구(`menu_text`)는 마지막에 구현하므로 지금 테이블에 넣지 않고 10장에 추가 방법만 적는다.** 서류함은 규칙 묶음으로 만들어서 테이블이 없다 |
 | 2026-11-20 | 백엔드 착수 결정: `cost_logs`는 `run_id` NULL 허용 + `store_id` 직접 연결로 확정(2-10), `decision` 알림은 저장 방식(`dec-<item_key>`)으로 확정, 로그인은 예시 계정(`provider='demo'`)만 먼저 만들고 소셜 로그인은 Must 이후. 첫 마이그레이션 `backend/db/migrations/versions/0001_init.py` |
@@ -763,3 +764,23 @@ sync_links(store):
 - [ ] 관할 구청 전화번호는 규칙 묶음 `contacts.*.by_sigungu`에 사람이 확인한 지역만 채운다 (표에 없는 지역은 `fallback` 110). 시연 주소(성동구) 번호를 시연 전에 직접 확인한다.
 - [ ] 서류 받는 곳 링크(`sites`)를 배포 전에 사람이 확인한다.
 - [ ] 데모 시드 파일 `seoyeon.json`에 `report_items`·`checklist_items`·`alerts`가 이 스키마 형태로 들어 있는지. → 2026-11-20 확인: **아니다.** API 응답 형태(`item_id`, `answers` 객체, `offset_days` 없음, `alerts` 없음)라 `backend/db/seed_demo.py`가 변환한다. 점검 카드는 4개(`r-01` building_use, `r-02` building_violation, `r-03` alcohol_vs_type, `r-04` trademark_similar)로 2-4 표와 키·항목이 다르고 `permit_docs`·`labeling`이 없다. 체크리스트 키도 2-5 표와 다르다(`c-05`가 사업자등록, 지원사업 마감이 `g-*`가 아닌 `c-08`·`c-09`).
+
+
+---
+
+## 11. 법령 RAG 테이블 (`0004_law_rag`)
+
+구현·운영은 `법령_RAG_구현.md`. 확장 `vector`(pgvector)와 `pg_trgm`을 쓴다.
+
+| 테이블 | 내용 |
+| --- | --- |
+| `laws` | 수집한 현행 법령. `law_key`(법령ID) 하나당 1행, `mst`(법령일련번호)·`effective_date`·`body_hash`로 변경을 감지 |
+| `law_articles` | 조문·별표 원문. `UNIQUE(law_id, kind, number, branch)`, `label`(제37조·별표 1), `content_hash` |
+| `law_article_history` | 내용이 바뀌거나 삭제된 조문의 이전 내용 (법령명·조문·당시 `mst`) |
+| `law_embeddings` | 조문을 나눈 조각 `(article_id, chunk_no)`: 원문 `content`, `embedding vector(768)`(NULL이면 임베딩 전), HNSW 코사인 인덱스, `content` trigram 인덱스 |
+| `applicability_rules` | 규칙 묶음 적용 조건의 DB 사본: `conditions`·`exceptions` jsonb, `review_status`(draft·reviewed) |
+| `legal_obligations` | 가게별 법령 적용 결과 `UNIQUE(store_id, rule_id)`: `status`(applies·not_applicable·needs_check), `missing_inputs` |
+| `law_change_logs` | 법령 변경 기록: 바뀐 조문 목록, 영향받는 규칙, 영향받는 가게 수 |
+
+- `stores.area_sqm numeric(8,2) CHECK (> 0)`, `stores.does_delivery boolean` (NULL = 입력·답변 없음).
+- 법령 원문과 AI가 만든 설명은 분리한다: 원문은 이 테이블들에만 있고, 카드의 `evidence`는 원문 조각을 그대로 담는다.

@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     data_go_kr_key: str = Field(default="", repr=False)
     law_oc: str = Field(default="", repr=False)
     kipris_api_key: str = Field(default="", repr=False)
+    # 법령 RAG: 저장된 법령에서 조문을 검색해 점검 근거로 쓴다. 끄면 예전 방식(지정 조문 조회)만 쓴다.
+    law_rag_enabled: bool = True
+    # /internal/* (예약 작업이 부르는 내부 API) 보호 토큰. 비어 있으면 내부 API는 항상 거절한다
+    internal_token: str = Field(default="", repr=False)
     # 소셜 로그인 (인가 코드 방식). 비어 있는 제공자는 로그인을 시작할 수 없다 (503)
     kakao_client_id: str = Field(default="", repr=False)
     kakao_client_secret: str = Field(default="", repr=False)

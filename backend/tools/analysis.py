@@ -32,6 +32,7 @@ class AnalysisTools:
         self.use_mock = get_settings().use_mock if use_mock is None else use_mock
         self.providers = providers
         self.mocks = json.loads(MOCK.read_text(encoding="utf-8"))["tools"]
+        self._law_rag = None
 
     @staticmethod
     def _key(source, params):
@@ -96,7 +97,24 @@ class AnalysisTools:
     def trademark(self, name):
         return self._query("trademark", {"name": name}, lambda: self.providers.trademark(name))
 
-    def law(self, check_id):
+    def _rag(self):
+        """법령 RAG (저장된 조문 검색). 목 모드에서는 외부 호출(임베딩)을 하지 않고 키워드로만 찾는다."""
+        if self._law_rag is None:
+            from law_rag.embedder import make_embedder
+            from law_rag.service import LawRag
+
+            self._law_rag = LawRag(embedder=None if self.use_mock else make_embedder())
+        return self._law_rag
+
+    def law(self, check_id, store=None):
+        """저장된 법령에서 검색한 조문(RAG)을 우선 쓰고, 저장된 법령이 없으면 예전 방식(지정 조문 조회 → 캐시 → 모의)으로 대체한다."""
+        if get_settings().law_rag_enabled:
+            try:
+                found = self._rag().articles_for(check_id, store)
+            except Exception:
+                found = None
+            if found is not None:
+                return found
         references = getattr(self.providers, "references", {}).get(check_id)
         return self._query("law", {"check_id": check_id, "references": references},
                            lambda: self.providers.law(check_id), check_id)

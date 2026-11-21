@@ -40,9 +40,9 @@ class CountingTools(FakeTools):
         self.calls.append("trademark")
         return super().trademark(name)
 
-    def law(self, check_id):
+    def law(self, check_id, store=None):
         self.calls.append("law:" + check_id)
-        return super().law(check_id)
+        return super().law(check_id, store)
 
 
 @pytest.fixture(scope="module")

@@ -24,7 +24,7 @@ from services.pack import business_type, get_pack
 from services.timeutil import now_utc
 from tools.address import AddressResult, resolve_address
 
-ANSWER_KEYS = ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw")
+ANSWER_KEYS = ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw", "does_delivery", "area_sqm")
 ACTIVE = ("queued", "running")
 
 
@@ -65,7 +65,8 @@ def _answers(store: Store) -> dict:
 def _questions_for_registration(pack: dict, store: Store) -> list[dict]:
     snapshot = StoreInput(store_id=str(store.id), name=store.name, business_type_input=store.business_type_input,
                           address=store.address, address_detail=store.address_detail, opening_date=store.opening_date,
-                          answers=_answers(store), owner_birth_year=store.owner_birth_year)
+                          answers=_answers(store), owner_birth_year=store.owner_birth_year,
+                          area_sqm=float(store.area_sqm) if store.area_sqm is not None else None)
     llm = question_llm()
     try:
         questions = select_questions(llm, pack, snapshot) if llm is not None else pending_questions(pack, snapshot.answers)
@@ -98,8 +99,9 @@ def register(session: Session, user: User, values: dict[str, Any], *,
     store = Store(user_id=user.id, name=values["name"], business_type_input=values["business_type_input"],
                   address=values["address"], address_detail=values.get("address_detail") or "",
                   address_codes=codes, region=result.region, opening_date=values["opening_date"],
-                  owner_birth_year=values.get("owner_birth_year"),
-                  sells_alcohol=None, uses_terrace=None, has_employees=None, funds_krw=None, is_demo=False)
+                  owner_birth_year=values.get("owner_birth_year"), area_sqm=values.get("area_sqm"),
+                  sells_alcohol=None, uses_terrace=None, has_employees=None, funds_krw=None, does_delivery=None,
+                  is_demo=False)
     session.add(store)
     try:
         session.flush()

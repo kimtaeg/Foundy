@@ -53,7 +53,9 @@ def store_input(store: Store, cards: list[ReportItem]) -> StoreInput:
                       address=store.address, address_detail=store.address_detail,
                       address_codes=store.address_codes or {}, opening_date=store.opening_date,
                       owner_birth_year=store.owner_birth_year,
-                      answers={k: eff[k] for k in ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw")})
+                      area_sqm=float(eff["area_sqm"]) if eff["area_sqm"] is not None else None,
+                      answers={k: eff[k] for k in ("sells_alcohol", "uses_terrace", "has_employees", "funds_krw",
+                                                   "does_delivery")})
 
 
 def _fingerprint(value: StoreInput) -> str:
@@ -186,6 +188,25 @@ def save_failed_costs(run_id, cost):
                                 input_tokens=c.input_tokens, output_tokens=c.output_tokens, cost_krw=c.cost_krw))
 
 
+def _save_obligations(session, store_id, run_id, outcomes) -> None:
+    """규칙 엔진이 정한 법령 적용 결과를 가게별로 저장한다 (같은 규칙은 덮어쓴다)."""
+    from db.models import LegalObligation
+
+    existing = {o.rule_id: o for o in session.scalars(select(LegalObligation).where(LegalObligation.store_id == store_id))}
+    for outcome in outcomes:
+        row = existing.get(outcome.rule_id)
+        if row is None:
+            row = LegalObligation(store_id=store_id, rule_id=outcome.rule_id)
+            session.add(row)
+        row.run_id, row.title, row.status, row.reason = run_id, outcome.title, outcome.status, outcome.reason
+        row.missing_inputs, row.law_name = outcome.missing_inputs, outcome.law_name
+        row.article_label, row.required_action = outcome.article_label, outcome.required_action
+    keep = {o.rule_id for o in outcomes}
+    for rule_id, row in existing.items():
+        if outcomes and rule_id not in keep:
+            session.delete(row)
+
+
 def persist_result(run_id, snapshot, result, cost, scope, deadline=None):
     with transaction() as session:
         initial = session.get(Run, run_id)
@@ -222,6 +243,15 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None):
             card.evidence = [e.model_dump(mode="json") for e in item.evidence]
             spec = next(c for c in pack["checks"] if c["id"] == item.check_id)
             card.contact_key = spec.get("contact")
+        for check_id in getattr(result, "skipped_checks", []):
+            stale = by_check.get(check_id)
+            if stale is not None and not stale.chosen_option and stale.action_status == "pending":
+                session.delete(stale)  # 면적·직원 등이 바뀌어 더는 적용되지 않는 규정의 카드는 지운다
+                cards.remove(stale)
+                for alert in session.scalars(select(Alert).where(Alert.store_id == store.id,
+                                                                 Alert.dedupe_key == f"dec-{stale.item_key}")):
+                    session.delete(alert)
+        _save_obligations(session, store.id, row.id, getattr(result, "obligations", []))
         if "checklist" in scope:
             by_key = {t.item_key: t for t in tasks}
             for item in result.checklist:
