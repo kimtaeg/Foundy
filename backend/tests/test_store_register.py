@@ -125,12 +125,13 @@ def test_register_in_mock_mode_saves_without_codes_and_returns_questions(client,
     assert res.status_code == 201, res.text
     body = res.json()
     assert body["address_status"] == "unverified" and body["address_resolved"] is None
-    assert [q["id"] for q in body["questions"]] == ["sells_alcohol", "uses_terrace", "has_employees", "funds_krw"]
+    assert [q["id"] for q in body["questions"]] == ["sells_alcohol", "uses_terrace", "has_employees", "does_delivery", "funds_krw"]
     row = store_row(uid)
     assert row.address_codes is None and row.sells_alcohol is None and row.has_employees is None
     assert client.get("/api/me", headers=headers).json()["store_id"] == body["store_id"]
     store = client.get(f"/api/stores/{body['store_id']}", headers=headers).json()
-    assert store["answers"] == {"sells_alcohol": None, "uses_terrace": None, "has_employees": None, "funds_krw": None}
+    assert store["answers"] == {"sells_alcohol": None, "uses_terrace": None, "has_employees": None, "funds_krw": None,
+                               "does_delivery": None, "area_sqm": None}
     assert store["business_type"] is None and store["address_detail"] == "1층" and store["owner_birth_year"] == 1997
     assert store["is_demo"] is False and store["opening_date"] == "2027-05-01"
 
@@ -222,19 +223,22 @@ def test_answers_decide_business_type_and_keep_omitted_fields(client, users):
     assert [q["id"] for q in body["questions"]] == ["uses_terrace", "has_employees"]  # 선택 질문(자금)은 다시 묻지 않는다
 
     second = answers({"has_employees": False}).json()  # 명시한 false 는 저장, 생략한 값은 그대로
-    assert second["answers"] == {"sells_alcohol": True, "uses_terrace": None, "has_employees": False, "funds_krw": None}
+    assert second["answers"] == {"sells_alcohol": True, "uses_terrace": None, "has_employees": False, "funds_krw": None,
+                                "does_delivery": None, "area_sqm": None}
     assert [q["id"] for q in second["questions"]] == ["uses_terrace"]
 
     third = answers({"sells_alcohol": False, "uses_terrace": False, "funds_krw": 30000000}).json()
     assert third["business_type"] == "휴게음식점" and third["questions"] == []
     assert third["answers"] == {"sells_alcohol": False, "uses_terrace": False, "has_employees": False,
-                                "funds_krw": 30000000}
+                                "funds_krw": 30000000, "does_delivery": None, "area_sqm": None}
     assert answers({"funds_krw": None}).json()["answers"]["funds_krw"] is None  # 준비 자금만 비울 수 있다
 
     store = client.get(f"/api/stores/{sid}", headers=headers).json()
     row = store_row(uid)
     assert store["answers"] == {"sells_alcohol": row.sells_alcohol, "uses_terrace": row.uses_terrace,
-                                "has_employees": row.has_employees, "funds_krw": row.funds_krw}
+                                "has_employees": row.has_employees, "funds_krw": row.funds_krw,
+                                "does_delivery": row.does_delivery,
+                                "area_sqm": float(row.area_sqm) if row.area_sqm is not None else None}
     assert store["business_type"] == row.business_type == "휴게음식점"
 
 
@@ -288,7 +292,7 @@ def test_question_selection_failure_does_not_block_registration(client, users, m
 
     headers, _ = users()
     monkeypatch.setattr(store_register, "question_llm", lambda: Broken())
-    assert len(register(client, headers).json()["questions"]) == 4
+    assert len(register(client, headers).json()["questions"]) == 5
     headers, _ = users()
     monkeypatch.setattr(store_register, "question_llm", lambda: PicksNothing())
     assert [q["id"] for q in register(client, headers).json()["questions"]] == ["sells_alcohol"]  # 필수 질문은 항상
@@ -312,7 +316,7 @@ def test_new_account_flow_login_register_answer_analyze_report(client, users, mo
     assert client.post(f"/api/stores/{sid}/answers", headers=headers,
                        json={"answers": {"sells_alcohol": True, "uses_terrace": False, "has_employees": True}}).status_code == 200
     rid = client.post(f"/api/stores/{sid}/analyze", headers=headers, json={}).json()["run_id"]
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 20  # 원격 DB 왕복이 있어 5초로는 부족할 수 있다
     while time.monotonic() < deadline:
         state = client.get(f"/api/runs/{rid}", headers=headers).json()["status"]
         if state in ("done", "failed"):
