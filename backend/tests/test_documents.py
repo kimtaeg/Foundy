@@ -215,32 +215,15 @@ def test_not_applicable_leaves_the_denominator(account):
 
 
 @needs_db
-def test_file_upload_download_delete_and_status(account):
+def test_documents_have_no_file_upload_or_phone_contact(account):
+    """서류함은 서류 상태만 관리한다: 파일 올리기 API와 응답의 files·contact 는 없다."""
     client, base, headers = account
-    key = client.get(base, headers=headers).json()["requirements"][0]["doc_key"]
-    pdf = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
-    up = client.put(f"{base}/{key}/files", headers={**headers, "Content-Type": "application/pdf",
-                    "X-File-Name": "%EA%B1%B4%EC%B6%95%EB%AC%BC%EB%8C%80%EC%9E%A5.pdf", "X-Issued-On": "2027-02-10"}, content=pdf)
-    assert up.status_code == 201
-    view = up.json()
-    assert view["status"] == "obtained" and view["files"][0]["file_name"] == "건축물대장.pdf" and view["files"][0]["issued_on"] == "2027-02-10"
-    fid = view["files"][0]["file_id"]
-    got = client.get(f"{base}/{key}/files/{fid}", headers=headers)
-    assert got.status_code == 200 and got.content == pdf and got.headers["content-type"] == "application/pdf"
-    gone = client.delete(f"{base}/{key}/files/{fid}", headers=headers)
-    assert gone.status_code == 200 and gone.json()["files"] == []
-
-
-@needs_db
-@pytest.mark.parametrize("ctype,name,data,status", [
-    ("application/x-msdownload", "a.exe", b"MZ", 415), ("application/pdf", "a.png", b"%PDF", 415),
-    ("application/pdf", "a.pdf", b"", 400), ("application/pdf", "a.pdf", b"x" * (10 * 1024 * 1024 + 1), 413),
-])
-def test_bad_uploads_are_rejected(account, ctype, name, data, status):
-    client, base, headers = account
-    key = client.get(base, headers=headers).json()["requirements"][0]["doc_key"]
-    res = client.put(f"{base}/{key}/files", headers={**headers, "Content-Type": ctype, "X-File-Name": name}, content=data)
-    assert res.status_code == status
+    body = client.get(base, headers=headers).json()
+    key = body["requirements"][0]["doc_key"]
+    assert all("files" not in r and "contact" not in r for r in body["requirements"])
+    assert client.put(f"{base}/{key}/files", headers={**headers, "Content-Type": "application/pdf",
+                                                      "X-File-Name": "a.pdf"}, content=b"%PDF").status_code in (404, 405)
+    assert client.get(f"{base}/{key}/files/00000000-0000-0000-0000-000000000000", headers=headers).status_code in (404, 405)
 
 
 @needs_db
