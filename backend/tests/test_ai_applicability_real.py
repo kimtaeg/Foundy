@@ -87,3 +87,16 @@ def test_real_fire_small_ground_floor_is_not_forced(real):
     out = judge(real, area=40, floor="1층", employees=True)
     assert out["FIRE-DENSE-001"].status != APPLIES
     assert out["FOOD-REPORT-001"].status == APPLIES
+
+
+def test_merge_drops_invented_missing_inputs():
+    ai = RuleJudgment(rule_id="R", status="needs_check", reason="확인", missing_inputs=["kitchen_status", "area_sqm"])
+    assert _merge(_outcome(), ai, ARTS).missing_inputs == ["area_sqm"]
+
+
+def test_merge_accepts_ellipsis_quote_in_order_only():
+    arts = {"법 제1조": {"text": "영업장으로 사용하는 바닥면적의 합계가 100제곱미터 이상인 것"}}
+    ok = RuleJudgment(rule_id="R", status="applies", reason="r", cited=["법 제1조"], quote="영업장으로 사용하는 바닥면적... 합계가 100제곱미터 이상")
+    bad = RuleJudgment(rule_id="R", status="applies", reason="r", cited=["법 제1조"], quote="합계가 100제곱미터 이상... 영업장으로 사용하는 바닥면적")
+    assert _merge(_outcome(status=NEEDS_CHECK), ok, arts).status == APPLIES
+    assert _merge(_outcome(status=NEEDS_CHECK), bad, arts).status == NEEDS_CHECK

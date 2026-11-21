@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import replace
 from typing import Literal
 
@@ -17,7 +18,7 @@ from pydantic import BaseModel, Field
 from agent.llm import LLM, LLMError
 from agent.ports import ToolResult
 from agent.prompts import judge as prompt
-from rules.applicability import NEEDS_CHECK, RuleOutcome
+from rules.applicability import INPUT_LABELS, NEEDS_CHECK, RuleOutcome
 
 MAX_ARTICLE_CHARS = 2500
 AI_NOTE = "AI가 조문을 읽고 판단했어요. "
@@ -38,6 +39,21 @@ class ApplicabilityJudgment(BaseModel):
 
 def _squash(text: str) -> str:
     return "".join((text or "").split())
+
+
+def _quote_in(quote: str, text: str) -> bool:
+    """인용문이 원문에 있는지. AI가 길이를 줄이려 넣은 말줄임(…, ...)으로 나뉜 조각은 각각 원문에 순서대로 있어야 한다."""
+    pieces = [_squash(p) for p in re.split(r"…|\.{2,}|⋯", quote)]
+    haystack, pos = _squash(text), 0
+    pieces = [p for p in pieces if len(p) >= 6]  # 너무 짧은 조각은 근거가 되지 못한다
+    if not pieces:
+        return False
+    for piece in pieces:
+        found = haystack.find(piece, pos)
+        if found < 0:
+            return False
+        pos = found + len(piece)
+    return True
 
 
 def _articles(res: ToolResult | None) -> dict[str, dict]:
@@ -88,12 +104,12 @@ def refine_obligations(
 def _merge(outcome: RuleOutcome, ai: RuleJudgment, arts: dict[str, dict]) -> RuleOutcome:
     reason = AI_NOTE + ai.reason.strip()
     if ai.status == NEEDS_CHECK:
-        missing = [k for k in dict.fromkeys(ai.missing_inputs + outcome.missing_inputs)]
+        # 화면에 입력 항목으로 보여 줄 수 있는 키만 받는다 (AI가 지어낸 이름은 버린다)
+        missing = [k for k in dict.fromkeys(ai.missing_inputs + outcome.missing_inputs) if k in INPUT_LABELS]
         return replace(outcome, status=NEEDS_CHECK, reason=reason, missing_inputs=missing)
 
     # 단정(applies·not_applicable)은 인용한 문장이 원문에 실제로 있을 때만 받아들인다
-    quote = _squash(ai.quote)
-    verified = bool(quote) and any(k in arts and quote in _squash(arts[k].get("text") or "") for k in ai.cited)
+    verified = any(k in arts and _quote_in(ai.quote, arts[k].get("text") or "") for k in ai.cited)
     if not verified:
         return outcome
     return replace(outcome, status=ai.status, reason=reason, missing_inputs=[])
