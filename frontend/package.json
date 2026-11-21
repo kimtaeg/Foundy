@@ -18,7 +18,8 @@
     "docs:props": "node scripts/generate-component-contracts.mjs",
     "test:market:data": "node tests/market-calculations.mjs && node tests/foot-traffic-data.mjs && node tests/population-insights.mjs && node tests/population-scale.mjs && node tests/road-gradient.mjs",
     "test:market": "node tests/market-map.mjs",
-    "test:market:loading": "node tests/market-loading.mjs"
+    "test:market:loading": "node tests/market-loading.mjs",
+    "test:docs": "node tests/managed-docs.mjs"
   },
   "dependencies": {
     "next": "^16.0.0",

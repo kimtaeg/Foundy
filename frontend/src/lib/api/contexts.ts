@@ -4,18 +4,20 @@
  * 판정·자동 체크·다음 할 일은 백엔드가 계산한 값을 그대로 보여 준다 (프론트에서 다시 계산하지 않는다).
  */
 import { CATCOLOR, GROUPS } from "@/data/checklist";
-import { D, dday, diffDays, iso, realToday } from "@/lib/date";
+import { D, dday, dday as dday_, diffDays, iso, realToday } from "@/lib/date";
 import type {
   ApiBundle,
   ApiChecklistItem,
   ApiContact,
+  ApiDocumentRequirement,
   ApiEvidence,
+  ApiLawBasis,
   ApiOption,
   ApiReportItem,
 } from "@/lib/api/types";
-import type { ChecklistTask, CalendarEvent } from "@/types/checklist";
+import type { ChecklistTask, CalendarEvent, TaskLawBasis } from "@/types/checklist";
 import type { Contact } from "@/types/contact";
-import type { DocumentViewData } from "@/types/documents";
+import type { DocumentViewData, ManagedDocsData, ManagedDocument, ManagedDocumentSection } from "@/types/documents";
 import type { EvidenceItemData, NextStep, ReportAction, ReportCardData, ReportOption, ReportState } from "@/types/report";
 import type { NotificationSummary } from "@/types/notifications";
 import type { Store } from "@/types/store";
@@ -99,16 +101,104 @@ export function toEvidence(evidence: ApiEvidence): EvidenceItemData {
   };
 }
 
-function toTask(item: ApiChecklistItem): ChecklistTask {
+function toLawBasis(basis: ApiLawBasis | null | undefined): TaskLawBasis | null {
+  if (!basis?.law_name) return null;
+  return { label: [basis.law_name, basis.article].filter(Boolean).join(" "), url: basis.url ?? undefined };
+}
+
+/** 작업에 필요한 서류 이름. 서류함 응답이 있으면 그 기준(법령 규칙이 더한 서류 포함, 해당 없음 제외)이고, 없으면 체크리스트에 붙은 안내다. */
+function toTask(item: ApiChecklistItem, documentNames?: string[]): ChecklistTask {
   return {
     id: item.item_id,
     task: item.task,
     category: item.category,
     group: item.group_label,
     due: item.due_date,
-    documents: item.documents.map((d) => d.name).join(", "),
+    documents: (documentNames ?? item.documents.map((d) => d.name)).join(", "),
     agency: item.agency ?? item.contact?.agency ?? "",
     done: item.done,
+    kind: item.task_type,
+    aiAdded: item.added_by_ai ?? false,
+    reason: item.reason ?? null,
+    lawBasis: toLawBasis(item.law_basis),
+    statutory:
+      item.statutory_deadline && item.statutory_basis
+        ? { date: item.statutory_deadline, basis: item.statutory_basis }
+        : null,
+    review: item.review_needed ? (item.review_reason ?? "다시 확인이 필요해요") : null,
+  };
+}
+
+function fileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+}
+
+/** 서류함 응답 → 화면 데이터. 서류는 연결된 첫 작업의 카테고리로 묶고, 기한이 빠른 순으로 둔다. */
+function toManagedDocs(bundle: ApiBundle): ManagedDocsData | null {
+  const documents = bundle.documents;
+  if (!documents) return null;
+  const dday = (date: string | null) => (date ? dday_(date) : null);
+  const toDoc = (req: ApiDocumentRequirement): ManagedDocument => ({
+    id: req.doc_key,
+    name: req.name,
+    type: req.type,
+    typeLabel: req.type_label,
+    status: req.status,
+    statusLabel: req.status_label,
+    applicability: req.applicability,
+    aiAdded: req.added_by_ai,
+    reason: req.reason,
+    lawBasis: toLawBasis(req.law_basis),
+    agency: req.agency,
+    guide: req.guide,
+    sites: req.links.map((link) => ({ label: link.label, url: link.url })),
+    contact: req.contact ? `docreq:${req.doc_key}` : undefined,
+    form: req.form
+      ? {
+          title: req.form.title ?? req.name,
+          pdfUrl: req.form.pdf_url,
+          fileUrl: req.form.file_url,
+          revision: req.form.revision_date,
+        }
+      : null,
+    tasks: req.tasks.map((task) => ({ id: task.item_id, task: task.task, done: task.done })),
+    anchors: [],
+    due: req.due_date,
+    deadline: dday(req.due_date),
+    statutoryDate: req.statutory_deadline,
+    review: req.review_needed ? (req.review_reason ?? "다시 확인이 필요해요") : null,
+    files: req.files.map((file) => ({
+      id: file.file_id,
+      name: file.file_name,
+      size: fileSize(file.size_bytes),
+      uploadedAt: file.uploaded_at.slice(0, 10),
+      issuedOn: file.issued_on,
+    })),
+  });
+  const sections = new Map<string, ManagedDocumentSection>();
+  const claimed = new Set<string>();
+  const firstCategory = (req: ApiDocumentRequirement) => req.tasks.find((task) => task.category)?.category ?? "기타";
+  for (const req of documents.requirements) {
+    const title = firstCategory(req);
+    const section = sections.get(title) ?? { title, documents: [] };
+    const doc = toDoc(req);
+    doc.anchors = doc.tasks.map((task) => task.id).filter((id) => !claimed.has(id));
+    doc.anchors.forEach((id) => claimed.add(id));
+    section.documents.push(doc);
+    sections.set(title, section);
+  }
+  const summary = documents.summary;
+  return {
+    total: summary.total,
+    finished: summary.finished,
+    remaining: summary.remaining,
+    notApplicable: summary.not_applicable,
+    toObtain: summary.to_obtain,
+    toWrite: summary.to_write_or_keep,
+    reviewCount: summary.review_needed,
+    byStatus: summary.by_status,
+    sections: [...sections.values()],
   };
 }
 
@@ -118,7 +208,13 @@ export function createApiModel(bundle: ApiBundle) {
   const byId = new Map(items.map((item) => [item.item_id, item]));
   const cards = items.map(toCard);
   const checklistItems = bundle.checklist.groups.flatMap((group) => group.items);
-  const tasks = checklistItems.map(toTask).sort((a, b) => (a.due < b.due ? -1 : 1));
+  const documentNames = new Map<string, string[]>();
+  for (const req of bundle.documents?.requirements ?? []) {
+    if (req.applicability === "not_applicable" || req.status === "not_applicable") continue;
+    for (const task of req.tasks) documentNames.set(task.item_id, [...(documentNames.get(task.item_id) ?? []), req.name]);
+  }
+  const namesOf = (id: string) => (bundle.documents ? (documentNames.get(id) ?? []) : undefined);
+  const tasks = checklistItems.map((item) => toTask(item, namesOf(item.item_id))).sort((a, b) => (a.due < b.due ? -1 : 1));
   const taskById = new Map(checklistItems.map((item) => [item.item_id, item]));
 
   const RS: Record<string, ReportState> = Object.fromEntries(
@@ -196,18 +292,27 @@ export function createApiModel(bundle: ApiBundle) {
       sites: doc.links.map((link) => ({ label: link.label, url: link.url })),
       contact: doc.contact ? `doc:${taskId}:${doc.doc_id}` : undefined,
     }));
-  const docContacts: Record<string, Contact> = Object.fromEntries(
-    checklistItems.flatMap((item) =>
+  const docContacts: Record<string, Contact> = Object.fromEntries([
+    ...checklistItems.flatMap((item) =>
       item.documents.flatMap((doc) =>
-        doc.contact ? [[`doc:${item.item_id}:${doc.doc_id}`, toContact(doc.contact)]] : [],
+        doc.contact ? [[`doc:${item.item_id}:${doc.doc_id}`, toContact(doc.contact)] as const] : [],
       ),
     ),
-  );
+    ...(bundle.documents?.requirements ?? []).flatMap((req) =>
+      req.contact ? [[`docreq:${req.doc_key}`, toContact(req.contact)] as const] : [],
+    ),
+  ]);
+  const managedDocs = toManagedDocs(bundle);
   // 체크리스트 행은 기관 이름으로 연락처를 찾는다. 같은 기관이면 서버가 준 관할 연락처를 쓴다.
   const contactOfAgency = (agency: string) => {
     const contact = checklistItems.find((item) => (item.agency ?? item.contact?.agency) === agency && item.contact)?.contact;
     return contact ? { phone: contact.phone, ex: Boolean(contact.is_example) } : null;
   };
+
+  /** 서류함의 파일 이름 (내려받을 때 저장 이름으로 쓴다) */
+  const documentFileName = (docKey: string, fileId: string) =>
+    bundle.documents?.requirements.find((req) => req.doc_key === docKey)?.files.find((file) => file.file_id === fileId)
+      ?.file_name ?? "서류";
 
   const notifications: NotificationSummary[] = bundle.alerts.map((alert) => ({
     id: alert.alert_id,
@@ -236,6 +341,7 @@ export function createApiModel(bundle: ApiBundle) {
     taskCount,
     calEvents,
     documentsOf,
+    documentFileName,
     nextSteps,
     dashboard: {
       S,
@@ -272,7 +378,8 @@ export function createApiModel(bundle: ApiBundle) {
       allTasks,
       taskCount,
       GROUPS,
-      documentCount: (taskId: string) => taskById.get(taskId)?.documents.length ?? 0,
+      typeCounts: () => bundle.checklist.type_counts ?? null,
+      documentCount: (taskId: string) => namesOf(taskId)?.length ?? taskById.get(taskId)?.documents.length ?? 0,
       contactOfAgency,
       dday,
       S,
@@ -288,6 +395,7 @@ export function createApiModel(bundle: ApiBundle) {
       dday,
       CONTACT: { ...CONTACT, ...docContacts },
       documentsOf,
+      managedDocuments: () => managedDocs,
     },
   };
 }

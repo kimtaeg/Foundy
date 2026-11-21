@@ -24,7 +24,7 @@ export function ChecklistView({ onEvent, ...state }: ChecklistViewProps) {
           <ChecklistHeader />
           <Element className="nx-wrap">
             <Suspense fallback={<SectionSkeleton label="체크리스트 진행 현황" />}>
-              <ChecklistProgress opening={checklist.opening} {...checklist.count} />
+              <ChecklistProgress opening={checklist.opening} {...checklist.count} kinds={checklist.kinds} reviewCount={checklist.reviewCount} />
             </Suspense>
             <ChecklistViewTabs view={checklist.view} />
             {!checklist.employees && (

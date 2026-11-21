@@ -1,5 +1,5 @@
 /** 예시 계정 세션과 화면별 API 호출. */
-import { apiFetch } from "@/lib/api/client";
+import { apiDownload, apiFetch, apiUpload } from "@/lib/api/client";
 import type {
   ApiAlert,
   ApiBundle,
@@ -7,6 +7,9 @@ import type {
   ApiChecklist,
   ApiDashboard,
   ApiDemoSession,
+  ApiDocumentRequirement,
+  ApiDocuments,
+  ApiDocumentStatus,
   ApiObligation,
   ApiPatchResult,
   ApiRegisterBody,
@@ -70,7 +73,7 @@ export function createStoreApi(session: ApiSession) {
 
   return {
     async loadBundle(): Promise<ApiBundle> {
-      const [store, dashboard, report, checklist, alerts, obligations] = await Promise.all([
+      const [store, dashboard, report, checklist, alerts, obligations, documents] = await Promise.all([
         call<ApiStore>(""),
         call<ApiDashboard>("/dashboard"),
         call<ApiReport>("/report"),
@@ -78,8 +81,10 @@ export function createStoreApi(session: ApiSession) {
         call<{ items: ApiAlert[] }>("/alerts"),
         // 법령 적용 결과는 보조 정보라서 못 받아도 화면은 그린다
         call<{ items: ApiObligation[] }>("/obligations").catch(() => ({ items: [] as ApiObligation[] })),
+        // 서류함은 서류별 상태를 보여 주는 화면이라서, 못 받으면 체크리스트에 붙은 서류 안내로 대신 그린다
+        call<ApiDocuments>("/documents").catch(() => null),
       ]);
-      return { store, dashboard, report, checklist, alerts: alerts.items, obligations: obligations.items };
+      return { store, dashboard, report, checklist, alerts: alerts.items, obligations: obligations.items, documents };
     },
     choose: (itemId: string, optionId: string) =>
       call<{ applied_changes: string[]; added_checklist: string[]; run_id: string | null }>(
@@ -94,6 +99,19 @@ export function createStoreApi(session: ApiSession) {
       }),
     setTaskDone: (itemId: string, done: boolean) =>
       call<unknown>(`/checklist/${itemId}`, "PATCH", { done }),
+    /** 법령 개정 등으로 표시된 "다시 확인" 안내를 확인했다고 알린다 */
+    ackTaskReview: (itemId: string) => call<unknown>(`/checklist/${itemId}`, "PATCH", { review_ack: true }),
+    /** 서류 상태를 바꾼다 (발급·취득 완료와 제출 완료는 다른 상태다) */
+    setDocumentStatus: (docKey: string, status: ApiDocumentStatus) =>
+      call<ApiDocumentRequirement>(`/documents/${docKey}`, "PATCH", { status }),
+    ackDocumentReview: (docKey: string) =>
+      call<ApiDocumentRequirement>(`/documents/${docKey}`, "PATCH", { review_ack: true }),
+    uploadDocument: (docKey: string, file: File) =>
+      apiUpload<ApiDocumentRequirement>(`${base}/documents/${docKey}/files`, file, session.token),
+    deleteDocumentFile: (docKey: string, fileId: string) =>
+      call<ApiDocumentRequirement>(`/documents/${docKey}/files/${fileId}`, "DELETE"),
+    downloadDocumentFile: (docKey: string, fileId: string) =>
+      apiDownload(`${base}/documents/${docKey}/files/${fileId}`, session.token),
     readAlert: (alertId: string) => call<unknown>(`/alerts/${alertId}`, "PATCH", { read: true }),
     /** 가게 정보 수정. dryRun 이면 저장하지 않고 영향(impacts·reset_items)만 돌려준다. 미리보기와 저장은 같은 본문을 쓴다. */
     patchStore: (body: Record<string, unknown>, dryRun = false) =>
