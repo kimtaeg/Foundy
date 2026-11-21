@@ -72,6 +72,22 @@ def test_labeling_is_unknown_without_evidence():
     assert lb.consequence and lb.user_action.text == "서류함에서 표시 의무 안내 확인하기"
 
 
+def test_real_mode_does_not_judge_trademark_with_mock_fallback_list():
+    """실제 모드에서 KIPRIS 조회가 실패해 모의 목록으로 대체되면 그 목록으로 판정하지 않고 판단 불가로 둔다 (거짓 안심 방지)."""
+    class RealModeTools(FakeTools):
+        use_mock = False  # 실제 모드: trademark() 가 실패해 모의 목록(from_mock)을 돌려주는 상황
+
+    res, events = run(tools=RealModeTools(similar=SIMILAR))
+    tm = by_check(res)["trademark_similar"]
+    assert tm.verdict == "unknown" and tm.title == "상표가 겹치는지 확인할 수 없어요"
+    assert "KIPRIS" in tm.reason  # 직접 확인할 곳을 안내한다
+    step = next(d for e, d in events if e == "step" and d["step"] == "trademark" and d["status"] != "running")
+    assert step["status"] == "failed"
+    # 명시한 모의 모드(use_mock=True)는 그대로 모의 목록으로 판정한다 ("예시로 해보기"는 끝까지 돌아가야 한다)
+    mock_res, _ = run(tools=type("MockModeTools", (FakeTools,), {"use_mock": True})(similar=SIMILAR))
+    assert by_check(mock_res)["trademark_similar"].verdict == "low"
+
+
 def test_trademark_ai_item_never_high_and_has_rename_options():
     tm = by_check(run()[0])["trademark_similar"]
     assert tm.verdict == "low" and tm.decided_by == "ai"
