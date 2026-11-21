@@ -80,6 +80,7 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
           engine?.logout();
         } else {
           // 예시 계정: 새로 만든다.
+          engine?.showToast("로그인이 만료돼 예시 계정을 새로 열었어요. 방금 한 동작은 다시 해 주세요");
           clearSession();
           setAttempt((n) => n + 1);
         }
@@ -174,6 +175,11 @@ export function useApiBridge(engine: FoundyStore | null, uid: string | null) {
         await refresh();
         if (message) engine?.showToast(message);
       } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          // 로그인이 만료됐다 (서버를 다시 시작해 토큰이 무효가 된 경우 등). 조회 때와 같이 로그아웃·새 세션 처리를 한다.
+          await refresh();
+          return;
+        }
         engine?.showToast(errorMessage(error));
       }
     },
