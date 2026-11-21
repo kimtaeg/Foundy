@@ -78,7 +78,9 @@ export function createProfileWorkflow(context: ProfileWorkflowDependencies) {
       else if (x.k === "funds")
         context.S.funds =
           x.to == null || String(x.to).trim() === "" ? null : context.num(x.to);
-      else if (x.k === "alcohol" || x.k === "terrace" || x.k === "employees")
+      else if (x.k === "area")
+        context.S.area = x.to == null || String(x.to).trim() === "" ? null : context.num(x.to) || null;
+      else if (x.k === "alcohol" || x.k === "terrace" || x.k === "employees" || x.k === "delivery")
         context.S[x.k] = !!x.to;
       else context.S[x.k] = String(x.to == null ? "" : x.to).trim();
     });

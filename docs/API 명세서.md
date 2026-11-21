@@ -12,6 +12,7 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-17 | 최초 작성 |
+| 2026-11-21 (법령 RAG) | 가게 입력에 영업장 면적 `area_sqm`(㎡, 선택)과 배달 여부 `answers.does_delivery` 추가(`POST /stores`·`/answers`·`PATCH /stores`·`GET /stores`, `answers`에 `area_sqm`도 포함). 법령 적용 결과 `GET /stores/{id}/obligations`, 조문 검색 `GET /laws/search`, 법령 재수집·변경 감지 `POST /internal/laws/refresh` 추가. 점검 카드에 `fire_safety`(소방 안전시설)·`labor_contract`(근로계약·최저임금) 추가, `labeling`은 조문이 있으면 AI가 판정. 조문 근거는 저장된 법령에서 하이브리드 검색(키워드+벡터)으로 찾는다. 판정값 4가지는 그대로 |
 | 2026-11-21 (아이디·비밀번호 로그인) | `POST /auth/signup`(아이디·비밀번호·이름으로 가입 후 바로 로그인)·`POST /auth/login` 추가. 아이디는 영문 소문자·숫자 4~20자, 비밀번호는 8자 이상(72바이트 이하), 비밀번호는 bcrypt 해시로만 저장. 로그인 실패는 아이디 없음·비밀번호 오류 모두 같은 `401 INVALID_CREDENTIALS`, 같은 접속 IP에서 같은 아이디로 10분에 5번 틀리면 `429 RATE_LIMITED`(아이디 하나가 여러 IP에서 20번 틀려도 막는다), 한 IP의 회원가입 시도는 10분에 10번까지. 가입 시 중복 아이디는 `409 USERNAME_TAKEN`. `user`에 `username` 추가, `provider`에 `local` 추가. 소셜 로그인 엔드포인트는 그대로 두되 화면에서는 쓰지 않는다 |
 | 2026-11-21 (인증·가게 등록) | 소셜 로그인 시작 `POST /auth/social/start`(state 발급·`redirect_uri` 허용 목록·`browser_hash`) 추가, `POST /auth/social`은 `{provider, code, state, browser_nonce}`로 state와 브라우저 결속 대조(실패 시 제공자 호출 전 `400`, state 유지). 로그아웃은 요청에 쓴 토큰만 폐기(옛 토큰 호환). `PATCH /me` 규칙. 가게 등록 응답에 `address_status`, `422 ADDRESS_NOT_RESOLVED`의 `reason`·`candidates`, 업종은 규칙 묶음 `business_type_inputs`. 되묻기 답변은 `null` = 미답변, 부분 저장(생략 = 유지), 분석 중 `409`·첫 분석 후 `400`. 새 에러 코드 `INVALID_STATE`·`SOCIAL_LOGIN_FAILED`·`SOCIAL_PROVIDER_UNAVAILABLE`·`SOCIAL_LOGIN_UNAVAILABLE` |
 | 2026-11-21 (알림) | 알림 시점 이동 `as_of` 구현 반영: 기한 알림(미완료·기한 지남·14일 이내) 규칙, 개업 후 달력상 6개월 mock 알림, 예시 알림의 `alert_id`(`ex-`)·읽음·`created_at`·필터 규칙 |
@@ -60,6 +61,9 @@
 | GET | `/api/stores/{store_id}/checklist` | 개업 체크리스트 (시기별·카테고리별, 달력은 프론트가 같은 응답으로 그림) | 핵심 |
 | PATCH | `/api/stores/{store_id}/checklist/{item_id}` | 체크리스트 완료 체크 | 핵심 |
 | GET | `/api/stores/{store_id}/documents` | 서류함: 체크리스트 항목별 필요 서류와 받는 곳(공식 사이트 링크·찾는 방법·기관 전화번호). 읽기 전용 | 핵심 |
+| GET | `/api/stores/{store_id}/obligations` | 법령 적용 결과: 규칙 엔진이 가게 조건으로 정한 적용·확인 필요·미적용 목록과 근거 조문 | 핵심 |
+| GET | `/api/laws/search` | 저장된 법령에서 질문과 관련된 조문 검색 (키워드+벡터) | 핵심 |
+| POST | `/internal/laws/refresh` | 법령 재수집·변경 감지 (`INTERNAL_TOKEN`) | 핵심 |
 | GET | `/api/stores/{store_id}/alerts` | 알림 목록 (유형 탭, 액션, `as_of` 시점 이동) | 핵심 |
 | PATCH | `/api/stores/{store_id}/alerts/{alert_id}` | 알림 읽음 처리 | 핵심 |
 | POST | `/api/demo` | 예시로 해보기 / 예시 계정 (이서연 씨 사례) | 핵심 |
@@ -1181,3 +1185,44 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 | 상권 분석 `/stores/{id}/market` (지도, 상권 요약, 경쟁 강도, 가격 포지셔닝, 눈여겨볼 점, 현장 확인) | `GET /map`, `GET /market` | 마지막에 구현 (`/market`은 예시) |
 | 지원사업 `/stores/{id}/grants` (포스터 카드·필터·정렬·보기 전환) | `GET /grants` | 시간되면 |
 | 다시 조회 (내 가게의 버튼) | `POST /refresh` | 시간되면 |
+
+
+---
+
+## 법령 RAG [핵심]
+
+구현·운영은 `법령_RAG_구현.md`. 화면 판정값(위반 소지 높음·확인 권장·판단 불가·문제 없음)은 그대로이고, 아래 상태는 어떤 조문을 읽고 어떤 카드를 만들지 정하는 내부 값이다.
+
+### 입력 추가
+
+- `POST /stores`: `area_sqm`(숫자, 0 초과 100000 이하, 선택). 없으면 면적 기준이 있는 규정은 "확인 필요"가 된다.
+- `POST /stores/{id}/answers`·`PATCH /stores/{id}`의 `answers.does_delivery`(예/아니요, 비울 수 없음), `PATCH`의 `area_sqm`(`null`로 지울 수 있음). 응답 `answers`에는 `does_delivery`와 `area_sqm`이 들어간다.
+- 마이페이지 영향: `area_sqm`은 `law`·`checklist`를 다시 반영하고 건물 용도·소방 카드를 초기화, `does_delivery`는 `law`를 다시 반영하고 영업신고 카드를 초기화한다.
+
+### `GET /api/stores/{store_id}/obligations`
+
+```json
+{
+  "store_id": "8f2c...",
+  "summary": { "applies": 7, "needs_check": 1, "not_applicable": 1 },
+  "items": [
+    { "rule_id": "FIRE-DENSE-001", "title": "다중이용업소 안전시설", "status": "applies",
+      "reason": "이 가게 조건에 적용돼요.", "missing_inputs": [],
+      "law": { "law_name": "다중이용업소의 안전관리에 관한 특별법", "article": "제2조", "url": "https://www.law.go.kr/법령/…" },
+      "required_action": "관할 소방서에서 다중이용업 해당 여부와 안전시설 확인", "review_status": "draft" }
+  ],
+  "disclaimer": "법률 자문이 아니라 사전 점검입니다. …"
+}
+```
+
+- `status`: `applies`(적용) · `needs_check`(확인 필요: 입력이 없거나 예외 가능) · `not_applicable`(적용 대상 아님). 코드가 가게 정보로 정하며 AI가 정하지 않는다.
+- `missing_inputs`에 있는 값(면적 등)을 채우고 다시 분석하면 판정이 바뀐다. `review_status: draft`는 담당자가 조문·기준을 아직 확인하지 않았다는 뜻이다.
+- 분석(`/analyze`)을 한 번 이상 돌린 뒤에 채워진다.
+
+### `GET /api/laws/search?q=…&laws=…&limit=5`
+
+로그인 필요. 저장된 법령에서 조각을 키워드·벡터로 찾아 조문 단위로 합쳐 돌려준다. `articles[]`는 `{law_name, article, text, url, title, effective_date, score, retrieved_by}`이고 `retrieved_by`는 `keyword`·`vector`·`pinned`.
+
+### `POST /internal/laws/refresh`
+
+`Authorization: Bearer {INTERNAL_TOKEN}`(없거나 틀리면 `401`). 요청 `{ "names": ["식품위생법"] }`(생략하면 수집 대상 전체, 대상이 아닌 법령이면 `400`). `202 {"status":"queued","laws":N}`을 바로 돌려주고 백그라운드에서 법제처 재수집·임베딩·변경 감지를 한다. 바뀐 조문이 걸린 규칙이 적용·확인 필요인 가게에만 `type: change` 알림을 만든다 (같은 법령 버전은 한 번만).

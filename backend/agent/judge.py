@@ -187,6 +187,7 @@ def _static_permit(spec: dict, item_id: str, res: ToolResult, fallback: bool = F
 
 def judge_law_card(
     llm: LLM, store: StoreInput, business_type: str | None, res: ToolResult, spec: dict, item_id: str,
+    outcomes: list | None = None,
 ) -> ReportItem:
     """조회한 법령 조문을 AI가 읽고 이 가게의 영업신고 관련 할 일을 판정한다.
 
@@ -202,15 +203,22 @@ def judge_law_card(
     shown = [{"key": k, "law_name": a.get("law_name"), "article": a.get("article"),
               "text": (a.get("text") or "")[:MAX_ARTICLE_CHARS]} for k, a in by_key.items()]
     ctx_store = {"name": store.name, "sells_alcohol": store.answers.get("sells_alcohol"),
-                 "uses_terrace": store.answers.get("uses_terrace"), "has_employees": store.answers.get("has_employees")}
+                 "uses_terrace": store.answers.get("uses_terrace"), "has_employees": store.answers.get("has_employees"),
+                 "does_delivery": store.answers.get("does_delivery"), "area_sqm": store.area_sqm}
+    topic = spec.get("topic")
+    rules = [{"title": o.title, "status": o.status, "reason": o.reason} for o in (outcomes or [])]
     try:
-        j = llm.parse(
-            step="judge_permit_docs", tier="main", system=prompt.PERMIT_SYSTEM,
-            user=prompt.PERMIT_USER.format(
+        if topic:  # 영업신고 외의 법령 카드(원산지 표시·소방·근로계약 등)
+            system = prompt.OBLIGATION_SYSTEM.replace("{topic}", topic)
+            user = prompt.OBLIGATION_USER.format(
                 business_type=business_type or "[확인 필요]", store=json.dumps(ctx_store, ensure_ascii=False),
-                articles=json.dumps(shown, ensure_ascii=False)),
-            schema=PermitJudgment,
-        )
+                rules=json.dumps(rules, ensure_ascii=False), articles=json.dumps(shown, ensure_ascii=False))
+        else:
+            system = prompt.PERMIT_SYSTEM
+            user = prompt.PERMIT_USER.format(
+                business_type=business_type or "[확인 필요]", store=json.dumps(ctx_store, ensure_ascii=False),
+                articles=json.dumps(shown, ensure_ascii=False))
+        j = llm.parse(step="judge_law_card" if topic else "judge_permit_docs", tier="main", system=system, user=user, schema=PermitJudgment)
     except LLMError:
         return _static_permit(spec, item_id, res, fallback=True)
 
@@ -228,6 +236,11 @@ def judge_law_card(
         verdict, reason = "unknown", "AI가 인용한 조문 문장을 조회한 원문에서 확인하지 못했어요. 구청 위생과에 직접 확인해 보세요."
     if verdict == "ok" and not cited:
         verdict, reason = "unknown", "해당하지 않는다고 본 근거 조문을 특정하지 못했어요. 구청 위생과에 직접 확인해 보세요."
+    statuses = {o.status for o in (outcomes or [])}
+    if verdict == "ok" and "applies" in statuses:  # 코드가 적용된다고 정한 의무를 AI가 해당 없다고 하면 따르지 않는다
+        verdict, reason = "low", "이 가게에 적용되는 규정으로 확인됐어요. 아래 근거 조문을 확인해 보세요."
+    elif verdict == "ok" and statuses == {"needs_check"}:
+        verdict, reason = "unknown", "적용 여부를 판단할 정보가 부족해요. 관할 기관에 직접 확인해 보세요."
     evidence = [_law_evidence(res, by_key[k], " … ".join(quotes[k]) or None) for k in (verified or cited)]
     if verdict != "unknown" and j.required and verdict == "low":
         reason = f"{reason} 조문에 적힌 할 일: " + " / ".join(r.strip() for r in j.required[:4] if r.strip())

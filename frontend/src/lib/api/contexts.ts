@@ -156,6 +156,8 @@ export function createApiModel(bundle: ApiBundle) {
     terrace: Boolean(bundle.store.answers.uses_terrace),
     employees: Boolean(answers.has_employees),
     funds: bundle.store.answers.funds_krw,
+    area: bundle.store.answers.area_sqm ?? null,
+    delivery: Boolean(bundle.store.answers.does_delivery),
     mainManual: null,
     onboarded: true,
   };
@@ -252,6 +254,7 @@ export function createApiModel(bundle: ApiBundle) {
       allTasks,
     },
     report: {
+      obligations: bundle.obligations,
       S,
       buildCards: () => cards,
       ev: (card: ReportCardData) => card.base,

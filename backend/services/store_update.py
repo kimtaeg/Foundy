@@ -5,6 +5,7 @@
 """
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from datetime import date, timedelta
 from types import SimpleNamespace
 from typing import Any
@@ -33,11 +34,14 @@ API_FIELDS = {
     "uses_terrace": "answers.uses_terrace",
     "has_employees": "answers.has_employees",
     "funds_krw": "answers.funds_krw",
+    "does_delivery": "answers.does_delivery",
+    "area_sqm": "area_sqm",
 }
 LABELS = {
     "name": "가게 이름", "business_type_input": "업종", "address": "주소", "address_detail": "층·호수",
     "opening_date": "개업일", "owner_birth_year": "출생 연도", "sells_alcohol": "주류 판매",
     "uses_terrace": "테라스 사용", "has_employees": "직원 고용", "funds_krw": "준비 자금",
+    "does_delivery": "배달 영업", "area_sqm": "영업장 면적",
 }
 STEP_LABELS = {"building": "건축물대장", "law": "조문", "trademark": "상표", "checklist": "체크리스트"}
 KEEP_CHANGES = 10  # 변경 기록·change 알림은 최근 10건만 둔다
@@ -77,10 +81,14 @@ def _fmt(value: Any) -> str:
         return "없음"
     if isinstance(value, date):
         return value.isoformat()
+    if isinstance(value, Decimal):
+        return f"{value:g}㎡"
     return str(value)
 
 
 def _json(value: Any) -> Any:
+    if isinstance(value, Decimal):
+        return float(value)
     return value.isoformat() if isinstance(value, date) else value
 
 

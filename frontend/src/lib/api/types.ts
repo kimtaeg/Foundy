@@ -144,6 +144,8 @@ export interface ApiStore {
   answers: {
     sells_alcohol: boolean | null;
     uses_terrace: boolean | null;
+    does_delivery?: boolean | null;
+    area_sqm?: number | null;
     has_employees: boolean | null;
     funds_krw: number | null;
   };
@@ -160,6 +162,18 @@ export interface ApiDemoSession {
   store_id: string;
 }
 
+/** GET /api/stores/{id}/obligations: 규칙 엔진이 정한 법령 적용 결과 (화면 판정값과 별개) */
+export interface ApiObligation {
+  rule_id: string;
+  title: string;
+  status: "applies" | "needs_check" | "not_applicable";
+  reason: string;
+  missing_inputs: { key: string; label: string }[];
+  law: { law_name: string | null; article: string | null; url: string | null };
+  required_action: string | null;
+  review_status: "draft" | "reviewed";
+}
+
 /** 화면 하나를 그리는 데 필요한 응답 묶음. 변경 요청 뒤에는 통째로 다시 받는다. */
 export interface ApiBundle {
   store: ApiStore;
@@ -167,6 +181,7 @@ export interface ApiBundle {
   report: ApiReport;
   checklist: ApiChecklist;
   alerts: ApiAlert[];
+  obligations: ApiObligation[];
 }
 
 /** POST /api/auth/signup · /api/auth/login 응답 */

@@ -21,7 +21,7 @@ export function createProfileActions(
     },
     mpyn: (button) => {
       const field = button.dataset.k;
-      if (field !== "alcohol" && field !== "terrace" && field !== "employees")
+      if (field !== "alcohol" && field !== "terrace" && field !== "employees" && field !== "delivery")
         return;
       context.mpDraft()[field] = button.dataset.v === "1";
       return true;

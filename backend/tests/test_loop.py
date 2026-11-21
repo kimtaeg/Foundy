@@ -15,7 +15,7 @@ PACK = load_pack("cafe_restaurant")
 
 
 def llm(**over):
-    base = {**AI_JUDGES, "judge_trademark": TM_JUDGMENT, "judge_permit_docs": PERMIT_JUDGMENT,
+    base = {**AI_JUDGES, "judge_trademark": TM_JUDGMENT, "judge_permit_docs": PERMIT_JUDGMENT, "judge_law_card": PERMIT_JUDGMENT,
             "advise_building_use": BUILDING_ADVICE,
             "advise_trademark_similar": TM_ADVICE}
     base.update(over)
@@ -52,8 +52,9 @@ def test_s1_alcohol_on_type1_floor():
 def test_ids_unique_and_ordered_by_pack():
     res, _ = run()
     assert [i.check_id for i in res.items] == ["building_use", "trademark_similar", "building_violation",
-                                                 "permit_docs", "labeling"]
-    assert [i.item_id for i in res.items] == ["r-01", "r-02", "r-03", "r-04", "r-05"]  # foundy 카드 번호와 같다
+                                                 "permit_docs", "labeling", "labor_contract"]  # 직원이 있으니 근로계약 카드가 붙는다
+    # foundy 카드 번호는 규칙 묶음 순서가 정한다. 면적을 모르면 소방 카드(r-06)는 만들지 않고 번호만 건너뛴다.
+    assert [i.item_id for i in res.items] == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-07"]
 
 
 def test_permit_docs_card_is_judged_by_ai_from_law_text_with_verified_evidence():
@@ -209,3 +210,26 @@ def test_resolved_address_codes_only_from_real_lookup():
     assert resolved_address_codes(real.model_copy(update={"from_mock": True})) is None
     assert resolved_address_codes(real.model_copy(update={"ok": False})) is None
     assert resolved_address_codes(real.model_copy(update={"data": {"address_codes": {"sigungu_cd": "11200"}}})) is None
+
+
+def test_fire_safety_card_only_when_area_makes_it_apply():
+    """면적을 모르면 소방 카드를 만들지 않고, 100㎡ 이상 2층이면 만든다. 1층은 예외 확인이 필요해 카드가 생긴다."""
+    assert "fire_safety" not in by_check(run()[0])
+    big_second = by_check(run(store(area_sqm=120, address_detail="2층"))[0])
+    assert "fire_safety" in big_second and big_second["fire_safety"].decided_by == "ai"
+    big_first = by_check(run(store(area_sqm=120, address_detail="1층"))[0])
+    assert "fire_safety" in big_first  # 예외(1층) 가능성은 확인 필요 → 카드로 안내
+    assert "fire_safety" not in by_check(run(store(area_sqm=60, address_detail="2층"))[0])
+
+
+def test_labor_card_is_skipped_without_employees():
+    s = store(answers={"sells_alcohol": True, "uses_terrace": False, "has_employees": False})
+    assert "labor_contract" not in by_check(run(s)[0])
+
+
+def test_obligations_are_returned_with_status():
+    res, _ = run(store(area_sqm=120, address_detail="2층"))
+    status = {o.rule_id: o.status for o in res.obligations}
+    assert status["FIRE-DENSE-001"] == "applies"
+    assert status["FOOD-REPORT-001"] == "applies"
+    assert status["LABOR-CONTRACT-001"] == "applies"

@@ -44,6 +44,24 @@ PERMIT_USER = """\
 조회한 조문(articles): {articles}
 """
 
+OBLIGATION_SYSTEM = PRINCIPLES + """
+[할 일] 조회한 법령 조문을 읽고, 이 가게가 {topic}와 관련해 무엇을 해야 하는지 판정한다.
+- 판단 근거는 articles에 주어진 조문 원문뿐이다. 조문에 없는 의무, 서류, 기한, 금액, 면적 기준을 만들지 않는다.
+- rules는 코드가 가게 정보로 미리 정한 적용 여부(applies 적용, needs_check 확인 필요)다. 이 결과와 다른 결론을 내지 않는다.
+- verdict는 "low"(이 가게에 해당하는 의무가 조문에 있어서 확인·준비 권장), "ok"(해당하지 않음이 조문으로 분명함),
+  "unknown"(조문만으로는 판단할 수 없음) 중 하나다. 단정하는 "high"는 없다.
+- cited에는 근거로 쓴 조문을 "법령명 조문" 형식으로 articles의 값 그대로 옮긴다 (예: "근로기준법 제17조"). 없는 조문을 쓰지 않는다.
+- quotes에는 근거 문장을 조문 원문에서 그대로 복사한다 (요약·바꿔 쓰기 금지). verdict가 "low"이면 최소 하나가 필요하다.
+- required에는 조문에 적힌 할 일만 최대 4개, 쉬운 말 한 줄씩 쓴다. 조문에 없으면 빈 목록이다.
+- title은 결론 한 줄, reason은 이 가게 기준의 이유 한두 문장이다.
+"""
+
+OBLIGATION_USER = """\
+가게(신고 업종 {business_type}): {store}
+코드가 정한 적용 결과(rules): {rules}
+조회한 조문(articles): {articles}
+"""
+
 BUILDING_SYSTEM = PRINCIPLES + """
 [할 일] 건축물대장의 이 층 용도와 조회한 조문을 읽고, 가게가 신고하려는 업종(business_type)을 이 건물에서 할 수 있는지 판정한다.
 - 판단 근거는 floor_uses(건축물대장에 적힌 이 층의 용도)와 articles(조문 원문)뿐이다. 주어지지 않은 용도·조문·면적 기준을 만들지 않는다.

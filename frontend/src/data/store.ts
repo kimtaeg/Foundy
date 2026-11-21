@@ -14,6 +14,8 @@ export const EMPTY_STORE: Store = {
   terrace: false,
   employees: false,
   funds: null,
+  area: null,
+  delivery: false,
   mainManual: null,
   onboarded: false,
 };
@@ -31,6 +33,8 @@ export const DEMO_STORE: Store = {
   terrace: false,
   employees: true,
   funds: 40000000,
+  area: null,
+  delivery: false,
   mainManual: null,
   onboarded: true,
 };
@@ -47,6 +51,8 @@ export const MPF: any = {
   terrace: ["테라스·옥외 공간", ["law", "checklist"]],
   employees: ["직원 고용", ["checklist"]],
   funds: ["준비 자금", ["costs"]],
+  area: ["영업장 면적", ["law", "checklist"]],
+  delivery: ["배달 영업", ["law"]],
   location: ["자리 상태", []],
 };
 

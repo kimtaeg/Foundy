@@ -12,12 +12,14 @@ const TOP_LEVEL: Record<string, string> = {
   detail: "address_detail",
   opening: "opening_date",
   birth: "owner_birth_year",
+  area: "area_sqm",
 };
 const ANSWERS: Record<string, string> = {
   alcohol: "sells_alcohol",
   terrace: "uses_terrace",
   employees: "has_employees",
   funds: "funds_krw",
+  delivery: "does_delivery",
 };
 
 export const canPatchOnServer = (diff: ProfileChange[]) =>
@@ -31,6 +33,7 @@ export function toStorePatch(diff: ProfileChange[]): Record<string, unknown> {
   const answers: Record<string, unknown> = {};
   for (const { k, to } of diff) {
     if (k === "birth") body.owner_birth_year = numberOrNull(to);
+    else if (k === "area") body.area_sqm = numberOrNull(to);
     else if (k in TOP_LEVEL) body[TOP_LEVEL[k]] = text(to);
     else if (k === "funds") answers.funds_krw = numberOrNull(to);
     else if (k in ANSWERS) answers[ANSWERS[k]] = !!to;

@@ -6,8 +6,133 @@ pack: cafe_restaurant
 # DB CHECK(DB 명세서 2-2)와 같아야 한다.
 business_type_inputs: [카페, 음식점]
 
-# 점검별 법령명·조/별표 번호는 아직 미확정이다. 확정 후 AI 연동 가이드의 law_references 형식으로 채운다.
+# 예전 방식(점검 항목별로 조문 번호를 하나씩 지정해 법제처에서 바로 조회). 법령 RAG(law_rag)가 켜져 있으면 쓰지 않는다.
 law_references: {}
+
+# ---------------------------------------------------------------------------------------------
+# 법령 RAG (설계: docs/요식업_창업_규제분석_설계.md, 구현: docs/법령_RAG_구현.md). 법령 원문은 DB에 조문 단위로 저장하고, 조각을 임베딩(pgvector)해 검색한다.
+# 법령명은 법제처 현행 법령명 한글과 정확히 같아야 한다 (띄어쓰기·가운뎃점 포함).
+# ---------------------------------------------------------------------------------------------
+law_sources:
+  - 식품위생법
+  - 식품위생법 시행령
+  - 식품위생법 시행규칙
+  - 건축법
+  - 건축법 시행령
+  - 농수산물의 원산지 표시 등에 관한 법률
+  - 식품 등의 표시·광고에 관한 법률
+  - 축산물 위생관리법
+  - 근로기준법
+  - 최저임금법
+  - 국토의 계획 및 이용에 관한 법률
+  - 폐기물관리법
+  - 하수도법
+  - 다중이용업소의 안전관리에 관한 특별법
+  - 다중이용업소의 안전관리에 관한 특별법 시행령
+
+# 점검 항목별 검색 설정. laws = 검색 범위(메타데이터 필터), keywords = 키워드 검색어, query = 벡터 검색 문장({business_type} 등은 가게 값),
+# pins = 검색과 상관없이 항상 넣는 조문, top_k = 검색 결과 조각 수. 읽을 조문이 없으면 점검은 판단 불가로 둔다.
+law_rag:
+  checks:
+    building_use:
+      laws: [건축법 시행령, 식품위생법 시행령, 건축법]
+      query: "{business_type} 영업을 하는 건물의 용도와 바닥면적 기준 근린생활시설 휴게음식점 일반음식점"
+      keywords: [휴게음식점, 일반음식점, 제과점, 근린생활시설]
+      top_k: 6
+    permit_docs:
+      laws: [식품위생법, 식품위생법 시행령, 식품위생법 시행규칙]
+      query: "{business_type} 영업신고 서류 위생교육 건강진단 시설기준"
+      keywords: [영업신고, 위생교육, 건강진단, 시설기준]
+      pins:
+        - { law_name: 식품위생법, label: 제37조 }
+      top_k: 6
+    labeling:
+      laws: [농수산물의 원산지 표시 등에 관한 법률, 식품 등의 표시·광고에 관한 법률, 식품위생법]
+      query: "음식점 원산지 표시 의무 메뉴판 게시"
+      keywords: [원산지, 표시]
+      top_k: 5
+    fire_safety:
+      laws: [다중이용업소의 안전관리에 관한 특별법, 다중이용업소의 안전관리에 관한 특별법 시행령]
+      query: "휴게음식점 일반음식점 영업장 바닥면적 다중이용업 안전시설 완비증명서"
+      keywords: [휴게음식점, 일반음식점, 영업장, 바닥면적, 안전시설]
+      top_k: 5
+    labor_contract:
+      laws: [근로기준법, 최저임금법]
+      query: "직원 근로계약서 근로조건 명시 최저임금 서면 교부"
+      keywords: [근로계약, 근로조건, 서면, 최저임금]
+      top_k: 5
+
+# 적용 조건 규칙. 코드가 가게 정보로 판정한다 (applies 적용 · not_applicable 미적용 · needs_check 확인 필요).
+# conditions 키: business_type · area_sqm · floor · has_employees · sells_alcohol · uses_terrace · does_delivery
+#   값이 없으면(null) 확인 필요. 조건은 목록(해당 값 중 하나), {min,max}, {in,not_in}, true/false 로 쓴다.
+# exceptions: when 조건에 해당하면 확인 필요로 바꾸고 note 를 보여 준다.
+# review_status: draft 는 담당자가 조문과 기준을 아직 확인하지 않았다는 뜻이다. 확정하면 reviewed 로 바꾼다.
+applicability_rules:
+  - rule_id: FOOD-REPORT-001
+    title: 영업신고 (휴게음식점·일반음식점)
+    check_id: permit_docs
+    law: { law_name: 식품위생법, label: 제37조 }
+    conditions: { business_type: [휴게음식점, 일반음식점] }
+    required_action: 관할 구청 위생과에 영업신고
+    review_status: draft
+  - rule_id: FOOD-FACILITY-001
+    title: 영업 시설기준 충족
+    check_id: permit_docs
+    law: { law_name: 식품위생법, label: 제36조 }
+    conditions: { business_type: [휴게음식점, 일반음식점] }
+    required_action: 조리장·급수·화장실 등 시설기준 확인
+    review_status: draft
+  - rule_id: FOOD-HEALTH-001
+    title: 영업자·종사자 건강진단
+    check_id: permit_docs
+    law: { law_name: 식품위생법, label: 제40조 }
+    conditions: { business_type: [휴게음식점, 일반음식점] }
+    required_action: 보건소 등에서 건강진단 받기
+    review_status: draft
+  - rule_id: FOOD-EDU-001
+    title: 영업 전 위생교육
+    check_id: permit_docs
+    law: { law_name: 식품위생법, label: 제41조 }
+    conditions: { business_type: [휴게음식점, 일반음식점] }
+    required_action: 영업 시작 전 위생교육 이수
+    review_status: draft
+  - rule_id: ORIGIN-001
+    title: 음식점 원산지 표시
+    check_id: labeling
+    law: { law_name: 농수산물의 원산지 표시 등에 관한 법률, label: 제5조 }
+    conditions: { business_type: [휴게음식점, 일반음식점] }
+    required_action: 원산지 표시 대상과 표시 방법 확인
+    review_status: draft
+  - rule_id: FIRE-DENSE-001
+    title: 다중이용업소 안전시설
+    check_id: fire_safety
+    law: { law_name: 다중이용업소의 안전관리에 관한 특별법, label: 제2조 }
+    conditions: { business_type: [휴게음식점, 일반음식점], area_sqm: { min: 100 } }
+    exceptions:
+      - when: { floor: { in: [1] } }
+        note: 1층(지상과 바로 닿는 층)은 다중이용업 대상에서 빠질 수 있어요. 소방서에 확인해 보세요.
+    required_action: 관할 소방서에서 다중이용업 해당 여부와 안전시설 확인
+    review_status: draft
+  - rule_id: LABOR-CONTRACT-001
+    title: 근로계약서 작성·교부
+    check_id: labor_contract
+    law: { law_name: 근로기준법, label: 제17조 }
+    conditions: { has_employees: true }
+    required_action: 직원과 근로계약서를 서면으로 쓰고 한 부씩 주기
+    review_status: draft
+  - rule_id: LABOR-MINWAGE-001
+    title: 최저임금 준수
+    check_id: labor_contract
+    law: { law_name: 최저임금법, label: 제6조 }
+    conditions: { has_employees: true }
+    required_action: 직원 시급이 최저임금 이상인지 확인
+    review_status: draft
+  - rule_id: ZONING-001
+    title: 용도지역별 행위 제한
+    law: { law_name: 국토의 계획 및 이용에 관한 법률, label: 제76조 }
+    conditions: { business_type: [휴게음식점, 일반음식점] }
+    required_action: 건축물대장의 용도지역에서 음식점 영업이 제한되는지 구청에 확인
+    review_status: draft
 
 # 되물을 후보. AI가 이 중에서 지금 필요한 것만 고른다.
 ask:
@@ -24,6 +149,11 @@ ask:
     text: 직원을 고용하시나요?
     type: boolean
     why: 직원이 있으면 근로계약·4대보험 일정이 생깁니다.
+  - id: does_delivery
+    text: 배달도 하시나요?
+    type: boolean
+    optional: true   # 답하지 않아도 분석을 시작한다 (모르면 배달 관련 확인 필요로 둔다)
+    why: 배달 영업은 포장·위생 관련 확인이 더 필요할 수 있어요.
   - id: funds_krw
     text: 준비된 자금은 얼마인가요?
     type: number
@@ -107,14 +237,48 @@ checks:
       - "위생교육은 언제, 어디서 받아야 하나요?"
       - "건강진단결과서는 어느 시점 것까지 인정되나요?"
       - "신고 후 영업신고증을 받기까지 얼마나 걸리나요? (구청 안내 기준)"
-  - id: labeling             # 실제 점검 근거가 없으므로 안내 항목도 unknown으로 둔다
+  - id: labeling             # 원산지·표시 의무: 조회한 조문을 AI가 읽고 판정한다 (읽을 조문이나 AI가 없으면 안내 카드 = 판단 불가)
     stage: 운영 중
-    decided_by: rule
+    decided_by: ai
+    law_card: true
+    topic: 음식점 원산지·표시 의무
+    rule_ids: [ORIGIN-001]
     remedies: []
+    checklist_task: c-09
     title: "기본 표시 의무 점검 항목"
     reason: "운영 단계의 일반적인 점검 항목입니다. 실제 점검 결과가 아닙니다."
     consequence: "표시 의무를 충족했는지 아직 확인할 수 없어요."
     action: { type: visit, text: 서류함에서 표시 의무 안내 확인하기 }
+  - id: fire_safety          # 다중이용업소 안전시설: 규칙(면적·층)이 적용될 때만 카드를 만든다
+    stage: 개업 전
+    decided_by: ai
+    law_card: true
+    topic: 다중이용업소 안전시설·소방
+    rule_ids: [FIRE-DENSE-001]
+    remedies: []
+    title: "소방 안전시설 기준을 확인해야 할 수 있어요"
+    reason: "영업장 면적과 층에 따라 다중이용업소로 분류되면 안전시설과 완비증명서가 필요할 수 있어요."
+    consequence: "다중이용업소에 해당하는데 안전시설을 갖추지 않으면 영업신고나 영업 중 점검에서 문제가 될 수 있어요."
+    action: { type: send, text: 관할 소방서에 다중이용업 해당 여부 문의하기, est_minutes: 3 }
+    call_questions:
+      - "영업장 면적과 층 기준으로 다중이용업소에 해당하나요?"
+      - "해당한다면 어떤 안전시설을 갖춰야 하고, 완비증명서는 언제 받아야 하나요?"
+  - id: labor_contract       # 근로계약·최저임금: 직원을 고용할 때만 카드를 만든다
+    stage: 개업 전
+    decided_by: ai
+    law_card: true
+    topic: 직원 근로계약·최저임금
+    rule_ids: [LABOR-CONTRACT-001, LABOR-MINWAGE-001]
+    remedies: []
+    checklist_task: c-08
+    contact: labor
+    title: "직원 근로계약서와 최저임금을 확인해야 해요"
+    reason: "직원을 고용하면 근로계약서를 서면으로 쓰고 최저임금 이상을 지급해야 해요."
+    consequence: "근로계약서가 없거나 최저임금에 못 미치면 과태료나 체불 문제가 생길 수 있어요."
+    action: { type: sign, text: 근로계약서 양식으로 직원과 계약서 작성하기, est_minutes: 20 }
+    call_questions:
+      - "직원 채용 때 근로계약서에 꼭 들어가야 하는 내용이 무엇인가요?"
+      - "올해 최저임금과 주휴수당 기준을 알려 주세요."
   - id: ad_claims            # 메뉴·광고 문구 점검: 마지막에 구현 (입력란이 생길 때 deferred를 지운다)
     deferred: true
     stage: 개업 전
@@ -145,6 +309,8 @@ report_links:
   c-01: [building_use, building_violation]
   c-02: [trademark_similar]
   c-04: [permit_docs]
+  c-08: [labor_contract]
+  c-09: [labeling]
   x-0: [building_use]
   x-1: [building_use]
   x-2: [trademark_similar]
@@ -159,6 +325,8 @@ impacts:
   business_type_input: { run: [building, law, checklist], reset: [building_use, building_violation, permit_docs] }
   sells_alcohol: { run: [building, law, checklist], reset: [building_use, building_violation, permit_docs] }
   uses_terrace: { run: [law, checklist], reset: [building_use, permit_docs] }
+  area_sqm: { run: [law, checklist], reset: [building_use, fire_safety] }
+  does_delivery: { run: [law], reset: [permit_docs] }
   has_employees: { run: [checklist], reset: [] }
   owner_birth_year: { run: [grants], reset: [] }
   funds_krw: { run: [costs], reset: [] }

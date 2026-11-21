@@ -43,7 +43,7 @@ class FakeTools:
             return ToolResult(ok=False, source="KIPRIS", error="down")
         return ToolResult(ok=True, source="KIPRIS", from_mock=True, data={"similar": self.similar})
 
-    def law(self, check_id):
+    def law(self, check_id, store=None):
         if not self.law_ok:
             return ToolResult(ok=False, source="국가법령정보", error="ip blocked")
         if check_id == "labeling":
@@ -133,8 +133,8 @@ def scenario_llm(canned: dict) -> "FakeLLM":
     from agent.llm import FakeLLM
 
     models = {"judge_trademark": TrademarkJudgment, "judge_ad_claims": AdJudgment, "ask": QuestionPick,
-              "judge_permit_docs": PermitJudgment}
-    out = {"judge_permit_docs": PERMIT_JUDGMENT, **AI_JUDGES}  # 시나리오 JSON에 없으면 기본 판정을 쓴다
+              "judge_permit_docs": PermitJudgment, "judge_law_card": PermitJudgment}
+    out = {"judge_permit_docs": PERMIT_JUDGMENT, "judge_law_card": PERMIT_JUDGMENT, **AI_JUDGES}  # 시나리오 JSON에 없으면 기본 판정을 쓴다
     for step, body in canned.items():
         out[step] = (models.get(step) or AdviceDraft).model_validate(body)
     return FakeLLM(out)
@@ -155,6 +155,6 @@ class JsonTools:
     def grants(self, store):
         return ToolResult(**self.spec["grants"])
 
-    def law(self, check_id):
+    def law(self, check_id, store=None):
         r = self.spec.get("law", {}).get(check_id)
         return ToolResult(**r) if r else ToolResult(ok=False, source="국가법령정보", error="mock 없음")

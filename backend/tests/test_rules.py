@@ -65,7 +65,8 @@ def test_every_check_has_remedies_key():
         assert "remedies" in c and "drafts" not in c
     assert "find_other_site" in check_spec(PACK, "building_use")["remedies"]
     assert [c["id"] for c in active_checks(PACK)] == [
-        "building_use", "trademark_similar", "building_violation", "permit_docs", "labeling"]  # ad_claims는 deferred
+        "building_use", "trademark_similar", "building_violation", "permit_docs", "labeling",
+            "fire_safety", "labor_contract"]  # ad_claims는 deferred
 
 
 def test_checklist_is_foundy_set_with_fixed_groups_and_offsets():

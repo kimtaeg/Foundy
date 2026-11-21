@@ -6,6 +6,7 @@ import type {
   ApiChecklist,
   ApiDashboard,
   ApiDemoSession,
+  ApiObligation,
   ApiPatchResult,
   ApiRegisterBody,
   ApiReport,
@@ -68,14 +69,16 @@ export function createStoreApi(session: ApiSession) {
 
   return {
     async loadBundle(): Promise<ApiBundle> {
-      const [store, dashboard, report, checklist, alerts] = await Promise.all([
+      const [store, dashboard, report, checklist, alerts, obligations] = await Promise.all([
         call<ApiStore>(""),
         call<ApiDashboard>("/dashboard"),
         call<ApiReport>("/report"),
         call<ApiChecklist>("/checklist"),
         call<{ items: ApiAlert[] }>("/alerts"),
+        // 법령 적용 결과는 보조 정보라서 못 받아도 화면은 그린다
+        call<{ items: ApiObligation[] }>("/obligations").catch(() => ({ items: [] as ApiObligation[] })),
       ]);
-      return { store, dashboard, report, checklist, alerts: alerts.items };
+      return { store, dashboard, report, checklist, alerts: alerts.items, obligations: obligations.items };
     },
     choose: (itemId: string, optionId: string) =>
       call<{ applied_changes: string[]; added_checklist: string[]; run_id: string | null }>(

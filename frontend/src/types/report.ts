@@ -1,5 +1,15 @@
 import type { Contact } from "./contact";
 export type Verdict = "high" | "low" | "unknown" | "ok";
+export interface ObligationData {
+  rule_id: string;
+  title: string;
+  status: "applies" | "needs_check" | "not_applicable";
+  reason: string;
+  missing_inputs: { key: string; label: string }[];
+  law: { law_name: string | null; article: string | null; url: string | null };
+  required_action: string | null;
+  review_status: "draft" | "reviewed";
+}
 export interface ReportAction {
   type: string;
   text: string;
@@ -61,6 +71,7 @@ export interface ReportCardModel {
   statusLabel: string;
 }
 export interface ReportViewData {
+  obligations: ObligationData[];
   locked: boolean;
   filter: string;
   counts: Record<Verdict, number>;
@@ -68,6 +79,8 @@ export interface ReportViewData {
   cards: ReportCardModel[];
 }
 export interface ReportContext {
+  /** 서버가 정한 법령 적용 결과 (서버 데이터로 그릴 때만) */
+  obligations?: ObligationData[];
   S: { location: string };
   reportFilter: string;
   buildCards(): ReportCardData[];

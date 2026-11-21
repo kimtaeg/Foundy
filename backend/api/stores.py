@@ -1,5 +1,6 @@
 """가게·대시보드·점검 리포트 (API 명세서 3·5·6장)."""
 
+from decimal import Decimal
 from datetime import date
 from typing import Any, Literal
 
@@ -37,6 +38,7 @@ class StoreCreate(BaseModel):
     address_detail: str = Field(default="", max_length=100)
     opening_date: date
     owner_birth_year: int | None = Field(default=None, ge=1900, le=2100)
+    area_sqm: float | None = Field(default=None, gt=0, le=100000)  # 영업장 면적(㎡). 입력하지 않으면 면적 기준 규정은 확인 필요
 
 
 @register_router.post("", status_code=status.HTTP_201_CREATED)
@@ -47,6 +49,8 @@ def create_store(body: StoreCreate, user: User = Depends(current_user), db: Sess
     for key, label in (("name", "가게 이름"), ("address", "주소")):
         if not values[key]:
             raise invalid_input(f"{label}을(를) 비울 수 없습니다.")
+    if values.get("area_sqm") is not None:
+        values["area_sqm"] = Decimal(str(values["area_sqm"])).quantize(Decimal("0.01"))
     return store_register.register(db, user, values)
 
 
@@ -57,6 +61,7 @@ class AnswersValues(BaseModel):
     uses_terrace: bool | None = None
     has_employees: bool | None = None
     funds_krw: int | None = Field(default=None, ge=0)
+    does_delivery: bool | None = None
 
 
 class AnswersBody(BaseModel):
@@ -172,6 +177,7 @@ class AnswersPatch(BaseModel):
     uses_terrace: bool | None = None
     has_employees: bool | None = None
     funds_krw: int | None = None
+    does_delivery: bool | None = None
 
 
 class StorePatch(BaseModel):
@@ -183,10 +189,11 @@ class StorePatch(BaseModel):
     address_detail: str | None = None
     opening_date: date | None = None
     owner_birth_year: int | None = None
+    area_sqm: float | None = None
     answers: AnswersPatch | None = None
 
 
-NULLABLE = {"owner_birth_year", "funds_krw"}
+NULLABLE = {"owner_birth_year", "funds_krw", "area_sqm"}
 REQUIRED_TEXT = {"name", "business_type_input", "address"}
 
 
@@ -210,6 +217,10 @@ def _patch_values(body: StorePatch, pack: dict) -> dict[str, Any]:
         raise invalid_input("출생 연도가 올바르지 않습니다.")
     if values.get("funds_krw") is not None and values["funds_krw"] < 0:
         raise invalid_input("준비 자금은 0 이상이어야 합니다.")
+    if values.get("area_sqm") is not None:
+        if not 0 < values["area_sqm"] <= 100000:
+            raise invalid_input("영업장 면적은 0보다 크고 100000㎡ 이하여야 합니다.")
+        values["area_sqm"] = Decimal(str(values["area_sqm"])).quantize(Decimal("0.01"))  # DB numeric(8,2) 와 같은 값으로 비교한다
     return values
 
 

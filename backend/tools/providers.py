@@ -152,7 +152,7 @@ class Providers:
         return ToolResult(ok=True, source="KIPRIS Plus 상표 명칭검색(제43류 등록)", fetched_at=now_utc(),
                           data={"similar": list(candidates.values()), "search_scope": "name", "query": name})
 
-    def law(self, check_id):
+    def law(self, check_id, store=None):
         refs = self.references.get(check_id)
         if not refs:
             return ToolResult(ok=False, source="국가법령정보", error="LAW_REFERENCE_UNCONFIRMED")

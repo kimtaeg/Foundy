@@ -9,6 +9,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -79,6 +80,9 @@ class Store(Base):
     uses_terrace: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     has_employees: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     funds_krw: Mapped[int | None] = mapped_column(BigInteger)
+    # 0004_law_rag: 영업장 면적(㎡), 배달 여부. NULL = 입력·답변 없음
+    area_sqm: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    does_delivery: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     onboarded_at: Mapped[datetime | None] = _ts(nullable=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     created_at: Mapped[datetime] = _ts()
@@ -259,3 +263,119 @@ class OAuthState(Base):
     browser_hash: Mapped[str] = mapped_column(Text, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = _ts()
+
+
+# 0004_law_rag: 법령 RAG (수집한 법령 원문과 임베딩, 적용 조건 규칙, 의무사항, 변경 기록)
+class Law(Base):
+    __tablename__ = "laws"
+
+    id: Mapped[uuid.UUID] = _id()
+    law_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    law_type: Mapped[str | None] = mapped_column(Text)
+    mst: Mapped[str] = mapped_column(Text, nullable=False)
+    promulgation_no: Mapped[str | None] = mapped_column(Text)
+    effective_date: Mapped[date | None] = mapped_column(Date)
+    ministry: Mapped[str | None] = mapped_column(Text)
+    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    body_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    collected_at: Mapped[datetime] = _ts()
+    created_at: Mapped[datetime] = _ts()
+    updated_at: Mapped[datetime] = _ts()
+
+
+class LawArticle(Base):
+    __tablename__ = "law_articles"
+
+    id: Mapped[uuid.UUID] = _id()
+    law_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("laws.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    branch: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str | None] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    effective_date: Mapped[date | None] = mapped_column(Date)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = _ts()
+    updated_at: Mapped[datetime] = _ts()
+
+
+class LawArticleHistory(Base):
+    __tablename__ = "law_article_history"
+
+    id: Mapped[uuid.UUID] = _id()
+    law_name: Mapped[str] = mapped_column(Text, nullable=False)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    mst: Mapped[str] = mapped_column(Text, nullable=False)
+    effective_date: Mapped[date | None] = mapped_column(Date)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    recorded_at: Mapped[datetime] = _ts()
+
+
+class LawEmbedding(Base):
+    __tablename__ = "law_embeddings"
+
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("law_articles.id", ondelete="CASCADE"), primary_key=True
+    )
+    chunk_no: Mapped[int] = mapped_column(Integer, primary_key=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[Any] = mapped_column(Vector(768), nullable=True)
+    created_at: Mapped[datetime] = _ts()
+
+
+class ApplicabilityRule(Base):
+    __tablename__ = "applicability_rules"
+
+    rule_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    check_id: Mapped[str | None] = mapped_column(Text)
+    law_name: Mapped[str] = mapped_column(Text, nullable=False)
+    article_label: Mapped[str | None] = mapped_column(Text)
+    conditions: Mapped[dict] = _jsonb(EMPTY_OBJECT)
+    exceptions: Mapped[list] = _jsonb()
+    required_inputs: Mapped[list] = _jsonb()
+    required_action: Mapped[str | None] = mapped_column(Text)
+    review_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'draft'"))
+    reviewed_by: Mapped[str | None] = mapped_column(Text)
+    pack: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = _ts()
+
+
+class LegalObligation(Base):
+    __tablename__ = "legal_obligations"
+
+    id: Mapped[uuid.UUID] = _id()
+    store_id: Mapped[uuid.UUID] = _store_fk()
+    run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("runs.id", ondelete="SET NULL"))
+    rule_id: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    missing_inputs: Mapped[list] = _jsonb()
+    law_name: Mapped[str | None] = mapped_column(Text)
+    article_label: Mapped[str | None] = mapped_column(Text)
+    required_action: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _ts()
+
+
+class LawChangeLog(Base):
+    __tablename__ = "law_change_logs"
+
+    id: Mapped[uuid.UUID] = _id()
+    law_key: Mapped[str] = mapped_column(Text, nullable=False)
+    law_name: Mapped[str] = mapped_column(Text, nullable=False)
+    change_type: Mapped[str] = mapped_column(Text, nullable=False)
+    old_mst: Mapped[str | None] = mapped_column(Text)
+    new_mst: Mapped[str] = mapped_column(Text, nullable=False)
+    old_effective: Mapped[date | None] = mapped_column(Date)
+    new_effective: Mapped[date | None] = mapped_column(Date)
+    changed_articles: Mapped[list] = _jsonb()
+    affected_rules: Mapped[list] = _jsonb()
+    affected_stores: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    detected_at: Mapped[datetime] = _ts()

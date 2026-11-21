@@ -6,11 +6,11 @@ from services.pack import business_type
 
 # 카드 효과로 바꿀 수 있는 가게 값 (DB 명세서 2-4 applied_effects 허용 키)
 EFFECT_KEYS = ("sells_alcohol", "name")
-STORE_KEYS = ("name", "sells_alcohol", "uses_terrace", "has_employees", "funds_krw")
+STORE_KEYS = ("name", "sells_alcohol", "uses_terrace", "has_employees", "funds_krw", "does_delivery", "area_sqm")
 
 
 def effective_store(pack: dict, store: Any, cards: list[Any]) -> dict:
-    eff = {k: getattr(store, k) for k in STORE_KEYS}
+    eff = {k: getattr(store, k, None) for k in STORE_KEYS}  # 면적·배달처럼 나중에 생긴 값이 없는 객체도 받는다
     for card in sorted(cards, key=lambda c: c.item_key):
         if card.chosen_option is None:
             continue

@@ -7,6 +7,7 @@ import { LockedReport } from "@/components/report/LockedReport";
 import { ReportCard } from "@/components/report/ReportCard";
 import { ReportFilters } from "@/components/report/ReportFilters";
 import { ReportHeader } from "@/components/report/ReportHeader";
+import { ObligationsSection } from "@/components/report/ObligationsSection";
 import { ReportSummary } from "@/components/report/ReportSummary";
 import { Element } from "@/components/view/Element";
 import { FeatureView } from "@/components/view/FeatureView";
@@ -39,6 +40,7 @@ export function ReportView({ onEvent, ...state }: ReportViewProps) {
                 ) : (
                   <Element className="nx-empty">해당 단계의 결과가 없어요.</Element>
                 )}
+                <ObligationsSection items={report.obligations} />
                 <Element className="nx-note">
                   법률 자문이 아닌 사전 점검입니다. 계약·신고 전에는 관할 기관에 확인하세요.
                 </Element>

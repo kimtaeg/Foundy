@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+from rules.applicability import APPLIES, NEEDS_CHECK, RuleOutcome, evaluate_rules
 from rules.engine import (
     active_checks, base_checklist, check_spec, contact_of, derive_business_type, documents_of,
     judge_building_use, load_pack, render_title,
@@ -37,6 +38,10 @@ class AnalysisResult:
     grants: GrantsResult | None = None
     # 실제 조회(또는 그 캐시)로 확인한 주소 코드. 모의 응답·조회 실패면 None (저장하지 않는다)
     address_codes: dict | None = None
+    # 규칙 엔진이 이 가게에 대해 정한 법령 적용 결과 (적용·미적용·확인 필요). 화면 판정값과는 별개다
+    obligations: list[RuleOutcome] = field(default_factory=list)
+    # 이번 분석 범위인데 적용 규칙이 없어 카드를 만들지 않은 점검 (이전 분석에서 만든 같은 카드는 지운다)
+    skipped_checks: list[str] = field(default_factory=list)
 
 
 ADDRESS_CODE_KEYS = ("sigungu_cd", "bjdong_cd", "bun", "ji")
@@ -82,6 +87,10 @@ def _law_ev(res: ToolResult) -> list[Evidence]:
     ]
 
 
+def _has_articles(res: ToolResult | None) -> bool:
+    return bool(res and res.ok and any(a.get("text") for a in (res.data or {}).get("articles", [])))
+
+
 def _ai_status(guarded: GuardedLLM, before: int, done_msg: str) -> tuple[str, str]:
     """AI 호출이 실패해 일부를 AI 없이 처리했으면 fallback으로 알린다."""
     if guarded.failures > before:
@@ -100,16 +109,29 @@ def run_analysis(
     business_type = derive_business_type(pack, store.answers)
     selected = set(scope if scope is not None else ("building", "law", "trademark", "checklist"))
     all_checks = active_checks(pack)
+    # 조문을 읽고 AI가 판정하는 점검 (law_card). 연결된 적용 규칙이 모두 미적용이면 카드를 만들지 않는다.
+    obligations = evaluate_rules(pack, store, business_type)
+    outcome_of = {o.rule_id: o for o in obligations}
+    law_card_ids = [c["id"] for c in all_checks if c.get("law_card")]
+    def _shown(check: dict) -> bool:
+        """적용되거나 예외 때문에 확인이 필요한 규정이 있을 때만 카드를 만든다. 미적용이거나 입력이 없어 모르는 규정은 카드로 만들지 않는다
+        (그 결과는 의무사항 목록에 남아 면적 같은 입력을 채우면 다시 판정된다)."""
+        linked = [outcome_of[r] for r in check.get("rule_ids", []) if r in outcome_of]
+        if not linked:
+            return True
+        return any(o.status == APPLIES or (o.status == NEEDS_CHECK and not o.missing_inputs) for o in linked)
+
+    skipped_checks = {c["id"] for c in all_checks if c.get("law_card") and c.get("rule_ids") and not _shown(c)}
     check_ids = {
         "building": {"building_use", "building_violation"},
-        "law": {"building_use", "permit_docs"},
+        "law": {"building_use", "permit_docs", *law_card_ids},
         "trademark": {"trademark_similar"},
         "checklist": set(),
     }
     affected = set().union(*(check_ids.get(name, set()) for name in selected))
     if selected == {"building", "law", "trademark", "checklist"}:
         affected = {c["id"] for c in all_checks}
-    checks = [c for c in all_checks if c["id"] in affected]
+    checks = [c for c in all_checks if c["id"] in affected and c["id"] not in skipped_checks]
 
     def step(name: str, status: str, message: str, **extra) -> None:
         emit("step", {"step": name, "status": status, "message": message, **extra})
@@ -135,9 +157,10 @@ def run_analysis(
         step("trademark", _status(t), f"비슷한 상표 {n_sim}건" if t.ok else "상표 조회 실패", source=t.source)
 
     # 2. 규칙 판정 + AI 판정 (점검 항목 순서는 규칙 묶음의 순서)
-    laws = {cid: ToolResult(ok=False, source="국가법령정보", error="미실행") for cid in ("building_use", "permit_docs")}
+    law_ids = ["building_use", "permit_docs", *[c for c in law_card_ids if c not in skipped_checks]]
+    laws = {cid: ToolResult(ok=False, source="국가법령정보", error="미실행") for cid in law_ids}
     if "law" in selected:
-        laws = {cid: _safe("국가법령정보", tools.law, cid) for cid in laws}
+        laws = {cid: _safe("국가법령정보", tools.law, cid, store) for cid in laws}
         law_statuses = [_status(r) for r in laws.values()]
         law_status = "failed" if all(s == "failed" for s in law_statuses) else (
             "fallback" if any(s != "done" for s in law_statuses) else "done")
@@ -149,7 +172,8 @@ def run_analysis(
     found: dict[str, tuple[ReportItem, dict]] = {}  # check_id → (항목, 선택지 만들 때 쓰는 부가 정보)
     rule_building = judge_building_use(pack, business_type, uses)  # AI 판정과 대조하는 안전장치
     for spec in checks:
-        if spec["id"] == "labeling":  # 읽을 근거 데이터가 없는 일반 안내. 점검 결과가 아니라서 unknown으로 둔다
+        if spec["id"] == "labeling" and not _has_articles(laws.get("labeling")):
+            # 읽을 조문이 없으면 점검 결과가 아니라 일반 안내라서 unknown으로 둔다
             found["labeling"] = (ReportItem(item_id="", check_id="labeling", stage=spec["stage"], title=spec["title"],
                                             verdict="unknown", decided_by="rule", reason=spec["reason"]), {})
     step("rules", "done", "규칙표 대조 준비 완료")
@@ -162,8 +186,13 @@ def run_analysis(
             found[cid] = judge_building_use_ai(llm, store, business_type, b, laws[cid], rule_building, spec, "", pack)
         elif cid == "building_violation":  # AI가 건축물대장의 위반건축물 표기를 읽고 판정
             found[cid] = (judge_violation_ai(llm, b, spec, ""), {})
-        elif cid == "permit_docs":  # AI가 조회한 조문 원문을 읽고 이 가게의 영업신고 할 일을 판정
-            found[cid] = (judge_law_card(llm, store, business_type, laws[cid], spec, ""), {})
+        elif cid == "permit_docs" or (spec.get("law_card") and _has_articles(laws.get(cid))):
+            # AI가 조회한 조문 원문을 읽고 이 가게의 할 일을 판정 (영업신고·원산지 표시·소방·근로계약 등)
+            found[cid] = (judge_law_card(llm, store, business_type, laws[cid], spec, "", outcomes=[
+                outcome_of[r] for r in spec.get("rule_ids", []) if r in outcome_of]), {})
+        elif spec.get("law_card"):
+            found[cid] = (judge_law_card(llm, store, business_type, laws.get(cid) or ToolResult(
+                ok=False, source="국가법령정보", error="미실행"), spec, ""), {})
         elif cid == "trademark_similar":
             found[cid] = judge_trademark(llm, store, t, spec, "")
         elif cid == "ad_claims":
@@ -243,4 +272,5 @@ def run_analysis(
     cost_krw = getattr(getattr(llm, "cost", None), "total_krw", 0.0)
     emit("done", {"summary": summary, "cost_krw": cost_krw})
     return AnalysisResult(business_type, items, checklist, summary, cost_krw, changes, grants_result,
-                          address_codes=address_codes)
+                          address_codes=address_codes, obligations=obligations,
+                          skipped_checks=[c["id"] for c in all_checks if c["id"] in skipped_checks and c["id"] in affected])
