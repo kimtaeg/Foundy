@@ -1,0 +1,16 @@
+{
+  "_note": "예시 계정·USE_MOCK=true 전용 예시 값. 실제 통계가 아니다. 형식은 tools/rent.lookup 결과와 같다.",
+  "ok": true,
+  "source": "한국부동산원 상업용부동산 임대동향조사",
+  "data": {
+    "level": "상권",
+    "area_name": "서울>기타>뚝섬",
+    "rent_thousand_krw_per_sqm": 60.0,
+    "unit": "천원/㎡",
+    "conversion_rate_pct": 6.5,
+    "period": "예시 분기",
+    "period_id": "example",
+    "building_type": "소규모 상가",
+    "source": "한국부동산원 상업용부동산 임대동향조사"
+  }
+}

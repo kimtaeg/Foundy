@@ -123,6 +123,10 @@ class AnalysisTools:
         params = {"sido": sido_of(store.address), "day": today_kst().isoformat()}
         return self._query("grants", params, lambda: self.providers.grants(store))
 
+    def rent(self, address: str):
+        """임대료 통계. 같은 주소는 저장된 조회 결과(7일)를 쓴다 (분기 통계라 자주 바뀌지 않는다)."""
+        return self._query("rent", {"address": address}, lambda: self.providers.rent(address))
+
     def trademark(self, name):
         return self._query("trademark", {"name": name}, lambda: self.providers.trademark(name))
 

@@ -4,6 +4,7 @@ import { useSites } from "@/hooks/useSites";
 import { useFoundy } from "@/hooks/useFoundy";
 import { staticFootTrafficSource, staticPopulationInsightsSource } from "@/lib/foot-traffic/static-data-source";
 import { loadKakaoNearbyShops } from "@/lib/market/kakao-shops";
+import { loadRentComparison } from "@/lib/market/rent";
 
 export function SitesPage() {
   const data = useSites();
@@ -17,6 +18,7 @@ export function SitesPage() {
       onRetry={() => { void refreshApi(["store"]); }}
       appKey={appKey}
       nearbyShopsSource={appKey || apiActive ? loadKakaoNearbyShops : undefined}
+      rentSource={apiActive ? loadRentComparison : undefined}
       footTrafficSource={staticFootTrafficSource}
       populationSource={staticPopulationInsightsSource}
       onOpenReport={() => navigate("report")}

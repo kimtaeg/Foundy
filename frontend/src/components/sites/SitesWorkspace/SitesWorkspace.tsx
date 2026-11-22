@@ -6,6 +6,7 @@ import { SectionSkeleton } from "@/components/loading/SectionSkeleton";
 import { analyzeMarket } from "@/lib/market";
 import { CompetitionCard } from "@/components/sites/CompetitionCard";
 import { FieldChecklistCard } from "@/components/sites/FieldChecklistCard";
+import { RentComparisonCard } from "@/components/sites/RentComparisonCard";
 import { MarketAnalysisPanel } from "@/components/sites/MarketAnalysisPanel";
 import { MarketSummaryCard } from "@/components/sites/MarketSummaryCard";
 import { NearbyShopsCard } from "@/components/sites/NearbyShopsCard";
@@ -36,6 +37,7 @@ export function SitesWorkspace({
   data,
   appKey,
   nearbyShopsSource,
+  rentSource,
   footTrafficData,
   footTrafficSource,
   footTrafficLoading,
@@ -168,7 +170,12 @@ export function SitesWorkspace({
             />
           </Suspense>
         }
-        planning={<FieldChecklistCard onOpenReport={onOpenReport} />}
+        planning={
+          <div className="grid gap-8">
+            <RentComparisonCard source={rentSource} />
+            <FieldChecklistCard onOpenReport={onOpenReport} />
+          </div>
+        }
       />
     </section>
   );
