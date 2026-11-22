@@ -28,6 +28,8 @@ class ToolResult(BaseModel):
     fetched_at: datetime | None = None
     from_cache: bool = False
     from_mock: bool = False
+    # 실제 조회가 실패해 저장된 결과(기한 지난 캐시)·예시 자료로 대체했다. 기한 안의 캐시를 재사용한 것은 대체가 아니다
+    substituted: bool = False
     error: str | None = None
     # 실제 조회가 실패해 저장된 결과·예시 자료로 대체했거나 실패했을 때, 화면에 붙이는 짧은 원인
     reason: str | None = None
