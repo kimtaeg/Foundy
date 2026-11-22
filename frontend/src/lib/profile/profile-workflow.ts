@@ -41,6 +41,7 @@ export function createProfileWorkflow(context: ProfileWorkflowDependencies) {
     diff.forEach((x: any) => {
       if (x.k === "location") context.S.location = x.to;
       else if (x.k === "birth") context.S.birth = context.num(x.to) || null;
+      else if (x.k === "area") context.S.area = context.num(x.to) > 0 ? context.num(x.to) : null;
       else if (x.k === "funds")
         context.S.funds =
           x.to == null || String(x.to).trim() === "" ? null : context.num(x.to);

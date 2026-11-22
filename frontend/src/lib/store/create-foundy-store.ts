@@ -671,8 +671,8 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   });
   const num: any = (v: any) => Number(v) || 0;
   const normMp: any = (k: any, v: any) =>
-    k === "birth" || k === "funds"
-      ? k === "funds" && (v == null || String(v).trim() === "")
+    k === "birth" || k === "funds" || k === "area"
+      ? (k === "funds" || k === "area") && (v == null || String(v).trim() === "")
         ? null
         : num(v)
       : k === "alcohol" || k === "terrace" || k === "employees"
@@ -691,6 +691,8 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
           ? v == null || String(v).trim() === ""
             ? "(없음)"
             : won(v)
+          : k === "area"
+            ? v == null || String(v).trim() === "" ? "(없음)" : `${v}㎡`
           : String(v == null ? "" : v).trim() || "(비어 있음)";
   const { applyMp, wipeStore } = createProfileWorkflow({
     mpDiff: getProfileChanges,
@@ -1052,7 +1054,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       store = {
         ...EMPTY_STORE,
         name: saved.name, type: saved.business_type_input, address: saved.address, detail: saved.address_detail,
-        opening: saved.opening_date, birth: saved.owner_birth_year, region: saved.region ?? "",
+        opening: saved.opening_date, birth: saved.owner_birth_year, area: saved.answers.area_sqm ?? null, region: saved.region ?? "",
         alcohol: answers.alcohol ?? false, terrace: answers.terrace ?? false, employees: answers.employees ?? false,
         funds: saved.answers.funds_krw,
       };

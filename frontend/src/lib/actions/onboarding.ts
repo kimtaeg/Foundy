@@ -85,6 +85,7 @@ export function createOnboardingActions(
         detail: "1층",
         opening: "2027-03-02",
         birth: 1998,
+        area: null,
         location: "decided",
         alcohol: true,
         terrace: false,

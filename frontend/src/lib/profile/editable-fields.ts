@@ -9,6 +9,7 @@ export const profileFieldLabels: Record<EditableProfileField, string> = {
   region: "관심 지역",
   opening: "개업 예정일",
   birth: "출생 연도",
+  area: "영업장 면적(㎡)",
   alcohol: "주류 판매",
   terrace: "테라스·옥외 공간 사용",
   employees: "직원 고용",
