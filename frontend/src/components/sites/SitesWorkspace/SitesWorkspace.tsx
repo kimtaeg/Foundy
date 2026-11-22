@@ -9,14 +9,13 @@ import { FieldChecklistCard } from "@/components/sites/FieldChecklistCard";
 import { MarketAnalysisPanel } from "@/components/sites/MarketAnalysisPanel";
 import { MarketSummaryCard } from "@/components/sites/MarketSummaryCard";
 import { NearbyShopsCard } from "@/components/sites/NearbyShopsCard";
-import { PricePositionCard } from "@/components/sites/PricePositionCard";
 import { PopulationReport } from "@/components/sites/PopulationReport";
 import { PopulationSummaryCard } from "@/components/sites/PopulationSummaryCard";
 import { StrategyCard } from "@/components/sites/StrategyCard";
 import { useNearbyShops } from "@/hooks/useNearbyShops";
 import { usePopulationInsights } from "@/hooks/usePopulationInsights";
 import type { HourSel } from "@/types/foot-traffic";
-import type { MarketCategory, MarketPoint, NearbyShopsAvailability, SitesDataServices, SitesViewData } from "@/types/market";
+import type { MarketCategory, MarketPoint, NearbyShopsAvailability, Shop, SitesDataServices, SitesViewData } from "@/types/market";
 
 const FootTrafficMap = dynamic(
   () =>
@@ -27,7 +26,7 @@ const FootTrafficMap = dynamic(
   },
 );
 
-const NO_SHOPS: SitesViewData["shops"] = [];
+const NO_SHOPS: Shop[] = [];
 
 export interface SitesWorkspaceProps extends SitesDataServices {
   data: SitesViewData;
@@ -45,7 +44,6 @@ export function SitesWorkspace({
   populationData,
   populationSource,
   populationInsights,
-  onPriceChange,
   onOpenReport,
   onAnalysisChange,
 }: SitesWorkspaceProps) {
@@ -59,8 +57,9 @@ export function SitesWorkspace({
   const toggleButton = useRef<HTMLButtonElement>(null);
   const [mapAvailability, setMapAvailability] = useState<NearbyShopsAvailability>("loading");
   const nearby = useNearbyShops(nearbyShopsSource, appKey ? mapAvailability : "unavailable", center, radius);
-  const shops = nearbyShopsSource ? nearby.data?.shops ?? NO_SHOPS : data.shops;
-  const shopStatus = nearbyShopsSource ? nearby.status : "ready";
+  // 주변 점포는 카카오 지도 조회 결과만 쓴다. 조회할 수 없으면(지도 키 없음) 예시 점포로 채우지 않고 안내한다
+  const shops = nearbyShopsSource ? nearby.data?.shops ?? NO_SHOPS : NO_SHOPS;
+  const shopStatus = nearbyShopsSource ? nearby.status : "unavailable";
   const analysis = useMemo(
     () => analyzeMarket(shops, center, radius, category),
     [shops, center, radius, category],
@@ -169,19 +168,7 @@ export function SitesWorkspace({
             />
           </Suspense>
         }
-        planning={
-          <>
-            <Suspense fallback={<SectionSkeleton appearance="plain" variant="chart" label="가격 비교" />}>
-              <PricePositionCard
-                price={data.price}
-                range={data.priceRange}
-                position={data.pricePosition}
-                onPriceChange={onPriceChange}
-              />
-            </Suspense>
-            <FieldChecklistCard onOpenReport={onOpenReport} />
-          </>
-        }
+        planning={<FieldChecklistCard onOpenReport={onOpenReport} />}
       />
     </section>
   );

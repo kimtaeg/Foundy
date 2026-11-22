@@ -3,15 +3,7 @@ import { ACTLBL, CALLQ } from "@/data/chat";
 import { CATCOLOR, GROUPS, OFFS, TASK_LINKS, X_DEFS } from "@/data/checklist";
 import { CONTACT } from "@/data/contacts";
 import { GRANTS, GRANT_EXCLUDED, RES } from "@/data/grants";
-import {
-  AREAS,
-  EXFOOD,
-  FRANCHISE,
-  PRICE_EX,
-  SHOPS,
-  compLevel,
-  density,
-} from "@/data/market";
+import { compLevel, density } from "@/data/market";
 import { STEPS_DECIDED, STEPS_UNDECIDED } from "@/data/onboarding";
 import { VL } from "@/data/report";
 import { DEMO_STORE, EMPTY_STORE, IMP, MPF, REGIONS } from "@/data/store";
@@ -334,46 +326,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     });
   }
   /* ---------- 상권 분석 ---------- */
-  function mkStats(): any {
-    const fr: any = SHOPS.filter((s: any) => FRANCHISE.test(s.name + s.sub));
-    return {
-      fr,
-      ind: SHOPS.length - fr.length,
-      dessert: SHOPS.filter((s: any) =>
-        /디저트|베이커리|빵/.test(s.sub + s.name),
-      ),
-      within: (r: any) => SHOPS.filter((s: any) => s.dist <= r).length,
-    };
-  }
-  function pricePos(p: any): any {
-    const { min, median, max } = PRICE_EX;
-    p = Number(p);
-    if (!p)
-      return {
-        txt: "내 아메리카노 가격을 넣으면 주변과 비교해 줘요.",
-        pct: null,
-        lvl: "",
-      };
-    const pct: any = Math.max(
-        0,
-        Math.min(100, ((p - min) / (max - min)) * 100),
-      ),
-      d: any = p - median,
-      lvl: any = p < 3500 ? "저가 구간" : p <= 5500 ? "중간 구간" : "고가 구간";
-    return {
-      pct,
-      lvl,
-      txt:
-        "중앙값 " +
-        won(median) +
-        "보다 " +
-        (d === 0
-          ? "같아요"
-          : won(Math.abs(d)) + (d > 0 ? " 높아요" : " 낮아요")) +
-        " · " +
-        lvl,
-    };
-  }
   /* ---------- 등록 · 입지 분기 ---------- */
   const { clearTimers, prepareRegistration, runAnalysis, readForm } =
     createOnboardingWorkflow({
@@ -671,8 +623,8 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   });
   const num: any = (v: any) => Number(v) || 0;
   const normMp: any = (k: any, v: any) =>
-    k === "birth" || k === "funds"
-      ? k === "funds" && (v == null || String(v).trim() === "")
+    k === "birth" || k === "funds" || k === "area"
+      ? (k === "funds" || k === "area") && (v == null || String(v).trim() === "")
         ? null
         : num(v)
       : k === "alcohol" || k === "terrace" || k === "employees"
@@ -691,6 +643,8 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
           ? v == null || String(v).trim() === ""
             ? "(없음)"
             : won(v)
+          : k === "area"
+            ? v == null || String(v).trim() === "" ? "(없음)" : `${v}㎡`
           : String(v == null ? "" : v).trim() || "(비어 있음)";
   const { applyMp, wipeStore } = createProfileWorkflow({
     mpDiff: getProfileChanges,
@@ -1003,11 +957,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       store.address = findElement("pickAddr").value;
       store.detail = findElement("pickFloor").value;
       store.location = "decided";
-      const a: any = AREAS.find((x: any) => x.id === e.target.dataset.area);
-      store.region =
-        store.region.split(" ").slice(0, 2).join(" ") +
-        " " +
-        a.name.split(" ")[0];
       saveS();
       closeModal();
       onboarding.path = "decided";
@@ -1052,7 +1001,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       store = {
         ...EMPTY_STORE,
         name: saved.name, type: saved.business_type_input, address: saved.address, detail: saved.address_detail,
-        opening: saved.opening_date, birth: saved.owner_birth_year, region: saved.region ?? "",
+        opening: saved.opening_date, birth: saved.owner_birth_year, area: saved.answers.area_sqm ?? null, region: saved.region ?? "",
         alcohol: answers.alcohol ?? false, terrace: answers.terrace ?? false, employees: answers.employees ?? false,
         funds: saved.answers.funds_krw,
       };
@@ -1295,15 +1244,9 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       return {
         S: store,
         MAP: market,
-        SHOPS,
-        EXFOOD,
-        AREAS,
         PRICE: currentPrice,
-        PRICE_EX,
         density,
         compLevel,
-        mkStats,
-        pricePos,
         won,
       };
     },

@@ -20,6 +20,7 @@ from rules.engine import (
 )
 
 from .advise import advise_item
+from .discover import card_of as found_card, discover, task_of as found_task
 from .grants import grant_checklist_items, judge_grants
 from .guardrails import enforce
 from .judge import (
@@ -45,6 +46,8 @@ class AnalysisResult:
     obligations: list[RuleOutcome] = field(default_factory=list)
     # 이번 분석 범위인데 적용 규칙이 없어 카드를 만들지 않은 점검 (이전 분석에서 만든 같은 카드는 지운다)
     skipped_checks: list[str] = field(default_factory=list)
+    # 조문에서 의무 찾기를 실제로 마쳤는지. 실패했으면 이전에 찾은 카드·작업을 지우지 않는다
+    discovery_ran: bool = False
 
 
 ADDRESS_CODE_KEYS = ("sigungu_cd", "bjdong_cd", "bun", "ji")
@@ -138,6 +141,8 @@ def run_analysis(
         outcome_of = {o.rule_id: o for o in outcomes}
 
         def _shown(check: dict) -> bool:
+            if check.get("always_show"):
+                return True  # 해당하지 않거나 입력이 없어도 판정 결과(문제 없음·판단 불가)를 카드로 보여 준다
             linked = [outcome_of[r] for r in check.get("rule_ids", []) if r in outcome_of]
             if not linked:
                 return True
@@ -257,12 +262,30 @@ def run_analysis(
                 found[cid] = (item, {})
     step("interpret", *_ai_status(guarded, before, "AI 판정 완료"))
 
+    # 조문에서 의무 찾기: 규칙 묶음이 다루지 않는 조문을 AI가 읽고 이 가게의 새 의무를 찾는다 (인용 검증을 통과한 것만)
+    discovered = []
+    discovery_ran = False
+    finder = getattr(tools, "discover_laws", None)
+    if "law" in selected and finder is not None:
+        step("discover", "running", "조문에서 추가 의무 찾는 중")
+        before = guarded.failures
+        res = _safe("국가법령정보", finder, store)
+        if res is None or not res.ok:
+            step("discover", "failed" if res is not None else "skipped",
+                 "추가 의무를 찾을 조문이 없어요" if res is not None else "저장된 법령이 없어 건너뛰었어요")
+        else:
+            discovered = discover(llm, pack, store, business_type, res, laws)
+            discovery_ran = guarded.failures == before
+            status, _ = _ai_status(guarded, before, "")
+            step("discover", status, f"조문에서 의무 {len(discovered)}건 찾음" if discovery_ran else "AI 응답이 불안정해 추가 의무 찾기를 건너뛰었어요")
+
     # 카드 번호(r-01…)는 규칙 묶음의 점검 항목 순서가 정한다
     drafts: list[tuple[ReportItem, dict]] = []
     for index, spec in enumerate(all_checks, start=1):
         if spec["id"] in found:
             item, extras = found[spec["id"]]
             drafts.append((item.model_copy(update={"item_id": f"r-{index:02d}"}), extras))
+    drafts += [(found_card(f), {}) for f in discovered]
 
     # 3. 결과 카드 (선택지·추천·기관 연락처)
     step("advise", "running", "해결 방안 만드는 중")
@@ -301,7 +324,15 @@ def run_analysis(
         # 법령 분석 결과를 작업으로: 규칙 엔진이 적용·확인 필요로 정한 의무사항만 체크리스트에 합친다
         checklist = apply_obligations(pack, obligations, checklist, items, card_of, calc, store.opening_date, sigungu,
                                       facts_of(store, business_type))
+        shown_cards = {i.check_id: i.item_id for i in items}
+        general = contact_of(pack, ((pack.get("law_rag") or {}).get("discovery") or {}).get("check", {}).get("contact"), sigungu)
+        checklist += [found_task(f, pack, calc, store.opening_date, shown_cards.get(f"law_found:{f.key}"), general)
+                      for f in discovered]
+    made_ids = {c.item_id for c in checklist}
     for idx, item in enumerate(items):
+        if item.check_id.startswith("law_found:") and f"o-x{item.check_id.split(':', 1)[1]}" in made_ids:
+            items[idx] = item.model_copy(update={"added_to_checklist": [f"o-x{item.check_id.split(':', 1)[1]}"]})
+            continue
         task_id = check_spec(pack, item.check_id).get("checklist_task")
         if item.verdict == "ok" or not task_id or not any(c.item_id == task_id for c in checklist):
             continue
@@ -333,4 +364,5 @@ def run_analysis(
     emit("done", {"summary": summary, "cost_krw": cost_krw})
     return AnalysisResult(business_type, items, checklist, summary, cost_krw, changes, grants_result,
                           address_codes=address_codes, obligations=obligations,
-                          skipped_checks=[c["id"] for c in all_checks if c["id"] in skipped_checks and c["id"] in affected_ids])
+                          skipped_checks=[c["id"] for c in all_checks if c["id"] in skipped_checks and c["id"] in affected_ids],
+                          discovery_ran=discovery_ran)

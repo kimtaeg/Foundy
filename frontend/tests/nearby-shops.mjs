@@ -11,7 +11,7 @@ const { MarketEmptyState } = load('@/components/sites/MarketEmptyState');
 const { NearbyShopsCard } = load('@/components/sites/NearbyShopsCard');
 const { MarketSummaryCard } = load('@/components/sites/MarketSummaryCard');
 const { StrategyCard } = load('@/components/sites/StrategyCard');
-const { MARKET_DEMO_CENTER } = load('@/data/market');
+const MARKET_DEMO_CENTER = { lat: 37.5, lng: 127.0 }; // 테스트용 중심 (상권 데이터에는 기본 상권 좌표를 두지 않는다)
 const render = (component, props) => renderToStaticMarkup(React.createElement(component, props));
 const results = [];
 const test = (name, run) => { run(); results.push(name); console.log(`PASS ${name}`); };
@@ -105,4 +105,9 @@ assert.ok(requests.slice(-2).every(({ radius }) => radius === 1000));
 respond = (_, callback) => callback([], 'ERROR');
 await assert.rejects(loadKakaoNearbyShops(center, 500), /카카오 장소 검색 실패/);
 console.log('PASS 카카오 장소 검색 좌표·반경·페이지 제한·중복 제거·빈 응답·오류');
-console.log(`${results.length + 1} passed`);
+{
+  const market = load('@/data/market');
+  for (const name of ['SHOPS', 'EXFOOD', 'AREAS', 'MARKET_DEMO_CENTER', 'PRICE_EX']) assert.equal(market[name], undefined, name);
+  console.log('PASS 상권 데이터에 성수 일대 예시 점포·후보지·고정 가격이 남아 있지 않다');
+}
+console.log(`${results.length + 2} passed`);

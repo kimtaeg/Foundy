@@ -1,4 +1,3 @@
-import { AREAS } from "@/data/market";
 import { type ActionHandlers } from "@/types/actions";
 import { type DialogContent } from "@/types/dialog";
 import { type MarketSelection } from "@/types/market";
@@ -46,17 +45,6 @@ export function createMarketActions(
         (address) => address !== button.dataset.addr,
       );
       context.put("candx", context.CANDX);
-      return true;
-    },
-    pick: (button) => {
-      const area: { id: string; name: string } | undefined = AREAS.find(
-        (item: { id: string }) => item.id === button.dataset.id,
-      );
-      if (!area) return;
-      context.modal("여기로 정하기 · " + area.name, {
-        kind: "location-pick",
-        areaId: area.id,
-      });
       return true;
     },
   };

@@ -23,6 +23,7 @@ export function StoreDetailsCard({ draft, edit }: StoreDetailsCardProps) {
             <ProfileField edit={edit} field="detail" value={draft.detail} />
           </>
         ) : <ProfileField edit={edit} field="region" value={draft.region} />}
+        <ProfileField edit={edit} field="area" value={draft.area === "" ? "" : `${draft.area}㎡`} />
         <ProfileField edit={edit} field="opening" value={draft.opening} />
         <ProfileField edit={edit} field="birth" value={draft.birth} />
       </dl>

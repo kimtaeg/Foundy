@@ -16,7 +16,7 @@ export function ProfileFieldEditor({ edit }: ProfileFieldEditorProps) {
     form.current?.querySelector<HTMLElement>('input:not([tabindex="-1"]), select, button[aria-haspopup="dialog"]')?.focus({ preventScroll: true });
   }, []);
   const label = profileFieldLabels[field];
-  const number = field === "funds" || field === "birth";
+  const number = field === "funds" || field === "birth" || field === "area";
   const dirty = number && value !== "" && edit.value !== ""
     ? Number(value) !== Number(edit.value)
     : value.trim() !== edit.value.trim();
@@ -42,8 +42,8 @@ export function ProfileFieldEditor({ edit }: ProfileFieldEditorProps) {
           <div className="relative">
             <input name="value" aria-label={label} type={number ? "number" : "text"}
               value={value} required={required} maxLength={field === "accountName" ? 12 : undefined}
-              onChange={(event) => setValue(event.target.value)} className={`${inputClass} ${field === "funds" ? "pr-10" : ""}`} />
-            {field === "funds" && <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-600">원</span>}
+              onChange={(event) => setValue(event.target.value)} className={`${inputClass} ${field === "funds" || field === "area" ? "pr-10" : ""}`} />
+            {(field === "funds" || field === "area") && <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-neutral-600">{field === "area" ? "㎡" : "원"}</span>}
           </div>
         )}
       </div>

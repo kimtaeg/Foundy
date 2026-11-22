@@ -10,7 +10,7 @@ export function LocationPickDialog({ areaId }: LocationPickDialogProps) {
       </p>
       <label className="grid gap-1.5 text-sm font-semibold text-neutral-800">
         <span>후보 주소 <span className="text-xs font-medium text-neutral-500">(필수)</span></span>
-        <input id="pickAddr" required autoComplete="street-address" placeholder="예: 서울 성동구 성수이로 00" className={dialogField} />
+        <input id="pickAddr" required autoComplete="street-address" placeholder="예: 서울 ○○구 ○○로 12" className={dialogField} />
       </label>
       <label className="grid gap-1.5 text-sm font-semibold text-neutral-800">
         층

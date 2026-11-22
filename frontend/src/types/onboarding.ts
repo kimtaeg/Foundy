@@ -7,6 +7,7 @@ export type OnboardingStore = Pick<
   | "detail"
   | "opening"
   | "birth"
+  | "area"
   | "alcohol"
   | "terrace"
   | "employees"

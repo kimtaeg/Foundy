@@ -44,7 +44,7 @@
     "summary": {
       "high": 0,
       "low": 1,
-      "unknown": 1,
+      "unknown": 2,
       "ok": 3
     },
     "items": {

@@ -2574,6 +2574,12 @@
         "callback": false
       },
       {
+        "name": "onNearbyAvailabilityChange",
+        "optional": true,
+        "type": "((availability: NearbyShopsAvailability) => void) | undefined",
+        "callback": true
+      },
+      {
         "name": "settingsOpen",
         "optional": false,
         "type": "boolean",
@@ -2716,6 +2722,12 @@
         "optional": true,
         "type": "string | undefined",
         "callback": false
+      },
+      {
+        "name": "onNearbyAvailabilityChange",
+        "optional": true,
+        "type": "((availability: NearbyShopsAvailability) => void) | undefined",
+        "callback": true
       },
       {
         "name": "onSelectShop",
@@ -3662,7 +3674,7 @@
       {
         "name": "status",
         "optional": true,
-        "type": "\"ready\" | \"empty\" | \"unavailable\" | undefined",
+        "type": "\"ready\" | \"unavailable\" | \"empty\" | undefined",
         "callback": false
       }
     ]
@@ -8292,7 +8304,7 @@
       {
         "name": "field",
         "optional": false,
-        "type": "\"name\" | \"type\" | \"address\" | \"detail\" | \"opening\" | \"region\" | \"birth\" | \"funds\" | \"accountName\"",
+        "type": "\"name\" | \"type\" | \"address\" | \"detail\" | \"opening\" | \"region\" | \"birth\" | \"area\" | \"funds\" | \"accountName\"",
         "callback": false
       },
       {
@@ -10029,11 +10041,24 @@
   {
     "component": "MarketEmptyState",
     "source": "src/components/sites/MarketEmptyState/MarketEmptyState.tsx",
-    "propsType": null,
+    "propsType": "MarketEmptyStateProps",
     "exportedProps": true,
     "nativeHtmlProps": false,
     "connected": false,
-    "props": []
+    "props": [
+      {
+        "name": "status",
+        "optional": true,
+        "type": "NearbyShopsStatus | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      }
+    ]
   },
   {
     "component": "MarketMetric",
@@ -10154,6 +10179,24 @@
         "optional": false,
         "type": "MarketAnalysis",
         "callback": false
+      },
+      {
+        "name": "status",
+        "optional": true,
+        "type": "NearbyShopsStatus | undefined",
+        "callback": false
+      },
+      {
+        "name": "truncated",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
       }
     ]
   },
@@ -10170,6 +10213,24 @@
         "optional": false,
         "type": "Shop[]",
         "callback": false
+      },
+      {
+        "name": "status",
+        "optional": true,
+        "type": "NearbyShopsStatus | undefined",
+        "callback": false
+      },
+      {
+        "name": "truncated",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
       },
       {
         "name": "selectedShop",
@@ -10344,80 +10405,6 @@
     ]
   },
   {
-    "component": "PriceComparison",
-    "source": "src/components/sites/PriceComparison/PriceComparison.tsx",
-    "propsType": "PriceComparisonProps",
-    "exportedProps": true,
-    "nativeHtmlProps": false,
-    "connected": false,
-    "props": [
-      {
-        "name": "range",
-        "optional": false,
-        "type": "PriceRange",
-        "callback": false
-      },
-      {
-        "name": "position",
-        "optional": false,
-        "type": "PricePosition",
-        "callback": false
-      },
-      {
-        "name": "price",
-        "optional": false,
-        "type": "string",
-        "callback": false
-      },
-      {
-        "name": "format",
-        "optional": false,
-        "type": "(amount: number) => string",
-        "callback": true
-      }
-    ]
-  },
-  {
-    "component": "PricePositionCard",
-    "source": "src/components/sites/PricePositionCard/PricePositionCard.tsx",
-    "propsType": "PricePositionCardProps",
-    "exportedProps": true,
-    "nativeHtmlProps": false,
-    "connected": false,
-    "props": [
-      {
-        "name": "price",
-        "optional": false,
-        "type": "string",
-        "callback": false
-      },
-      {
-        "name": "range",
-        "optional": false,
-        "type": "PriceRange",
-        "callback": false
-      },
-      {
-        "name": "position",
-        "optional": false,
-        "type": "PricePosition",
-        "callback": false
-      },
-      {
-        "name": "format",
-        "optional": true,
-        "type": "((amount: number) => string) | undefined",
-        "callback": true
-      },
-      {
-        "name": "onPriceChange",
-        "optional": true,
-        "type": "((event: ChangeEvent<HTMLInputElement>) => void) | undefined",
-        "callback": true
-      }
-    ]
-  },
-  {
     "component": "SelectedShop",
     "source": "src/components/sites/SelectedShop/SelectedShop.tsx",
     "propsType": "SelectedShopProps",
@@ -10518,6 +10505,12 @@
         "callback": false
       },
       {
+        "name": "nearbyShopsSource",
+        "optional": true,
+        "type": "import(\"./src/types/market\").NearbyShopsSource | undefined",
+        "callback": true
+      },
+      {
         "name": "footTrafficData",
         "optional": true,
         "type": "import(\"./src/types/foot-traffic\").FootTrafficDataset | undefined",
@@ -10572,12 +10565,6 @@
         "callback": true
       },
       {
-        "name": "onPriceChange",
-        "optional": true,
-        "type": "import(\"./node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
-        "callback": true
-      },
-      {
         "name": "onOpenReport",
         "optional": true,
         "type": "(() => void) | undefined",
@@ -10604,6 +10591,12 @@
         "optional": true,
         "type": "string | undefined",
         "callback": false
+      },
+      {
+        "name": "nearbyShopsSource",
+        "optional": true,
+        "type": "import(\"./src/types/market\").NearbyShopsSource | undefined",
+        "callback": true
       },
       {
         "name": "footTrafficData",
@@ -10657,12 +10650,6 @@
         "name": "onAnalysisChange",
         "optional": true,
         "type": "((selection: import(\"./src/types/market\").SitesAnalysisSelection) => void) | undefined",
-        "callback": true
-      },
-      {
-        "name": "onPriceChange",
-        "optional": true,
-        "type": "import(\"./node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
         "callback": true
       },
       {

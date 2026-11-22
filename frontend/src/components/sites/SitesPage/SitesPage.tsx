@@ -7,7 +7,7 @@ import { loadKakaoNearbyShops } from "@/lib/market/kakao-shops";
 
 export function SitesPage() {
   const data = useSites();
-  const { onEvent, navigate, apiActive, apiError, refreshApi } = useFoundy();
+  const { navigate, apiActive, apiError, refreshApi } = useFoundy();
   const appKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
   return (
     <SitesView
@@ -19,7 +19,6 @@ export function SitesPage() {
       nearbyShopsSource={appKey || apiActive ? loadKakaoNearbyShops : undefined}
       footTrafficSource={staticFootTrafficSource}
       populationSource={staticPopulationInsightsSource}
-      onPriceChange={(event) => onEvent("input", event)}
       onOpenReport={() => navigate("report")}
     />
   );

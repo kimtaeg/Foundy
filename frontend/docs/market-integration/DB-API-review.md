@@ -56,7 +56,7 @@
 | 인구·도로 원본 | 공용 정적 자산 | 가게별 JSONB에 전체 30MB를 복제하지 않는다. 같은 불변 버전 URL을 공유한다 |
 | 기준일·출처·품질·집계 버전 | manifest 파일로 시작 가능 | `populationDate`, `boundaryVersion`, `roadsVersion`, `aggregationVersion`, 해시, 라이선스·출처·품질 정보를 묶는다 |
 | 목표 가격 입력 | 현재 계정별 localStorage `myprice` | 현재처럼 로컬 유지 가능. 기기 간 동기화가 필요할 때 가게별 가격 설정으로 저장한다. 주변 실측 가격 데이터와 분리한다 |
-| 예시 점포/가격 | 현재 `SHOPS`, `EXFOOD`, `PRICE_EX` | API 실데이터로 표시하거나 DB에 검증된 사실처럼 적재하지 않는다. 응답에 `mode: demo`와 실제 수집 범위를 제공한다 |
+| 예시 점포/가격 | (2026-11-22 제거됨: `SHOPS`·`EXFOOD`·`PRICE_EX`. 주변 점포는 카카오 실제 조회, 가격 비교는 제외) 당시 `SHOPS`, `EXFOOD`, `PRICE_EX` | API 실데이터로 표시하거나 DB에 검증된 사실처럼 적재하지 않는다. 응답에 `mode: demo`와 실제 수집 범위를 제공한다 |
 
 `jsonb`는 JSON 문법과 저장 형식을 제공하지만 `coord`, `options` 같은 내부 업무 스키마까지 자동 검증하지 않는다. 좌표/집단/시간 검증은 API DTO에서 명시하고 필요한 제약만 DB에 둔다. [PostgreSQL JSON 문서](https://www.postgresql.org/docs/18/datatype-json.html)
 
