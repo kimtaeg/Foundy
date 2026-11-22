@@ -172,7 +172,7 @@ export function SitesWorkspace({
         }
         planning={
           <div className="grid gap-8">
-            <RentComparisonCard source={rentSource} />
+            <RentComparisonCard source={rentSource} center={center} origin={data.initialCenter} />
             <FieldChecklistCard onOpenReport={onOpenReport} />
           </div>
         }

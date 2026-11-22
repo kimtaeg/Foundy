@@ -8,6 +8,7 @@ const { load } = createSourceRuntime();
 const { RentComparisonCard } = load('@/components/sites/RentComparisonCard');
 const { toManwon, manwonInputToKrw, perPyeongManwon, rentDiffShort, rentDiffText, rentScopeName } = load('@/lib/market/rent');
 const { manwonText } = load('@/lib/format');
+const { rentLocationQuery, rentLocationKey, rentLocationLabel, rentLocationProblem, createRentRequester } = load('@/lib/market/rent-location');
 const render = (props) => renderToStaticMarkup(React.createElement(RentComparisonCard, props));
 const results = [];
 const test = (name, run) => { run(); results.push(name); console.log(`PASS ${name}`); };
@@ -150,5 +151,154 @@ test('범위 이름·차이 표시', () => {
   assert.equal(rentDiffText(ready2()), '상권 2층 평균보다 99.8% 높아요');
   assert.equal(rentDiffShort(needArea()), null);
 });
+
+// ── 지도 중심 기준 (#199) ──
+const STORE = { lat: 37.5446, lng: 127.0559 };
+const MOVED = { lat: 37.4812, lng: 126.9527 };
+const atStore = (over = {}) => ready1({ location: { source: 'store', region: '서울 성동구 성수동1가', resolved: true }, ...over });
+const atMap = (over = {}) => ready1({
+  location: { source: 'map', region: '서울 관악구 봉천동', resolved: true },
+  headline: { ...ready1().headline, area_name: '서울>기타>서울대입구역', krw_per_sqm: 60000 },
+  ...over,
+});
+const mapUnresolved = () => ({ ...unavailable(), reason: '지도 위치의 동을 확인하지 못했어요', location: { source: 'map', region: null, resolved: false } });
+
+test('지도 중심이 처음 위치와 같으면 가게 주소 기준(좌표 없음), 다르면 좌표를 보낸다', () => {
+  assert.deepEqual(rentLocationQuery(STORE, STORE), {});
+  assert.deepEqual(rentLocationQuery(undefined, STORE), {});
+  assert.deepEqual(rentLocationQuery(MOVED, STORE), { lat: 37.4812, lng: 126.9527 });
+  assert.deepEqual(rentLocationQuery({ lat: STORE.lat + 1e-8, lng: STORE.lng }, STORE), {}); // 미세한 흔들림은 같은 위치
+  assert.equal(rentLocationKey({}), 'store');
+  assert.equal(rentLocationKey({ lat: 37.4812, lng: 126.9527 }), '37.4812,126.9527');
+});
+
+test('기준 위치 문구: 가게 주소 / 지도 중심(동) / 옛 응답·확인 실패는 없음', () => {
+  assert.equal(rentLocationLabel(atStore()), '가게 주소 기준');
+  assert.equal(rentLocationLabel(atMap()), '지도 중심(봉천동) 기준');
+  assert.equal(rentLocationLabel(ready1()), null); // 옛 응답(location 없음)
+  assert.equal(rentLocationLabel(mapUnresolved()), null);
+  has(render({ source, initial: atStore() }), '가게 주소 기준');
+  has(render({ source, initial: atMap() }), '지도 중심(봉천동) 기준', '서울대입구역 상권', '60,000원/㎡');
+  lacks(render({ source, initial: ready1() }), '가게 주소 기준', '지도 중심');
+});
+
+test('지도 중심의 동을 확인하지 못하면 숫자 없이 안내와 이유만', () => {
+  assert.equal(rentLocationProblem(mapUnresolved()), '지도 위치의 동을 확인하지 못했어요');
+  assert.equal(rentLocationProblem(unavailable()), null); // 가게 주소 기준 실패는 지금처럼 안내 한 줄
+  const html = render({ source, initial: mapUnresolved() });
+  has(html, '임대료 통계를 아직 불러올 수 없어요', '지도 위치의 동을 확인하지 못했어요');
+  lacks(html, '원/㎡', '<table', '지도 중심(');
+  lacks(render({ source, initial: unavailable() }), '임대료 통계 서비스 인증에 실패했어요');
+});
+
+// 요청 관리: 실제 타이머로 디바운스·입력 유지·늦은 응답 버리기를 확인한다
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function harness({ delay = 30, respond } = {}) {
+  const calls = [];
+  const shown = [];
+  const state = { loading: false, failed: false };
+  const requester = createRentRequester({
+    delay,
+    source: (query) => { calls.push(query); return respond ? respond(query, calls.length) : Promise.resolve({ query }); },
+    onStart: () => { state.loading = true; },
+    onResult: (result) => { shown.push(result); state.failed = false; },
+    onError: () => { state.failed = true; },
+    onSettled: () => { state.loading = false; },
+  });
+  return { requester, calls, shown, state };
+}
+const asyncTests = [];
+const testAsync = (name, run) => asyncTests.push([name, run]);
+
+testAsync('처음 불러오기는 좌표 없이(가게 주소 기준)', async () => {
+  const { requester, calls } = harness();
+  await requester.load();
+  assert.deepEqual(calls, [{}]);
+});
+
+testAsync('지도를 여러 번 움직여도 멈춘 뒤 마지막 위치로 한 번만 부른다', async () => {
+  const { requester, calls } = harness({ delay: 30 });
+  requester.moveTo({ lat: 37.1, lng: 127.1 });
+  await wait(10);
+  requester.moveTo({ lat: 37.2, lng: 127.2 });
+  await wait(10);
+  requester.moveTo({ lat: 37.3, lng: 127.3 });
+  assert.equal(calls.length, 0); // 기다리는 동안은 부르지 않는다
+  await wait(60);
+  assert.deepEqual(calls, [{ lat: 37.3, lng: 127.3 }]);
+});
+
+testAsync('제출한 월세·보증금·면적을 유지한 채 새 위치로 다시 부른다', async () => {
+  const { requester, calls } = harness({ delay: 20 });
+  await requester.submit({ monthly_rent: 2500000, deposit: 30000000, area: 40 });
+  requester.moveTo({ lat: 37.4812, lng: 126.9527 });
+  await wait(50);
+  assert.deepEqual(calls[1], { monthly_rent: 2500000, deposit: 30000000, area: 40, lat: 37.4812, lng: 126.9527 });
+});
+
+testAsync('늦게 온 이전 응답은 화면에 반영하지 않는다', async () => {
+  const resolvers = [];
+  const { requester, shown, state } = harness({
+    delay: 10,
+    respond: (query) => new Promise((resolve) => resolvers.push(() => resolve({ query }))),
+  });
+  const first = requester.load();               // 가게 주소 기준 (느림)
+  requester.moveTo({ lat: 37.4812, lng: 126.9527 });
+  await wait(30);                               // 지도 기준 요청이 나간다
+  resolvers[1]();                               // 새 위치 응답이 먼저 온다
+  await wait(5);
+  resolvers[0]();                               // 이전 응답이 늦게 온다
+  await first;
+  await wait(5);
+  assert.deepEqual(shown.map((r) => r.query), [{ lat: 37.4812, lng: 126.9527 }]);
+  assert.equal(state.loading, false);
+});
+
+testAsync('같은 위치로의 이동은 다시 부르지 않고, 처음 위치로 돌아오면 가게 주소 기준으로 부른다', async () => {
+  const { requester, calls } = harness({ delay: 10 });
+  requester.moveTo({});                         // 처음과 같은 위치
+  await wait(30);
+  assert.equal(calls.length, 0);
+  requester.moveTo({ lat: 37.4812, lng: 126.9527 });
+  await wait(30);
+  requester.moveTo({});
+  await wait(30);
+  assert.deepEqual(calls, [{ lat: 37.4812, lng: 126.9527 }, {}]);
+});
+
+testAsync('제출하면 기다리던 위치 변경 요청과 합쳐 한 번만 부른다', async () => {
+  const { requester, calls } = harness({ delay: 30 });
+  requester.moveTo({ lat: 37.4812, lng: 126.9527 });
+  await requester.submit({ monthly_rent: 1000000, deposit: 0 });
+  await wait(60);
+  assert.deepEqual(calls, [{ monthly_rent: 1000000, deposit: 0, lat: 37.4812, lng: 126.9527 }]);
+});
+
+testAsync('화면을 떠나면 기다리던 요청을 취소하고 받아 둔 응답을 반영하지 않는다', async () => {
+  let release;
+  const { requester, calls, shown } = harness({ delay: 10, respond: () => new Promise((resolve) => { release = () => resolve({}); }) });
+  const pending = requester.load();
+  requester.moveTo({ lat: 37.4812, lng: 126.9527 });
+  requester.dispose();
+  release();
+  await pending;
+  await wait(30);
+  assert.equal(calls.length, 1) ; // 기다리던 위치 변경 요청은 나가지 않는다
+  assert.deepEqual(shown, []);
+});
+
+testAsync('호출 실패는 마지막 요청일 때만 실패로 표시한다', async () => {
+  const { requester, state } = harness({ delay: 10, respond: (_q, n) => (n === 1 ? Promise.reject(new Error('x')) : Promise.resolve({})) });
+  await requester.load();
+  assert.equal(state.failed, true);
+  await requester.submit({ monthly_rent: 1 });
+  assert.equal(state.failed, false);
+});
+
+for (const [name, run] of asyncTests) {
+  await run();
+  results.push(name);
+  console.log(`PASS ${name}`);
+}
 
 console.log(`${results.length} passed`);
