@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { FootTrafficMapSkeleton } from "../FootTrafficMapSkeleton";
 import { useFootTrafficData } from "@/hooks/useFootTrafficData";
 import { AGE_GROUPS, SEX_GROUPS, TYPE_LABEL, type Category, type HourSel, type LatLng, type ViewType } from "@/lib/foot-traffic";
-import type { Shop } from "@/types/market";
+import type { NearbyShopsState, Shop } from "@/types/market";
 import type { FootTrafficDataSource, FootTrafficDataset } from "@/types/foot-traffic";
 import { MapAvailability } from "../MapAvailability";
 import { MapCanvas } from "../MapCanvas";
@@ -32,6 +32,8 @@ export interface FootTrafficMapProps {
   hour: HourSel;
   lastHour: number;
   onHourChange: (hour: HourSel) => void;
+  /** 지도 중심·반경 안의 실제 점포 조회 상태가 바뀔 때 */
+  onNearbyShopsChange?: (state: NearbyShopsState) => void;
 }
 
 const DEFAULT_SUB: Record<Category, string> = { type: "all", sex: "male", age: "a20" };

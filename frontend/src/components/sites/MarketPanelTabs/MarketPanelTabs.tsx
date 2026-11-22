@@ -8,7 +8,7 @@ const tabs: readonly [MarketPanelTab, string][] = [
   ["summary", "요약"],
   ["population", "생활인구"],
   ["shops", "주변 점포"],
-  ["planning", "가격·현장"],
+  ["planning", "현장 확인"],
 ];
 export function MarketPanelTabs({ value, onChange }: MarketPanelTabsProps) {
   return (

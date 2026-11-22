@@ -2602,6 +2602,12 @@
         "optional": false,
         "type": "(hour: HourSel) => void",
         "callback": true
+      },
+      {
+        "name": "onNearbyShopsChange",
+        "optional": true,
+        "type": "((state: NearbyShopsState) => void) | undefined",
+        "callback": true
       }
     ]
   },
@@ -2745,6 +2751,12 @@
         "name": "onAddressStatusChange",
         "optional": false,
         "type": "(status: string) => void",
+        "callback": true
+      },
+      {
+        "name": "onNearbyShopsChange",
+        "optional": true,
+        "type": "((state: NearbyShopsState) => void) | undefined",
         "callback": true
       }
     ]
@@ -10029,11 +10041,18 @@
   {
     "component": "MarketEmptyState",
     "source": "src/components/sites/MarketEmptyState/MarketEmptyState.tsx",
-    "propsType": null,
+    "propsType": "MarketEmptyStateProps",
     "exportedProps": true,
     "nativeHtmlProps": false,
     "connected": false,
-    "props": []
+    "props": [
+      {
+        "name": "status",
+        "optional": true,
+        "type": "NearbyShopsStatus | undefined",
+        "callback": false
+      }
+    ]
   },
   {
     "component": "MarketMetric",
@@ -10182,6 +10201,18 @@
         "optional": false,
         "type": "(id: string) => void",
         "callback": true
+      },
+      {
+        "name": "status",
+        "optional": true,
+        "type": "NearbyShopsStatus | undefined",
+        "callback": false
+      },
+      {
+        "name": "truncated",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
       }
     ]
   },
@@ -10344,80 +10375,6 @@
     ]
   },
   {
-    "component": "PriceComparison",
-    "source": "src/components/sites/PriceComparison/PriceComparison.tsx",
-    "propsType": "PriceComparisonProps",
-    "exportedProps": true,
-    "nativeHtmlProps": false,
-    "connected": false,
-    "props": [
-      {
-        "name": "range",
-        "optional": false,
-        "type": "PriceRange",
-        "callback": false
-      },
-      {
-        "name": "position",
-        "optional": false,
-        "type": "PricePosition",
-        "callback": false
-      },
-      {
-        "name": "price",
-        "optional": false,
-        "type": "string",
-        "callback": false
-      },
-      {
-        "name": "format",
-        "optional": false,
-        "type": "(amount: number) => string",
-        "callback": true
-      }
-    ]
-  },
-  {
-    "component": "PricePositionCard",
-    "source": "src/components/sites/PricePositionCard/PricePositionCard.tsx",
-    "propsType": "PricePositionCardProps",
-    "exportedProps": true,
-    "nativeHtmlProps": false,
-    "connected": false,
-    "props": [
-      {
-        "name": "price",
-        "optional": false,
-        "type": "string",
-        "callback": false
-      },
-      {
-        "name": "range",
-        "optional": false,
-        "type": "PriceRange",
-        "callback": false
-      },
-      {
-        "name": "position",
-        "optional": false,
-        "type": "PricePosition",
-        "callback": false
-      },
-      {
-        "name": "format",
-        "optional": true,
-        "type": "((amount: number) => string) | undefined",
-        "callback": true
-      },
-      {
-        "name": "onPriceChange",
-        "optional": true,
-        "type": "((event: ChangeEvent<HTMLInputElement>) => void) | undefined",
-        "callback": true
-      }
-    ]
-  },
-  {
     "component": "SelectedShop",
     "source": "src/components/sites/SelectedShop/SelectedShop.tsx",
     "propsType": "SelectedShopProps",
@@ -10572,12 +10529,6 @@
         "callback": true
       },
       {
-        "name": "onPriceChange",
-        "optional": true,
-        "type": "import(\"./node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
-        "callback": true
-      },
-      {
         "name": "onOpenReport",
         "optional": true,
         "type": "(() => void) | undefined",
@@ -10657,12 +10608,6 @@
         "name": "onAnalysisChange",
         "optional": true,
         "type": "((selection: import(\"./src/types/market\").SitesAnalysisSelection) => void) | undefined",
-        "callback": true
-      },
-      {
-        "name": "onPriceChange",
-        "optional": true,
-        "type": "import(\"./node_modules/@types/react/index\").ChangeEventHandler<HTMLInputElement> | undefined",
         "callback": true
       },
       {

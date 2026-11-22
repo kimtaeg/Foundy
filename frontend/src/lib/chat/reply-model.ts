@@ -1,6 +1,5 @@
 import { OFFS } from "@/data/checklist";
 import { GRANTS } from "@/data/grants";
-import { AREAS, density } from "@/data/market";
 import { addDays, D, dday, diffDays, iso, realToday } from "@/lib/date";
 import type { ReplyDependencies } from "@/types/dependencies";
 
@@ -465,32 +464,9 @@ export function createReplyModel(context: ReplyDependencies) {
       });
     }
     if (/상권|경쟁|주변|카페가 몇|입지/.test(t)) {
-      if (context.S.location === "undecided") {
-        const r: any = [...AREAS].sort(
-          (a: any, b: any) => density(a.count) - density(b.count),
-        )[0];
-        return context.A({
-          text:
-            "후보지 비교 자료에서 동종 업소 수가 가장 적은 곳은 “" +
-            r.name +
-            "”예요. 반경 300m에 " +
-            r.count +
-            "곳으로, 밀도는 " +
-            density(r.count) +
-            "곳/㎢예요. 상권 분석 지도에서 생활인구도 확인할 수 있어요.",
-          cites: [{ t: "nav", p: "sites", label: "상권 분석" }],
-          acts: [
-            {
-              type: "navigate",
-              label: "후보 상권 보기",
-              payload: { p: "sites" },
-            },
-          ],
-        });
-      }
       return context.A({
         text:
-          "상권 분석 지도에서 위치와 반경을 선택하면 해당 지역의 서울 생활인구를 볼 수 있어요. 생활인구는 격자별 추정치예요. 성수역 주변에서는 선택한 반경 안의 점포를 업종별로 살펴볼 수 있어요.",
+          "상권 분석 지도에서 위치와 반경을 선택하면 해당 지역의 서울 생활인구를 볼 수 있어요. 생활인구는 격자별 추정치예요. 선택한 반경 안의 카페·음식점도 카카오 지도 기준으로 살펴볼 수 있어요.",
         cites: [{ t: "nav", p: "sites", label: "상권 분석 지도" }],
         acts: [
           { type: "navigate", label: "지도 열기", payload: { p: "sites" } },

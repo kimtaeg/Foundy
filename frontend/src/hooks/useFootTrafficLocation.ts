@@ -12,6 +12,8 @@ export function useFootTrafficLocation(
 ) {
   const [region, setRegion] = useState("");
   const [addressStatus, setAddressStatus] = useState("");
+  // 분석 위치가 정해졌는지: 찾을 주소가 없거나, 주소 검색이 끝났거나(실패 포함), 사용자가 위치를 골랐을 때
+  const [resolved, setResolved] = useState(!address?.trim());
   const changeRef = useRef(onCenterChange);
   const request = useRef(0);
   useEffect(() => { changeRef.current = onCenterChange; }, [onCenterChange]);
@@ -24,6 +26,7 @@ export function useFootTrafficLocation(
     const geocoder = new kakao.maps.services.Geocoder();
     geocoder.addressSearch(address, (result, status) => {
       if (!current || request.current !== version) return;
+      setResolved(true);
       if (status !== kakao.maps.services.Status.OK || !result[0]) {
         setAddressStatus("가게 주소를 찾지 못했어요. 지도에서 분석 위치를 선택해 주세요.");
         return;
@@ -56,7 +59,8 @@ export function useFootTrafficLocation(
   const selectCenter = (point: LatLng) => {
     request.current++;
     setAddressStatus("");
+    setResolved(true);
     changeRef.current(point);
   };
-  return { region, addressStatus, selectCenter };
+  return { region, addressStatus, selectCenter, resolved };
 }

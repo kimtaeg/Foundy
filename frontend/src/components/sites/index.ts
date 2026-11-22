@@ -11,8 +11,6 @@ export * from "./MarketPanelHeader";
 export * from "./MarketPanelTabs";
 export * from "./MarketSummaryCard";
 export * from "./NearbyShopsCard";
-export * from "./PriceComparison";
-export * from "./PricePositionCard";
 export * from "./PopulationBreakdownCard";
 export * from "./PopulationDataNote";
 export * from "./PopulationHourlyCard";

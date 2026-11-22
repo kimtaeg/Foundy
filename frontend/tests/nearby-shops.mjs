@@ -10,7 +10,8 @@ const { MarketEmptyState } = load('@/components/sites/MarketEmptyState');
 const { NearbyShopsCard } = load('@/components/sites/NearbyShopsCard');
 const { MarketSummaryCard } = load('@/components/sites/MarketSummaryCard');
 const { StrategyCard } = load('@/components/sites/StrategyCard');
-const { MARKET_DEMO_CENTER } = load('@/data/market');
+const MARKET_DEMO_CENTER = { lat: 37.5, lng: 127.0 }; // 테스트용 중심
+const { placeToShop, dedupeShops } = load('@/lib/market');
 const render = (component, props) => renderToStaticMarkup(React.createElement(component, props));
 const results = [];
 const test = (name, run) => { run(); results.push(name); console.log(`PASS ${name}`); };
@@ -53,6 +54,28 @@ test('점포 요약은 제공된 표본의 업종 분포를 표시한다', () =>
   for (const text of ['표시된 점포','표시된 점포 밀도','표시된 점포의 업종 비중','커피전문점','한식'])
     assert.ok(html.includes(text), text);
   assert.match(render(StrategyCard), /서울시·KT 생활인구 공개값 기반/);
+});
+
+test('카카오 장소 검색 결과를 실제 점포로 바꾸고 중복을 한 번만 둔다', () => {
+  const place = { id: '123', place_name: '테스트 카페', category_name: '음식점 > 카페 > 커피전문점', x: '127.001', y: '37.5', place_url: 'http://place.map.kakao.com/123', distance: '87' };
+  const converted = placeToShop(place);
+  assert.deepEqual(converted, { id: 'kakao-123', name: '테스트 카페', dist: 87, lng: 127.001, lat: 37.5, sub: '커피전문점', cat: '카페', ex: false, url: 'http://place.map.kakao.com/123' });
+  assert.equal(placeToShop({ ...place, x: '', y: 'x' }), null);
+  assert.equal(placeToShop({ ...place, category_name: '음식점 > 한식' }).cat, '음식점');
+  assert.equal(dedupeShops([converted, { ...converted }, { ...converted, id: 'kakao-9' }]).length, 2);
+});
+
+test('조회 상태마다 빈 화면 안내가 다르다 (조회 중·실패·지도 키 없음)', () => {
+  assert.match(render(MarketEmptyState, { status: 'loading' }), /주변 점포를 불러오고 있어요/);
+  assert.match(render(MarketEmptyState, { status: 'error' }), /주변 점포를 불러오지 못했어요/);
+  assert.match(render(MarketEmptyState, { status: 'unavailable' }), /지도 키가 설정되지 않아/);
+  assert.match(render(NearbyShopsCard, { shops: [], onSelect: () => {}, status: 'loading' }), /불러오고 있어요/);
+  assert.match(render(NearbyShopsCard, { shops: [shop()], onSelect: () => {}, truncated: true }), /가까운 곳부터 일부만/);
+});
+
+test('상권 화면 데이터에 성수 일대 예시 점포·후보지가 남아 있지 않다', () => {
+  const market = load('@/data/market');
+  for (const name of ['SHOPS', 'EXFOOD', 'AREAS', 'MARKET_DEMO_CENTER']) assert.equal(market[name], undefined, name);
 });
 
 console.log(`${results.length} passed`);

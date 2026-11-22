@@ -11,7 +11,7 @@ export function MarketSummaryCard({ analysis }: MarketSummaryCardProps) {
     value: analysis.nearby.filter((shop) => shop.cat === label).length,
   }));
   return (
-    <MarketPanelCard title="반경 안 점포 구성" description="성수역 주변 점포 중 선택한 반경과 업종에 해당하는 곳을 집계해요.">
+    <MarketPanelCard title="반경 안 점포 구성" description="카카오 지도에서 찾은 반경 안 카페·음식점을 업종별로 집계해요.">
       {analysis.count ? (
         <div className="space-y-5">
           <dl className="m-0 grid grid-cols-2 gap-4 mb-4">
@@ -34,7 +34,7 @@ export function MarketSummaryCard({ analysis }: MarketSummaryCardProps) {
             {analysis.composition.length > 5 && <p className="mb-0 mt-2 text-sm text-neutral-600">총 {analysis.composition.length}개 분류 중 점포 수가 많은 5개를 표시해요.</p>}
           </div>
         </div>
-      ) : <MarketEmptyState />}
+      ) : <MarketEmptyState status={analysis.status} />}
     </MarketPanelCard>
   );
 }

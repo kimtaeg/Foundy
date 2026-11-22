@@ -1,6 +1,6 @@
 # 페이지·컴포넌트 QA 체크리스트
 
-컴포넌트 파일 273개, 컴포넌트 선언 287개, 페이지 10개, 앱 진입 파일 21개를 읽었습니다. 페이지 진입점에서 참조되지 않은 컴포넌트 파일은 13개입니다.
+컴포넌트 파일 271개, 컴포넌트 선언 285개, 페이지 10개, 앱 진입 파일 21개를 읽었습니다. 페이지 진입점에서 참조되지 않은 컴포넌트 파일은 14개입니다.
 
 체크된 컴포넌트는 소스, Props, 모듈 연결을 정적으로 대조한 항목입니다. 아래 페이지 체크박스는 실제 기능 검증 항목이며 테스트 링크는 실행 대상입니다. 브라우저 실행 결과와 개별 오류 재현 여부는 [QA 실행 보고서](./qa-execution.md)에서 확인합니다. 공통 레이아웃의 참조는 권한이나 화면 상태에 따라 조건부로 렌더링됩니다. `↗`는 콜백입니다.
 
@@ -17,7 +17,7 @@
 - [ ] [`/`](../src/app/page.tsx) 첫 진입 주소 정규화, 인증 여부에 따른 홈·로그인·초기 등록 분기 · 62개 코드 모듈 참조 · [로딩](../src/app/loading.tsx) · [routing-smoke.mjs](../tests/routing-smoke.mjs)
 - [ ] [`/register`](../src/app/register/page.tsx) 가게 정보와 주소, 일정, 영업 조건, 이전 단계, 재개, 분석 SSE와 대시보드 진입 · 37개 코드 모듈 참조 · [로딩](../src/app/register/loading.tsx) · [api-integration.mjs](../tests/api-integration.mjs), [functional-parity.mjs](../tests/functional-parity.mjs)
 - [ ] [`/report`](../src/app/report/page.tsx) 시기와 위험도, 접기, 근거 모달, 선택, 완료·취소, 영향 항목과 채팅 · 32개 코드 모듈 참조 · [로딩](../src/app/report/loading.tsx) · [api-integration.mjs](../tests/api-integration.mjs), [disclosure-motion.mjs](../tests/disclosure-motion.mjs), [chat-api-integration.mjs](../tests/chat-api-integration.mjs)
-- [ ] [`/sites`](../src/app/sites/page.tsx) 주소·좌표, SDK·정적 데이터, 반경, 시간·분류, 점포, 통계, 로딩·오류·재시도 · 76개 코드 모듈 참조 · [로딩](../src/app/sites/loading.tsx) · [market-map.mjs](../tests/market-map.mjs), [market-loading.mjs](../tests/market-loading.mjs), [population-age-map.mjs](../tests/population-age-map.mjs), [market-calculations.mjs](../tests/market-calculations.mjs)
+- [ ] [`/sites`](../src/app/sites/page.tsx) 주소·좌표, SDK·정적 데이터, 반경, 시간·분류, 점포, 통계, 로딩·오류·재시도 · 74개 코드 모듈 참조 · [로딩](../src/app/sites/loading.tsx) · [market-map.mjs](../tests/market-map.mjs), [market-loading.mjs](../tests/market-loading.mjs), [population-age-map.mjs](../tests/population-age-map.mjs), [market-calculations.mjs](../tests/market-calculations.mjs)
 - [ ] [공통 셸](../src/app/layout.tsx) 브레드크럼, 네비게이션·드롭다운, 알림 읽음, 모달 포커스, 토스트, 권한 복구 · [네비게이션 테스트](../tests/navbar-regression.mjs) · [로딩 테스트](../tests/page-loading.mjs)
 - [ ] [공통 상담](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx) 세션 복구·재시도, 첫 답변, 중단·재전송, 출처·추천 행동, POST JSON/SSE 오류 · [API 브라우저 테스트](../tests/chat-api-integration.mjs) · [위젯 테스트](../tests/chat-widget.mjs)
 - [ ] 교차 상태 API 지연과 취소, 네트워크 끊김, 400·401·403·404·409·422·429·500, JSON이 없는 실패, 저장 중 이동과 로그아웃, 반응형과 reduced motion
@@ -79,7 +79,7 @@
 - [x] [RangeChart](../src/components/charts/RangeChart/RangeChart.tsx#L11) · 수치와 그래프 표시 · `비교 범위를 확인할 수 없어요.` · `내 가격`
   - Props `RangeChartProps` · `title` · `min` · `median` · `max` · `value?` · `format?`↗
   - 연결 — / 하위 —
-  - 참조 `/sites` / 상위 [`PriceComparison`](../src/components/sites/PriceComparison/PriceComparison.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
 
 ### chat
 
@@ -501,8 +501,8 @@
 
 ### foot-traffic
 
-- [x] [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx#L39) · 하위 UI 또는 상태 표현 · `data-testid=traffic-map`
-  - Props `FootTrafficMapProps` · `appKey?` · `dataSource?` · `dataset?` · `loading?` · `error?` · `onRetry?`↗ · `center` · `onCenterChange`↗ · `radius` · `onRadiusChange`↗ · `shops` · `selectedShopId` · `onSelectShop`↗ · `address?` · `settingsOpen` · `onSettingsOpenChange`↗ · `hour` · `lastHour` · `onHourChange`↗
+- [x] [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx#L41) · 하위 UI 또는 상태 표현 · `data-testid=traffic-map`
+  - Props `FootTrafficMapProps` · `appKey?` · `dataSource?` · `dataset?` · `loading?` · `error?` · `onRetry?`↗ · `center` · `onCenterChange`↗ · `radius` · `onRadiusChange`↗ · `shops` · `selectedShopId` · `onSelectShop`↗ · `address?` · `settingsOpen` · `onSettingsOpenChange`↗ · `hour` · `lastHour` · `onHourChange`↗ · `onNearbyShopsChange?`↗
   - 연결 [`useFootTrafficData`](../src/hooks/useFootTrafficData.ts) · [`categories`](../src/lib/foot-traffic/categories.ts) / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx) · [`MapControls`](../src/components/foot-traffic/MapControls/MapControls.tsx) · [`MapDataStatus`](../src/components/foot-traffic/MapDataStatus/MapDataStatus.tsx) · [`PopulationLegend`](../src/components/foot-traffic/PopulationLegend/PopulationLegend.tsx)
   - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
 - [x] [FootTrafficMapSkeleton](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx#L8) · 로딩 자리 표시 · `상권 지도를 불러오는 중`
@@ -513,9 +513,9 @@
   - Props `MapAvailabilityProps` · `state`
   - 연결 — / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx)
   - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx)
-- [x] [MapCanvas](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx#L35) · 하위 UI 또는 상태 표현 · `분석 중심 위치`
-  - Props `MapCanvasProps` · `appKey` · `center` · `radius` · `level` · `lines` · `cells` · `cuts` · `label` · `hour` · `shops` · `selectedShopId` · `address?` · `onSelectShop`↗ · `onCenterChange`↗ · `onLevelChange`↗ · `onRegionChange`↗ · `onAddressStatusChange`↗
-  - 연결 [`useFootTrafficLocation`](../src/hooks/useFootTrafficLocation.ts) · [`useFootTrafficResize`](../src/hooks/useFootTrafficResize.ts) · [`levels`](../src/lib/foot-traffic/levels.ts) / 하위 [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`MapZoomControls`](../src/components/foot-traffic/MapZoomControls/MapZoomControls.tsx) · [`PopulationTooltip`](../src/components/foot-traffic/PopulationTooltip/PopulationTooltip.tsx) · [`RoadPopulationLayer`](../src/components/foot-traffic/RoadPopulationLayer/RoadPopulationLayer.tsx) · [`ShopMapMarkers`](../src/components/foot-traffic/ShopMapMarkers/ShopMapMarkers.tsx)
+- [x] [MapCanvas](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx#L40) · 하위 UI 또는 상태 표현 · `분석 중심 위치`
+  - Props `MapCanvasProps` · `appKey` · `center` · `radius` · `level` · `lines` · `cells` · `cuts` · `label` · `hour` · `shops` · `selectedShopId` · `address?` · `onSelectShop`↗ · `onCenterChange`↗ · `onLevelChange`↗ · `onRegionChange`↗ · `onAddressStatusChange`↗ · `onNearbyShopsChange?`↗
+  - 연결 [`useFootTrafficLocation`](../src/hooks/useFootTrafficLocation.ts) · [`useFootTrafficResize`](../src/hooks/useFootTrafficResize.ts) · [`useNearbyShops`](../src/hooks/useNearbyShops.ts) · [`levels`](../src/lib/foot-traffic/levels.ts) / 하위 [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`MapZoomControls`](../src/components/foot-traffic/MapZoomControls/MapZoomControls.tsx) · [`PopulationTooltip`](../src/components/foot-traffic/PopulationTooltip/PopulationTooltip.tsx) · [`RoadPopulationLayer`](../src/components/foot-traffic/RoadPopulationLayer/RoadPopulationLayer.tsx) · [`ShopMapMarkers`](../src/components/foot-traffic/ShopMapMarkers/ShopMapMarkers.tsx)
   - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx)
 - [x] [MapControls](../src/components/foot-traffic/MapControls/MapControls.tsx#L20) · 사용자 동작 · `생활인구 지도 설정` · `생활인구 분석` · `<button>` · `<svg>`
   - Props `MapControlsProps` · `open` · `onOpenChange`↗ · `category` · `sub` · `hour` · `lastHour` · `radius` · `shown` · `region` · `onCategoryChange`↗ · `onSubChange`↗ · `onHourChange`↗ · `onRadiusChange`↗ · `onToggle`↗
@@ -1128,8 +1128,8 @@
   - Props `MarketCategoryFilterProps` · `value` · `onChange`↗
   - 연결 — / 하위 —
   - 참조 `/sites` / 상위 [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx)
-- [x] [MarketEmptyState](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx#L1) · 하위 UI 또는 상태 표현 · `선택한 조건에 표시할 점포가 없어요` · `성수역 주변으로 지도 중심을 옮기거나 반경과 업종을 바꿔 보세요.`
-  - Props —
+- [x] [MarketEmptyState](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx#L15) · 하위 UI 또는 상태 표현
+  - Props `MarketEmptyStateProps` · `status?`
   - 연결 — / 하위 —
   - 참조 `/sites` / 상위 [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx)
 - [x] [MarketMetric](../src/components/sites/MarketMetric/MarketMetric.tsx#L8) · 하위 UI 또는 상태 표현
@@ -1139,7 +1139,7 @@
 - [x] [MarketPanelCard](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx#L8) · 화면과 하위 영역 조합
   - Props `MarketPanelCardProps` · `title` · `description?` · `children`
   - 연결 — / 하위 —
-  - 참조 `/sites` / 상위 [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`FieldChecklistCard`](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) · [`PopulationBreakdownCard`](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx) · [`PopulationHourlyCard`](../src/components/sites/PopulationHourlyCard/PopulationHourlyCard.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`PricePositionCard`](../src/components/sites/PricePositionCard/PricePositionCard.tsx) · [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
+  - 참조 `/sites` / 상위 [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`FieldChecklistCard`](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) · [`PopulationBreakdownCard`](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx) · [`PopulationHourlyCard`](../src/components/sites/PopulationHourlyCard/PopulationHourlyCard.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
 - [x] [MarketPanelHeader](../src/components/sites/MarketPanelHeader/MarketPanelHeader.tsx#L8) · 화면과 하위 영역 조합 · `상권 정보` · `반경` · `<button>` · `<svg>`
   - Props `MarketPanelHeaderProps` · `center` · `radius` · `onClose`↗
   - 연결 — / 하위 —
@@ -1152,8 +1152,8 @@
   - Props `MarketSummaryCardProps` · `analysis`
   - 연결 — / 하위 [`DonutChart`](../src/components/charts/DonutChart/DonutChart.tsx) · [`HorizontalBarChart`](../src/components/charts/HorizontalBarChart/HorizontalBarChart.tsx) · [`MarketEmptyState`](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
   - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
-- [x] [NearbyShopsCard](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx#L12) · 목록 또는 항목 표시
-  - Props `NearbyShopsCardProps` · `shops` · `selectedShop?` · `onSelect`↗
+- [x] [NearbyShopsCard](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx#L16) · 목록 또는 항목 표시
+  - Props `NearbyShopsCardProps` · `shops` · `selectedShop?` · `onSelect`↗ · `status?` · `truncated?`
   - 연결 — / 하위 [`MarketEmptyState`](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx) · [`SelectedShop`](../src/components/sites/SelectedShop/SelectedShop.tsx) · [`ShopListItem`](../src/components/sites/ShopListItem/ShopListItem.tsx)
   - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
 - [x] [PopulationBreakdownCard](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx#L16) · 목록 또는 항목 표시 · `공개값 구성비` · `연령별 공개값`
@@ -1176,14 +1176,6 @@
   - Props `PopulationSummaryCardProps` · `data?` · `loading?` · `error?` · `onRetry?`↗
   - 연결 [`format`](../src/lib/foot-traffic/format.ts) / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
   - 참조 `/sites` / 상위 [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
-- [x] [PriceComparison](../src/components/sites/PriceComparison/PriceComparison.tsx#L10) · 하위 UI 또는 상태 표현 · `비교 가격 범위`
-  - Props `PriceComparisonProps` · `range` · `position` · `price` · `format`↗
-  - 연결 — / 하위 [`RangeChart`](../src/components/charts/RangeChart/RangeChart.tsx)
-  - 참조 `/sites` / 상위 [`PricePositionCard`](../src/components/sites/PricePositionCard/PricePositionCard.tsx)
-- [x] [PricePositionCard](../src/components/sites/PricePositionCard/PricePositionCard.tsx#L14) · 목록 또는 항목 표시 · `아메리카노 가격 비교` · `내 아메리카노 가격 (원)` · `<input>`
-  - Props `PricePositionCardProps` · `price` · `range` · `position` · `format?`↗ · `onPriceChange?`↗
-  - 연결 [`format`](../src/lib/format.ts) / 하위 [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx) · [`PriceComparison`](../src/components/sites/PriceComparison/PriceComparison.tsx)
-  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
 - [x] [SelectedShop](../src/components/sites/SelectedShop/SelectedShop.tsx#L5) · 입력과 검증 상태 · `선택한 점포` · `중심에서`
   - Props `SelectedShopProps` · `shop?`
   - 연결 — / 하위 —
@@ -1201,12 +1193,12 @@
   - 연결 — / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
   - 참조 `/sites`, 공통 레이아웃, `/` 로딩, `/sites` 로딩 / 상위 [`loading`](../src/app/sites/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`SitesView`](../src/components/sites/SitesView.tsx)
 - [x] [SitesView](../src/components/sites/SitesView.tsx#L11) · 화면과 하위 영역 조합
-  - Props `SitesViewProps` · `data?` · `loading?` · `error?` · `onRetry?`↗ · `appKey?` · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onPriceChange?`↗ · `onOpenReport?`↗
+  - Props `SitesViewProps` · `data?` · `loading?` · `error?` · `onRetry?`↗ · `appKey?` · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onOpenReport?`↗
   - 연결 — / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SitesSkeleton`](../src/components/sites/SitesSkeleton/SitesSkeleton.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
   - 참조 `/sites` / 상위 [`SitesPage`](../src/components/sites/SitesPage/SitesPage.tsx)
-- [x] [SitesWorkspace](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx#L33) · 화면과 하위 영역 조합 · `상권 분석 지도` · `상권 분석` · `<button>` · `data-testid=market-workspace`
-  - Props `SitesWorkspaceProps` · `data` · `appKey?` · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onPriceChange?`↗ · `onOpenReport?`↗
-  - 연결 [`usePopulationInsights`](../src/hooks/usePopulationInsights.ts) · [`analyze-market`](../src/lib/market/analyze-market.ts) / 하위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`FieldChecklistCard`](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx) · [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`PricePositionCard`](../src/components/sites/PricePositionCard/PricePositionCard.tsx) · [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
+- [x] [SitesWorkspace](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx#L34) · 화면과 하위 영역 조합 · `상권 분석 지도` · `상권 분석` · `<button>` · `data-testid=market-workspace`
+  - Props `SitesWorkspaceProps` · `data` · `appKey?` · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onOpenReport?`↗
+  - 연결 [`usePopulationInsights`](../src/hooks/usePopulationInsights.ts) · [`analyze-market`](../src/lib/market/analyze-market.ts) / 하위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`FieldChecklistCard`](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx) · [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
   - 참조 `/sites` / 상위 [`SitesView`](../src/components/sites/SitesView.tsx)
 - [x] [StrategyCard](../src/components/sites/StrategyCard/StrategyCard.tsx#L4) · 목록 또는 항목 표시 · `지도를 읽는 방법`
   - Props —

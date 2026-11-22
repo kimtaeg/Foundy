@@ -6,7 +6,7 @@ import { staticFootTrafficSource, staticPopulationInsightsSource } from "@/lib/f
 
 export function SitesPage() {
   const data = useSites();
-  const { onEvent, navigate, apiError, refreshApi } = useFoundy();
+  const { navigate, apiError, refreshApi } = useFoundy();
   return (
     <SitesView
       data={data ?? undefined}
@@ -16,7 +16,6 @@ export function SitesPage() {
       appKey={process.env.NEXT_PUBLIC_KAKAO_APP_KEY}
       footTrafficSource={staticFootTrafficSource}
       populationSource={staticPopulationInsightsSource}
-      onPriceChange={(event) => onEvent("input", event)}
       onOpenReport={() => navigate("report")}
     />
   );

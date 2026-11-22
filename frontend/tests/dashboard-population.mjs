@@ -10,7 +10,7 @@ import {
 
 const { load } = createSourceRuntime();
 const { buildPopulationInsights } = load('@/lib/foot-traffic/insights');
-const { MARKET_DEMO_CENTER } = load('@/data/market');
+const MARKET_DEMO_CENTER = { lat: 37.54515, lng: 127.05713 }; // 인구 테스트 데이터가 있는 좌표
 const contents = readFileSync(dashboardPopulationPath, 'utf8');
 const snapshot = JSON.parse(contents);
 const dataset = readPopulationDataset();

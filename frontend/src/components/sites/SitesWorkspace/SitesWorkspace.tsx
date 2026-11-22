@@ -9,13 +9,14 @@ import { FieldChecklistCard } from "@/components/sites/FieldChecklistCard";
 import { MarketAnalysisPanel } from "@/components/sites/MarketAnalysisPanel";
 import { MarketSummaryCard } from "@/components/sites/MarketSummaryCard";
 import { NearbyShopsCard } from "@/components/sites/NearbyShopsCard";
-import { PricePositionCard } from "@/components/sites/PricePositionCard";
 import { PopulationReport } from "@/components/sites/PopulationReport";
 import { PopulationSummaryCard } from "@/components/sites/PopulationSummaryCard";
 import { StrategyCard } from "@/components/sites/StrategyCard";
 import { usePopulationInsights } from "@/hooks/usePopulationInsights";
 import type { HourSel } from "@/types/foot-traffic";
-import type { MarketCategory, MarketPoint, SitesDataServices, SitesViewData } from "@/types/market";
+import type { MarketCategory, MarketPoint, NearbyShopsState, SitesDataServices, SitesViewData } from "@/types/market";
+
+const NO_KEY: NearbyShopsState = { status: "unavailable", shops: [], truncated: false };
 
 const FootTrafficMap = dynamic(
   () =>
@@ -41,7 +42,6 @@ export function SitesWorkspace({
   populationData,
   populationSource,
   populationInsights,
-  onPriceChange,
   onOpenReport,
   onAnalysisChange,
 }: SitesWorkspaceProps) {
@@ -53,9 +53,16 @@ export function SitesWorkspace({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [time, setTime] = useState<{ hour: HourSel; lastHour: number }>({ hour: "avg", lastHour: 12 });
   const toggleButton = useRef<HTMLButtonElement>(null);
+  // 주변 점포는 카카오 지도에서 조회한 실제 점포만 쓴다. 지도 키가 없으면 조회할 수 없다고 알린다
+  const [live, setLive] = useState<NearbyShopsState>({ status: "idle", shops: [], truncated: false });
+  const nearby = appKey ? live : NO_KEY;
   const analysis = useMemo(
-    () => analyzeMarket(data.shops, center, radius, category),
-    [data.shops, center, radius, category],
+    () => ({
+      ...analyzeMarket(nearby.shops, center, radius, category),
+      status: nearby.status,
+      truncated: nearby.truncated,
+    }),
+    [nearby, center, radius, category],
   );
   const selectedShop = analysis.nearby.find((shop) => shop.id === selectedShopId);
   const loadedPopulation = usePopulationInsights({
@@ -106,6 +113,7 @@ export function SitesWorkspace({
           selectedShopId={selectedShop?.id ?? null}
           onSelectShop={setSelectedShopId}
           address={data.addressResolved ? undefined : data.address}
+          onNearbyShopsChange={setLive}
           settingsOpen={settingsOpen}
           onSettingsOpenChange={(open) => {
             setSettingsOpen(open);
@@ -154,22 +162,12 @@ export function SitesWorkspace({
               shops={analysis.nearby}
               selectedShop={selectedShop}
               onSelect={setSelectedShopId}
+              status={analysis.status}
+              truncated={analysis.truncated}
             />
           </Suspense>
         }
-        planning={
-          <>
-            <Suspense fallback={<SectionSkeleton appearance="plain" variant="chart" label="가격 비교" />}>
-              <PricePositionCard
-                price={data.price}
-                range={data.priceRange}
-                position={data.pricePosition}
-                onPriceChange={onPriceChange}
-              />
-            </Suspense>
-            <FieldChecklistCard onOpenReport={onOpenReport} />
-          </>
-        }
+        planning={<FieldChecklistCard onOpenReport={onOpenReport} />}
       />
     </section>
   );
