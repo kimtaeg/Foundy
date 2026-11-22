@@ -1,43 +1,52 @@
-import { type ActionHandlers } from "@/types/actions";
-import { type DialogContent } from "@/types/dialog";
-import { type StoreDraft } from "@/types/profile";
+import { REGIONS } from "@/data/store";
+import { isBooleanProfileField, isEditableProfileField } from "@/lib/profile/editable-fields";
+import type { ActionHandlers } from "@/types/actions";
+import type { DialogContent } from "@/types/dialog";
+import type { ProfileFieldEdit, StoreDraft } from "@/types/profile";
 
 interface ProfileActionContext {
-  mpDraft(): StoreDraft;
-  applyMp(): void;
-  MP: StoreDraft | null;
+  currentStore(): StoreDraft;
+  accountName(): string;
+  saveAccountName(name: string): void;
+  applyMp(draft: StoreDraft): boolean;
+  toast(message: string): void;
+  setEdit(edit?: ProfileFieldEdit): void;
   modal(title: string, content: DialogContent): void;
   wipeStore(): void;
 }
 
-/** Commands emitted by profile views; view layout is deliberately absent. */
-export function createProfileActions(
-  context: ProfileActionContext,
-): ActionHandlers {
-  return {
-    mploc: (button) => {
-      context.mpDraft().location = button.dataset.v ?? "";
+export function createProfileActions(context: ProfileActionContext) {
+  const actions: ActionHandlers = {
+    mptoggle: (button) => {
+      const { field, answer } = button.dataset;
+      if (!isBooleanProfileField(field)) return;
+      if (answer !== "true" && answer !== "false") return;
+      const draft = context.currentStore();
+      const next = answer === "true";
+      if (draft[field] !== next) context.applyMp({ ...draft, [field]: next });
       return true;
     },
-    mpyn: (button) => {
-      const field = button.dataset.k;
-      if (field !== "alcohol" && field !== "terrace" && field !== "employees" && field !== "delivery")
-        return;
-      context.mpDraft()[field] = button.dataset.v === "1";
+    mpedit: (button) => {
+      const field = button.dataset.field;
+      if (!isEditableProfileField(field) || isBooleanProfileField(field)) return;
+      const draft = context.currentStore();
+      const current = field === "accountName" ? context.accountName() : draft[field];
+      const value = String(current ?? "");
+      const choices: string[] | undefined = field === "type" ? ["카페", "음식점"] : field === "region" ? REGIONS : undefined;
+      context.setEdit({
+        field,
+        value,
+        required: field === "accountName" || field === "opening" || (draft.location === "decided" && (field === "name" || field === "address")),
+        options: choices && (choices.includes(value) || !value ? choices : [value, ...choices]),
+      });
       return true;
     },
-    mpsave: () => {
-      context.applyMp();
-      return true;
-    },
-    mpreset: () => {
-      context.MP = null;
+    mpcancel: () => {
+      context.setEdit();
       return true;
     },
     mpwipe: () => {
-      context.modal("가게 정보를 처음부터 다시 설정할까요?", {
-        kind: "store-reset",
-      });
+      context.modal("가게 정보를 처음부터 다시 설정할까요?", { kind: "store-reset" });
       return true;
     },
     mpwipego: () => {
@@ -45,4 +54,20 @@ export function createProfileActions(
       return true;
     },
   };
+
+  function saveField(edit: ProfileFieldEdit, input: string) {
+    const value = input.trim();
+    if (edit.required && !value) return;
+    if (edit.field === "accountName") {
+      context.saveAccountName(value);
+      context.setEdit();
+      return;
+    }
+    if (context.applyMp({ ...context.currentStore(), [edit.field]: value })) {
+      context.setEdit();
+      context.toast("가게 정보를 저장했어요");
+    }
+  }
+
+  return { actions, saveField };
 }

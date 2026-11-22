@@ -70,7 +70,15 @@ export interface ApiReport {
   run_id: string | null;
   summary: Record<ApiVerdict, number>;
   groups: { stage: string; items: ApiReportItem[] }[];
+  next_steps: ApiNextStep[];
   is_example?: boolean;
+}
+
+export type ApiReportUpdate = Pick<ApiReport, "summary" | "groups" | "next_steps">;
+
+export interface ApiReportMutationUpdate {
+  report_update?: ApiReportUpdate;
+  alerts_update?: { removed_ids: string[]; added: ApiAlert | null };
 }
 
 export type ApiTaskType = "legal_obligation" | "conditional" | "preparation";
@@ -109,6 +117,7 @@ export interface ApiDocumentRequirement {
   status: ApiDocumentStatus;
   status_label: string;
   note: string | null;
+  status_updated_at?: string | null;
   applicability: "applies" | "needs_check" | "not_applicable";
   source_type: "template" | "rule_engine" | "legal_analysis";
   added_by_ai: boolean;
@@ -133,6 +142,10 @@ export interface ApiDocumentRequirement {
   review_reason: string | null;
 }
 
+export type ApiDocumentState = Pick<ApiDocumentRequirement,
+  "doc_key" | "status" | "status_label" | "note" | "status_updated_at" | "review_needed" | "review_reason"
+>;
+
 export interface ApiDocuments {
   summary: {
     total: number;
@@ -140,10 +153,22 @@ export interface ApiDocuments {
     remaining: number;
     not_applicable: number;
     by_status: Record<ApiDocumentStatus, number>;
+    by_type?: Record<ApiDocumentType, number>;
     to_obtain: number;
     to_write_or_keep: number;
     review_needed: number;
   };
+  groups: {
+    item_id: string;
+    task: string;
+    group_label: string;
+    category: string;
+    due_date: string;
+    dday: number;
+    agency: string | null;
+    done: boolean;
+    documents: ApiDocumentRequirement[];
+  }[];
   requirements: ApiDocumentRequirement[];
 }
 
@@ -155,6 +180,7 @@ export interface ApiChecklistItem {
   due_date: string;
   dday: number;
   documents: ApiDocument[];
+  document_names?: string[];
   agency?: string | null;
   contact?: ApiContact | null;
   source: string;
@@ -173,8 +199,12 @@ export interface ApiChecklistItem {
   review_reason?: string | null;
 }
 
+export type ApiChecklistState = Pick<ApiChecklistItem, "item_id" | "done" | "auto_checked" | "review_needed" | "review_reason">;
+
 export interface ApiChecklist {
   opening_date: string;
+  as_of: string;
+  has_employees: boolean;
   progress: { done: number; total: number };
   type_counts?: Record<ApiTaskType, number>;
   review_needed?: number;
@@ -201,7 +231,30 @@ export interface ApiNextStep {
 }
 
 export interface ApiDashboard {
-  store: { store_id: string; name: string; business_type: string | null; opening_date: string; d_day: number };
+  last_run: {run_id: string; finished_at: string} | null;
+  report_summary: Record<ApiVerdict, number>;
+  pending_decisions: {item_id:string; title:string; stage:string; verdict:ApiVerdict; recommended_option:string|null}[];
+  today_todos: {item_id:string; task:string; due_date:string|null; category:string|null; est_minutes:number|null}[];
+  store: {
+    store_id: string;
+    name: string;
+    registered_name: string;
+    business_type: string | null;
+    business_type_input: string;
+    address: string;
+    address_detail: string;
+    region: string | null;
+    opening_date: string;
+    d_day: number;
+  };
+  checklist_tasks: {
+    item_id: string;
+    task: string;
+    group_label: string;
+    category: string;
+    due_date: string;
+    done: boolean;
+  }[];
   next_steps: ApiNextStep[];
   checklist_progress: { done: number; total: number };
   documents_progress?: { finished: number; total: number };
@@ -215,6 +268,7 @@ export interface ApiStore {
   business_type: string | null;
   address: string;
   address_detail: string;
+  address_codes?: {coord?: {lat:number; lng:number}} | null;
   opening_date: string;
   owner_birth_year: number | null;
   region: string | null;
@@ -234,9 +288,7 @@ export interface ApiStore {
   };
 }
 
-export interface ApiDemoSession {
-  access_token: string;
-  user: { user_id: string; name: string; provider: string };
+export interface ApiDemoSession extends ApiAuthSession {
   store_id: string;
 }
 
@@ -252,7 +304,6 @@ export interface ApiObligation {
   review_status: "draft" | "reviewed";
 }
 
-/** GET /api/stores/{id}/grants 의 공고 하나 */
 export interface ApiGrant {
   grant_id: string;
   title: string;
@@ -263,11 +314,15 @@ export interface ApiGrant {
   region: string | null;
   deadline: string | null;
   result: "eligible" | "partial" | "unknown";
-  checks: Array<{ condition: string; result: "pass" | "unknown"; note?: string | null; evidence?: { text?: string | null } | null }>;
+  checks: Array<{
+    condition: string;
+    result: "pass" | "unknown";
+    note?: string | null;
+    evidence?: { text?: string | null } | null;
+  }>;
   summary: { who: string | null; how_much: string | null; until: string | null; what_to_submit: string[] | null };
 }
 
-/** GET /api/stores/{id}/grants · POST …/grants/refresh */
 export interface ApiGrants {
   status: "ready" | "empty" | "unavailable";
   error: string | null;
@@ -278,25 +333,36 @@ export interface ApiGrants {
   items: ApiGrant[];
 }
 
-/** 화면 하나를 그리는 데 필요한 응답 묶음. 변경 요청 뒤에는 통째로 다시 받는다. */
-export interface ApiBundle {
+export interface ApiResources {
   store: ApiStore;
   dashboard: ApiDashboard;
   report: ApiReport;
   checklist: ApiChecklist;
   alerts: ApiAlert[];
-  obligations: ApiObligation[];
-  /** 서류함. 못 받아도 화면은 체크리스트에 붙은 서류 안내로 그린다 */
-  documents: ApiDocuments | null;
-  /** 지원사업. 못 받으면 null (화면은 '불러오지 못함'으로 표시) */
-  grants: ApiGrants | null;
+  documents: ApiDocuments;
+  grants: ApiGrants;
+  me: ApiIdentity;
+}
+
+export type ApiResource = keyof ApiResources;
+
+export interface ApiSetup {
+  status: "missing_store" | "missing_answers" | "needs_analysis" | "analyzing" | "ready" | "failed";
+  missing_fields: string[];
+  run_id: string | null;
+}
+
+export interface ApiIdentity {
+  user: { user_id: string; name: string; provider: string; username: string | null; joined_at: string };
+  store_id: string | null;
+  store_name: string | null;
+  store_opening: string | null;
+  setup: ApiSetup;
 }
 
 /** POST /api/auth/signup · /api/auth/login 응답 */
-export interface ApiAuthSession {
+export interface ApiAuthSession extends ApiIdentity {
   access_token: string;
-  user: { user_id: string; name: string; provider: string; username: string | null; joined_at: string };
-  store_id: string | null;
 }
 
 /** POST /api/stores 요청 */
@@ -307,6 +373,12 @@ export interface ApiRegisterBody {
   address_detail: string;
   opening_date: string;
   owner_birth_year?: number;
+  fixed_questions?: boolean;
+}
+
+export interface ApiChecklistDates {
+  as_of: string;
+  items: Pick<ApiChecklistItem, "item_id" | "due_date" | "dday" | "statutory_deadline">[];
 }
 
 /** PATCH /api/stores/{id} 응답 (변경 반영 결과) */
@@ -319,6 +391,12 @@ export interface ApiPatchResult {
   /** 미리보기면 저장 시 재분석 예정, 저장이면 실제로 새 run 을 만들었는지 */
   needs_reanalyze: boolean;
   run_id: string | null;
+  setup: ApiSetup;
+  /** 저장 트랜잭션에서 확정한 가게 정보와 알림 변경분 */
+  store?: ApiStore;
+  alert?: ApiAlert;
+  removed_alert_ids?: string[];
+  checklist_dates?: ApiChecklistDates;
 }
 
 /** GET /api/stores/{id}/changes 항목 */

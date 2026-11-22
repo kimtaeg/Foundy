@@ -28,8 +28,10 @@ export interface ApiChatSession {
 export function createChatApi(token: string) {
   const base = "/api/chat/sessions";
   return {
-    list: (storeId: string) =>
-      apiFetch<{ items: ApiChatSession[] }>(`${base}?store_id=${encodeURIComponent(storeId)}`, { token }),
+    list: (storeId: string, includeMessages = false) =>
+      apiFetch<{ items: ApiChatSession[]; messages?: ApiChatMessage[] }>(
+        `${base}?store_id=${encodeURIComponent(storeId)}${includeMessages ? "&include_messages=true" : ""}`, { token },
+      ),
     create: (storeId: string) => apiFetch<ApiChatSession>(base, { method: "POST", body: { store_id: storeId }, token }),
     messages: (sessionId: string) =>
       apiFetch<{ session: ApiChatSession; items: ApiChatMessage[] }>(`${base}/${sessionId}/messages`, { token }),

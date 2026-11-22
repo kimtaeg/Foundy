@@ -1,0 +1,11 @@
+export const wizardLayout = "grid min-w-0 gap-6 lg:grid-cols-[10rem_minmax(0,1fr)] lg:gap-12";
+export const wizardSteps = "m-0 flex list-none items-center gap-2 p-0 sm:gap-4 lg:flex-col lg:items-stretch lg:gap-2";
+export const stepTitle = "m-0 text-xl font-semibold leading-snug tracking-tight text-neutral-900 sm:text-[22px]";
+export const fieldLabel = "flex min-w-0 flex-col gap-1.5 text-sm font-medium leading-5 text-neutral-900";
+export const fieldControl = "min-h-12 w-full min-w-0 rounded-lg border border-solid border-neutral-300 bg-white px-3.5 py-2 text-base font-normal leading-6 text-neutral-900 transition-colors placeholder:text-neutral-500 hover:border-neutral-400 focus:border-foundy-primary focus-visible:outline-foundy-primary";
+export const numberField = "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+export const fieldHint = "m-0 text-sm font-normal leading-5 text-neutral-600";
+export const formGrid = "grid min-w-0 gap-x-5 gap-y-5 sm:grid-cols-2 sm:gap-x-6";
+export const stepFooter = "flex flex-wrap items-center gap-3 border-0 border-t border-solid border-neutral-200 pt-5 sm:pt-6";
+export const primaryAction = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border-0 bg-foundy-primary px-4 py-2.5 text-sm font-semibold leading-5 text-white transition-colors hover:bg-foundy-primary-ink focus-visible:outline-foundy-primary disabled:cursor-default disabled:bg-neutral-100 disabled:text-neutral-600 sm:px-5";
+export const secondaryAction = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-solid border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium leading-5 text-neutral-900 transition-colors hover:bg-neutral-50 focus-visible:outline-foundy-primary";

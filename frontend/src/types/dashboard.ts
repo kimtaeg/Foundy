@@ -2,6 +2,7 @@ import {
   type ReportAction,
   type ReportCardData,
   type ReportState,
+  type Verdict,
 } from "@/types/report";
 import type { ChecklistTask } from "./checklist";
 import type { Store } from "./store";
@@ -14,9 +15,27 @@ export type DashboardTask = Pick<
   ChecklistTask,
   "id" | "task" | "group" | "category" | "due" | "done"
 >;
+export type DashboardDecision = Pick<ReportCardData, "id" | "stage" | "title" | "base">;
 export interface DashboardAction {
   id: string;
   action: ReportAction;
+}
+export interface DashboardStageProgress {
+  label: string;
+  done: number;
+  total: number;
+}
+export interface DashboardScheduleMonth {
+  /** Calendar month in YYYY-MM format. */
+  month: string;
+  count: number;
+}
+export interface OpeningWeekDay {
+  /** Calendar date in YYYY-MM-DD format. */
+  date: string;
+  day: number;
+  weekday: string;
+  isOpening: boolean;
 }
 /** API-ready display data; event handlers are supplied separately by the caller. */
 export interface DashboardViewData {
@@ -24,11 +43,23 @@ export interface DashboardViewData {
   name: string;
   undecided: boolean;
   days: number;
-  decisions: ReportCardData[];
+  decisions: DashboardDecision[];
   taskCount: { done: number; total: number };
-  unread: number;
+  /** @deprecated Notifications are displayed by the global navigation. */
+  unread?: number;
   actions: DashboardAction[];
+  /** Due-ordered preview including completed tasks so checked rows remain visible. */
   tasks: DashboardTask[];
+  /** Aggregated from the full task collection, not the upcoming task preview. */
+  stages?: DashboardStageProgress[];
+  /** @deprecated The opening week calendar uses store.opening instead. */
+  schedule?: DashboardScheduleMonth[];
+  /** Evaluated verdicts include the user's current choices. */
+  reportCounts?: Record<Verdict, number>;
+  reportSourceLabel?: string;
+  /** Local calendar date (YYYY-MM-DD) used for deadline labels. */
+  asOf?: string;
+  sourceLabel?: string;
 }
 export interface DashboardContext {
   S: DashboardStore;
@@ -43,6 +74,7 @@ export interface DashboardContext {
   D(date: string): Date;
   realToday(): Date;
   buildCards(): ReportCardData[];
+  ev(card: ReportCardData): Verdict;
   curAction(card: ReportCardData): ReportAction | null;
   allTasks(): DashboardTask[];
 }

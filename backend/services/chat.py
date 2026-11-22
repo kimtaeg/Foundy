@@ -12,11 +12,12 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Iterator
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from agent.assistant import ToolBox, history_messages, run_turn
 from agent.cost import CostTracker
-from agent.llm import LLMError, make_llm
+from agent.llm import make_llm
 from db.models import ChatCitation, ChatMessage, ChatSession, ChatToolCall, CostLog, ReportItem, Run, Store
 from db.session import transaction
 from services import serializers
@@ -26,6 +27,7 @@ from services.timeutil import iso_kst, now_utc, today_kst
 
 logger = logging.getLogger(__name__)
 FAILED = "지금은 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요."
+SAVE_FAILED = "대화 기록을 저장하지 못했어요. 잠시 후 다시 시도해 주세요."
 TITLE_CHARS = 30
 
 
@@ -43,15 +45,18 @@ def message_view(row: ChatMessage, citations: list[ChatCitation]) -> dict:
 
 def list_messages(session, chat: ChatSession) -> list[dict]:
     """화면에 보여 줄 대화 (사용자 질문과 AI 최종 답변). 도구 요청·결과 메시지는 빼고 출처를 붙인다."""
-    rows = list(session.scalars(select(ChatMessage).where(ChatMessage.session_id == chat.id)
-                                .order_by(ChatMessage.created_at)))
-    shown = [r for r in rows if r.role == "user" or (r.role == "assistant" and not r.tool_calls)]
-    ids = [r.id for r in shown if r.role == "assistant"]
-    cites: dict[uuid.UUID, list[ChatCitation]] = {}
-    if ids:
-        for c in session.scalars(select(ChatCitation).where(ChatCitation.message_id.in_(ids))):
-            cites.setdefault(c.message_id, []).append(c)
-    return [message_view(r, cites.get(r.id, [])) for r in shown]
+    rows = session.execute(select(ChatMessage, ChatCitation).outerjoin(
+        ChatCitation, (ChatCitation.message_id == ChatMessage.id) & (ChatMessage.role == "assistant"),
+    ).where(ChatMessage.session_id == chat.id, ChatMessage.role.in_(("user", "assistant")))
+        .order_by(ChatMessage.created_at, ChatMessage.id))
+    shown: dict[ChatMessage, list[ChatCitation]] = {}
+    for message, citation in rows:
+        if message.role == "assistant" and message.tool_calls:
+            continue
+        citations = shown.setdefault(message, [])
+        if citation is not None:
+            citations.append(citation)
+    return [message_view(message, citations) for message, citations in shown.items()]
 
 
 # ---------- 도구가 읽는 데이터 (이 가게만) ----------
@@ -67,7 +72,7 @@ def _profile(session, store: Store) -> dict:
             "answers": eff["answers"], "owner_birth_year": data["owner_birth_year"]}
 
 
-def make_readers(store_id: uuid.UUID) -> dict[str, Any]:
+def make_readers(store_id: uuid.UUID, profile: dict) -> dict[str, Any]:
     def with_store(fn):
         def call(*args):
             with transaction() as session:
@@ -99,39 +104,57 @@ def make_readers(store_id: uuid.UUID) -> dict[str, Any]:
         from law_rag.embedder import make_embedder
 
         keywords = [w for w in query.split() if len(w) >= 2][:6]
+        # 영업신고 의무 질문에 행정처분 조문만 검색되는 경우를 막는다.
+        scope_article = {"law_name": "식품위생법 시행령", "label": "제25조"}
+        pins = [scope_article] if "영업신고" in "".join(query.split()) else []
         hits = retriever.search(session, query=query, keywords=keywords, names=get_pack(store)["law_sources"],
-                                embedder=make_embedder(), top_k=5)
-        return retriever.merge_by_article(hits)
+                                embedder=make_embedder(), pins=pins, top_k=4 if pins else 5)
+        articles = retriever.merge_by_article(hits)
+        if pins:
+            articles.sort(key=lambda article: (article["law_name"], article["article"]) !=
+                          (scope_article["law_name"], scope_article["label"]))
+        return articles
 
     def grants(session, store):
         from services import grants as grant_service
 
         return grant_service.view(session, store)
 
-    return {"get_business_profile": with_store(_profile), "get_checklist": with_store(checklist),
+    # 질문을 시작할 때 읽은 사업장 정보를 이 질문 안에서만 재사용한다.
+    return {"get_business_profile": lambda: profile, "get_checklist": with_store(checklist),
             "get_report": with_store(report), "get_documents": with_store(documents),
             "search_laws": with_store(laws), "search_support_programs": with_store(grants)}
 
 
 # ---------- 질문 처리 ----------
 
+def _turn_context(chat_id: uuid.UUID) -> tuple[uuid.UUID, list, dict]:
+    with transaction() as session:
+        # 최근 대화를 한 행에 담아 사업장 정보와 함께 읽는다.
+        recent = (select(ChatMessage.role, ChatMessage.content, ChatMessage.created_at, ChatMessage.id)
+            .where(ChatMessage.session_id == chat_id, ChatMessage.tool_calls.is_(None), ChatMessage.role != "tool")
+            .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc()).limit(24).subquery())
+        past_query = select(func.jsonb_agg(aggregate_order_by(
+            func.jsonb_build_array(recent.c.role, recent.c.content), recent.c.created_at, recent.c.id,
+        ))).scalar_subquery()
+        store, history = session.execute(select(Store, past_query).select_from(ChatSession)
+            .join(Store, Store.id == ChatSession.store_id).where(ChatSession.id == chat_id)).one()
+        return store.id, history or [], _profile(session, store)
+
+
 def ask(chat_id: uuid.UUID, question: str, llm=None, readers: dict | None = None) -> Iterator[tuple[str, dict]]:
     """질문을 처리하며 이벤트를 낸다: tool · delta · reset · done · error.
 
-    응답 속도를 위해 DB 저장은 질문이 끝날 때 한 트랜잭션으로 한다 (질문·도구 요청·도구 결과·최종 답·출처·비용).
-    최종 답은 저장 전에 먼저 보내고, 연결이 끊겨도(GeneratorExit) 저장은 한다.
+    글자는 즉시 보내고, 최종 이벤트는 대화 기록 저장 결과를 확인한 뒤 보낸다.
+    연결이 끊겨도(GeneratorExit) 그때까지 수집한 기록을 저장한다.
     """
     asked_at = now_utc()
-    with transaction() as session:  # 시작 전 읽기는 한 번에
-        chat, store = session.execute(
-            select(ChatSession, Store).join(Store, Store.id == ChatSession.store_id).where(ChatSession.id == chat_id)).one()
-        store_id = chat.store_id
-        # 이전 대화는 최근 것만 읽는다 (AI에는 최근 12개만 넘긴다)
-        past = [(role, content) for role, content in reversed(session.execute(
-            select(ChatMessage.role, ChatMessage.content)
-            .where(ChatMessage.session_id == chat_id, ChatMessage.tool_calls.is_(None), ChatMessage.role != "tool")
-            .order_by(ChatMessage.created_at.desc()).limit(24)).all())]
-        profile = _profile(session, store)
+    try:
+        store_id, past, profile = _turn_context(chat_id)
+    except Exception as exc:
+        logger.warning("상담 정보 조회 실패 (%s)", type(exc).__name__)
+        yield "error", {"message": FAILED}
+        return
 
     cost = CostTracker()
     pending: list[Any] = [ChatMessage(id=uuid.uuid4(), session_id=chat_id, role="user", content=question, created_at=asked_at)]
@@ -141,46 +164,48 @@ def ask(chat_id: uuid.UUID, question: str, llm=None, readers: dict | None = None
         return max(now_utc(), asked_at) + timedelta(microseconds=len(pending))
 
     try:
-        try:
-            llm = llm or make_llm(cost)
-        except LLMError as exc:
-            yield _failure(chat_id, pending, stamp(), str(exc))
-            return
-        box = ToolBox(readers or make_readers(store_id))
-        try:
-            for kind, value in run_turn(llm, profile=profile, history=history_messages(past), question=question,
-                                        box=box, today=today_kst()):
-                if kind == "assistant_tools":
-                    pending.append(ChatMessage(id=uuid.uuid4(), session_id=chat_id, role="assistant",
-                                               content=value["content"] or "", tool_calls=value["tool_calls"],
-                                               created_at=stamp()))
-                elif kind == "tool":
-                    msg = ChatMessage(id=uuid.uuid4(), session_id=chat_id, role="tool", content=_short(value["result"]),
-                                      tool_call_id=value["call_id"], created_at=stamp())
-                    pending.append(msg)
-                    pending.append(ChatToolCall(session_id=chat_id, message_id=msg.id, tool_name=value["name"],
-                                                arguments=value["arguments"], result=value["result"],
-                                                status=value["status"], created_at=msg.created_at))
-                    yield "tool", {"name": value["name"], "label": value["label"], "status": value["status"]}
-                elif kind == "delta":
-                    yield "delta", {"text": value}
-                elif kind == "reset":
-                    yield "reset", {}
-                elif kind == "done":
-                    msg = ChatMessage(id=uuid.uuid4(), session_id=chat_id, role="assistant",
-                                      content=value["content"] or FAILED, actions=value["actions"], created_at=stamp())
-                    cites = [ChatCitation(id=uuid.uuid4(), message_id=msg.id, **{k: c[k] for k in (
-                        "source_type", "source_id", "source_title", "source_url", "article_number")})
-                        for c in value["citations"]]
-                    pending.append(msg)
-                    pending.extend(cites)
-                    yield "done", message_view(msg, cites)
-                    return
-        except LLMError as exc:
-            logger.warning("상담 답변 실패: %s", exc)
-            yield _failure(chat_id, pending, stamp(), FAILED)
+        llm = llm or make_llm(cost)
+        box = ToolBox(readers or make_readers(store_id, profile))
+        for kind, value in run_turn(llm, profile=profile, history=history_messages(past), question=question,
+                                    box=box, today=today_kst()):
+            if kind == "assistant_tools":
+                pending.append(ChatMessage(id=uuid.uuid4(), session_id=chat_id, role="assistant",
+                                           content=value["content"] or "", tool_calls=value["tool_calls"],
+                                           created_at=stamp()))
+            elif kind == "tool":
+                msg = ChatMessage(id=uuid.uuid4(), session_id=chat_id, role="tool", content=_short(value["result"]),
+                                  tool_call_id=value["call_id"], created_at=stamp())
+                pending.append(msg)
+                pending.append(ChatToolCall(session_id=chat_id, message_id=msg.id, tool_name=value["name"],
+                                            arguments=value["arguments"], result=value["result"],
+                                            status=value["status"], created_at=msg.created_at))
+                yield "tool", {"name": value["name"], "label": value["label"], "status": value["status"]}
+            elif kind == "delta":
+                yield "delta", {"text": value}
+            elif kind == "reset":
+                yield "reset", {}
+            elif kind == "done":
+                msg = ChatMessage(id=uuid.uuid4(), session_id=chat_id, role="assistant",
+                                  content=value["content"] or FAILED, actions=value["actions"], created_at=stamp())
+                cites = [ChatCitation(id=uuid.uuid4(), message_id=msg.id, **{k: c[k] for k in (
+                    "source_type", "source_id", "source_title", "source_url", "article_number")})
+                    for c in value["citations"]]
+                terminal = "done", message_view(msg, cites)
+                pending.append(msg)
+                pending.extend(cites)
+                break
+        else:
+            terminal = _failure(chat_id, pending, stamp(), FAILED)
+    except Exception as exc:
+        logger.warning("상담 답변 실패 (%s)", type(exc).__name__)
+        terminal = _failure(chat_id, pending, stamp(), FAILED)
     finally:
-        _persist(chat_id, store_id, question, pending, cost)
+        saved = _persist(chat_id, store_id, question, pending, cost)
+
+    if saved:
+        yield terminal
+    else:
+        yield "error", {"message": SAVE_FAILED}
 
 
 def _failure(chat_id, pending: list, at: datetime, message: str) -> tuple[str, dict]:
@@ -189,23 +214,25 @@ def _failure(chat_id, pending: list, at: datetime, message: str) -> tuple[str, d
     return "error", {"message": message, "reply": message_view(msg, [])}
 
 
-def _persist(chat_id, store_id, question: str, pending: list, cost: CostTracker) -> None:
+def _persist(chat_id, store_id, question: str, pending: list, cost: CostTracker) -> bool:
     """이번 질문에서 생긴 기록을 한 트랜잭션으로 저장한다 (부모 행이 먼저 들어가도록 순서대로)."""
     try:
         with transaction() as session:
-            chat = session.get(ChatSession, chat_id)
-            if chat is None:  # 그사이 상담방이 지워졌다
-                return
-            if not chat.title:
-                chat.title = question[:TITLE_CHARS]
-            chat.updated_at = now_utc()
+            changed = session.execute(update(ChatSession).where(ChatSession.id == chat_id).values(
+                title=func.coalesce(func.nullif(ChatSession.title, ""), question[:TITLE_CHARS]),
+                updated_at=now_utc(),
+            )).rowcount
+            if not changed:  # 그사이 상담방이 지워졌다
+                return False
             messages = [p for p in pending if isinstance(p, ChatMessage)]
             session.add_all(messages)
             session.flush()
             session.add_all([p for p in pending if not isinstance(p, ChatMessage)])
             _save_cost(session, store_id, cost)
-    except Exception:  # noqa: BLE001 - 저장 실패는 답변 표시를 막지 않는다 (다음에 다시 열면 이 대화가 빠진다)
-        logger.exception("상담 기록 저장 실패")
+    except Exception as exc:
+        logger.warning("상담 기록 저장 실패 (%s)", type(exc).__name__)
+        return False
+    return True
 
 
 def _save_cost(session, store_id, cost: CostTracker) -> None:

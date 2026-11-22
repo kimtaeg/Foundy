@@ -1,7 +1,7 @@
 "use client";
 import { Navbar } from "@/components/navigation/Navbar";
 import { DataBoundary } from "@/components/loading/DataBoundary";
-import { SectionSkeleton } from "@/components/loading/SectionSkeleton";
+import { NavbarSkeleton } from "@/components/navigation/NavbarSkeleton";
 import type { DataState } from "@/types/data-state";
 import type { NavbarData, NavbarProps } from "@/types/navigation";
 
@@ -13,7 +13,7 @@ export function ApplicationNavigation({ onNavigate, onOpenNotification, onLogout
   return (
     <DataBoundary
       {...state}
-      fallback={<SectionSkeleton variant="navigation" label="메뉴를 불러오는 중" />}
+      fallback={<NavbarSkeleton />}
     >
       {(data) => (
         <Navbar

@@ -1,8 +1,11 @@
 import { type ReportOption } from "@/types/report";
 
-/** 기간·비용 중 확인된 값만 "즉시 · 추가 비용 없음"처럼 한 줄로 합친다. */
-export function optionMeta(option: ReportOption): string {
-  return [option.time[0], option.cost[0]]
-    .filter((value) => value && !value.includes("확인 필요"))
-    .join(" · ");
+export function optionMeta({ time, cost }: ReportOption): string {
+  const duration = time?.[0]?.trim();
+  const expense = cost?.[0]?.trim();
+  if (!duration && !expense) return "";
+  const knownDuration = duration && duration !== "확인 필요";
+  const knownExpense = expense && expense !== "확인 필요";
+  if (!knownDuration && !knownExpense) return "기간·비용 확인 필요";
+  return [knownDuration ? duration : "기간 확인 필요", knownExpense ? expense : "비용 확인 필요"].join(" · ");
 }

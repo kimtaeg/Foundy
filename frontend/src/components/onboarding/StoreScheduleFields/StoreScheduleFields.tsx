@@ -1,43 +1,22 @@
-import { Element } from "@/components/view/Element";
-import { type OnboardingStore } from "@/types/onboarding";
+import { DatePickerField } from "@/components/ui/DatePickerField";
+import { Input } from "@/components/ui/Input";
+import type { OnboardingStore } from "@/types/onboarding";
+import { fieldControl, fieldHint, fieldLabel, numberField } from "../onboarding-styles";
 
 export interface StoreScheduleFieldsProps { store: OnboardingStore }
 
 export function StoreScheduleFields({ store }: StoreScheduleFieldsProps) {
   return (
     <>
-      <Element as="label" className="nx-f">
-        개업 예정일 *
-        <Element
-          as="input"
-          id="fOpen"
-          type="date"
-          required
-          value={store.opening}
-        />
-      </Element>
-      <Element as="label" className="nx-f">
-        영업장 면적 (㎡, 선택)
-        <Element
-          as="input"
-          id="fArea"
-          type="number"
-          min="1"
-          step="0.1"
-          value={store.area || ""}
-        />
-        <small>소방 안전시설처럼 면적 기준이 있는 규정을 확인하는 데 써요.</small>
-      </Element>
-      <Element as="label" className="nx-f">
-        출생 연도 (선택)
-        <Element
-          as="input"
-          id="fBirth"
-          type="number"
-          value={store.birth || ""}
-        />
-        <small>지원사업 대상 조건 확인에만 써요.</small>
-      </Element>
+      <div className={fieldLabel}>
+        <label htmlFor="fOpen-trigger">개업 예정일 <span aria-hidden="true" className="text-foundy-primary-ink">*</span></label>
+        <DatePickerField id="fOpen" label="개업 예정일" value={store.opening} required />
+      </div>
+      <div className={fieldLabel}>
+        <label htmlFor="fBirth">출생 연도 <span className="font-normal text-neutral-600">(선택)</span></label>
+        <Input id="fBirth" className={`${fieldControl} ${numberField}`} type="number" inputMode="numeric" value={store.birth || ""} placeholder="1995" aria-describedby="store-birth-hint" />
+        <p id="store-birth-hint" className={fieldHint}>지원사업 대상 조건을 확인할 때 사용해요.</p>
+      </div>
     </>
   );
 }

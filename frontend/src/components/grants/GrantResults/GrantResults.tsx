@@ -1,50 +1,30 @@
 import { Suspense } from "react";
 import { GrantCard } from "@/components/grants/GrantCard";
-import { GrantListRow } from "@/components/grants/GrantListRow";
-import { GrantMonthCard } from "@/components/grants/GrantMonthCard";
 import { SectionSkeleton } from "@/components/loading/SectionSkeleton";
-import { Element } from "@/components/view/Element";
-import type { GrantMonthViewData, GrantViewItem } from "@/types/grant-view";
-import type { GrantFilters } from "@/types/grants";
+import type { GrantsViewData, GrantViewItem } from "@/types/grant-view";
 
 export interface GrantResultsProps {
   grants: GrantViewItem[];
-  months: GrantMonthViewData[];
-  view: GrantFilters["view"];
+  status?: GrantsViewData["status"];
 }
 
-export function GrantResults({ grants, months, view }: GrantResultsProps) {
-  if (view === "card")
-    return (
-      <Element className="nx-ggrid">
-        {grants.map((item) => (
-          <Suspense key={item.grant.id} fallback={<SectionSkeleton variant="card" label="지원사업 공고" />}>
-            <GrantCard {...item} />
-          </Suspense>
-        ))}
-      </Element>
-    );
-  if (view === "list")
-    return (
-      <Element as="section" className="nx-card">
-        {grants.map((item) => (
-          <Suspense key={item.grant.id} fallback={<SectionSkeleton variant="list" rows={1} label="지원사업 공고" />}>
-            <GrantListRow {...item} />
-          </Suspense>
-        ))}
-      </Element>
-    );
+const emptyStyle = "m-0 border-0 border-y border-solid border-neutral-200 py-9 text-center text-[15px] text-neutral-600";
+const emptyMessages = {
+  ready: "선택한 조건에 맞는 공고가 없어요.",
+  empty: "표시할 지원사업 공고가 없어요. 모집 중인 공고를 조회해 보세요.",
+  unavailable: "지원사업 공고를 불러오지 못했어요.",
+};
+
+export function GrantResults({ grants, status = "ready" }: GrantResultsProps) {
+  if (!grants.length) return <p className={emptyStyle}>{emptyMessages[status]}</p>;
+
   return (
-    <>
-      {months.length ? (
-        months.map((group) => (
-          <Suspense key={group.month} fallback={<SectionSkeleton variant="list" label="월별 지원사업" />}>
-            <GrantMonthCard group={group} />
-          </Suspense>
-        ))
-      ) : (
-        <Element className="nx-empty">마감일이 있는 공고가 없어요.</Element>
-      )}
-    </>
+    <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-2 xl:grid-cols-3 xl:gap-x-8">
+      {grants.map((item) => (
+        <Suspense key={item.grant.id} fallback={<SectionSkeleton appearance="plain" variant="card" label="지원사업 공고" />}>
+          <GrantCard {...item} />
+        </Suspense>
+      ))}
+    </div>
   );
 }

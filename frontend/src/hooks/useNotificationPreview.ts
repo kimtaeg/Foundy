@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
+const previewWidth = 400;
+
 /** Owns only disclosure lifecycle and viewport anchoring, independent of app state. */
 export function useNotificationPreview() {
   const id = useId();
@@ -8,14 +10,14 @@ export function useNotificationPreview() {
   const panelRef = useRef<HTMLElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ top: 64, left: 16, width: 360 });
+  const [position, setPosition] = useState({ top: 64, left: 16, width: previewWidth });
   const cancelClose = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
   const updatePosition = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const width = Math.min(360, window.innerWidth - 32);
+    const width = Math.min(previewWidth, window.innerWidth - 32);
     setPosition({
       top: rect.bottom + 12,
       left: Math.max(

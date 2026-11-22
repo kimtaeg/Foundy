@@ -12,6 +12,7 @@ export function OnboardingHeader({
   return (
     <PageHeader
       eyebrow={returning ? "RE-ANALYSIS" : "WELCOME"}
+      breadcrumbLabel={returning ? "가게 정보 재분석" : "가게 등록"}
       title={
         returning
           ? "변경 내용을 반영하고 있어요"

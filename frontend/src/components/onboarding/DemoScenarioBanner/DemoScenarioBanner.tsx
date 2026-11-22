@@ -1,17 +1,10 @@
-import { Element } from "@/components/view/Element";
+import { secondaryAction } from "../onboarding-styles";
 
 export function DemoScenarioBanner() {
   return (
-    <Element className="nx-banner" style={{ margin: "8px 0 4px" }}>
-      <div>
-        <b>입력 없이 흐름 확인하기</b>
-        <Element className="nx-muted">
-          이서연 씨의 시나리오로 끝까지 보여드려요 · 예시 데이터
-        </Element>
-      </div>
-      <Element as="button" className="nx-btn" type="button" data-nx="demo">
-        예시로 해보기
-      </Element>
-    </Element>
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-0 border-l-2 border-solid border-foundy-primary bg-foundy-primary/5 px-4 py-3">
+      <p className="m-0 text-sm font-medium text-neutral-700">가게 정보 입력 없이 둘러보기</p>
+      <button className={secondaryAction} type="button" data-nx="demo">모노커피로 시작</button>
+    </div>
   );
 }

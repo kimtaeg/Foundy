@@ -3,6 +3,7 @@
 실제 호출 테스트는 LLM_PROVIDER=openai·LLM_API_KEY·DATABASE_URL 이 없으면 건너뛴다. DB 에 쓰지 않는다 (읽기 도구만 쓴다).
 """
 
+import json
 import os
 from datetime import date
 from pathlib import Path
@@ -11,6 +12,7 @@ import pytest
 from dotenv import load_dotenv
 
 from agent.assistant import UNGROUNDED_LAW_NOTE, ToolBox, finalize, history_messages, run_turn
+from agent.llm import LLMError
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -57,6 +59,102 @@ def test_history_keeps_only_user_and_assistant_recent():
     rows = [("user", f"q{i}") for i in range(20)] + [("tool", "x"), ("assistant", "")]
     out = history_messages(rows)
     assert len(out) == 12 and all(m["role"] == "user" for m in out)
+
+
+def test_turn_reuses_law_queries_with_same_terms_and_preserves_evidence():
+    reads = []
+
+    def laws(query):
+        reads.append(query)
+        return [{"law_name": query, "article": "제41조", "text": "정확한 조문 원문.\n공백 유지."}]
+
+    def call(index, query):
+        return {"id": f"law-{index}", "type": "function", "function": {
+            "name": "search_laws", "arguments": json.dumps({"query": query})}}
+
+    first_query, second_query = "식품위생법", "식품위생법 시행령"
+    profile = {"name": "테스트 카페", "answers": {"alcohol": False}}
+    history = [{"role": "user", "content": "가게 준비 중이에요."}]
+
+    class ChatLLM:
+        def stream_tools(self, *, step, tier, messages, tools, require_tool):
+            if tier == "fast":
+                assert json.loads(messages[0]["content"].split("[사업장 정보]\n")[-1]) == profile
+                assert messages[1:-1] == history
+                yield "final", {"content": "", "tool_calls": [call(1, first_query), call(2, f" {first_query} "),
+                                                                call(3, second_query)]}
+                return
+            tools_used = [message for message in messages if message["role"] == "tool"]
+            assert [message["tool_call_id"] for message in tools_used] == ["law-1", "law-2", "law-3"]
+            assert tools_used[0]["content"] == tools_used[1]["content"]
+            payloads = [json.loads(message["content"]) for message in tools_used]
+            assert [payload["query"] for payload in payloads] == [first_query, first_query, second_query]
+            assert [payload["articles"][0]["text"] for payload in payloads] == ["정확한 조문 원문.\n공백 유지."] * 3
+            assert tools_used[0]["content"] == json.dumps(payloads[0], ensure_ascii=False, separators=(",", ":"))
+            yield "final", {"content": "조문을 확인하세요 [S1][S2].", "tool_calls": []}
+
+    box = ToolBox({"search_laws": laws})
+    events = list(run_turn(ChatLLM(), profile=profile, history=history, question="어떤 규정이 적용되나요?",
+                           box=box, today=date(2026, 11, 22)))
+    assert reads == [first_query, second_query]
+    assert [cite["source_title"] for cite in events[-1][1]["citations"]] == [
+        f"{first_query} 제41조", f"{second_query} 제41조"]
+
+
+def test_turn_retries_failed_read_and_reuses_checklist_with_different_filters():
+    calls = []
+
+    def checklist():
+        calls.append("read")
+        if len(calls) == 1:
+            raise RuntimeError("temporary failure")
+        return {"groups": [{"items": [{"item_id": "one", "task": "완료", "done": True},
+                                      {"item_id": "two", "task": "남은 일", "done": False}]}]}
+
+    box = ToolBox({"get_checklist": checklist})
+    with pytest.raises(RuntimeError, match="temporary failure"):
+        box.run("get_checklist", {})
+    items = box.run("get_checklist", {})["items"]
+    assert [item["task"] for item in items] == ["완료", "남은 일"]
+    assert box.run("get_checklist", {"only_open": True})["items"] == [items[1]]
+    assert calls == ["read", "read"]
+
+
+@pytest.mark.parametrize("first_plan", ["tool", "error", "empty"])
+def test_fast_model_selects_tool_and_main_model_streams_grounded_answer(first_plan):
+    class ChatLLM:
+        def __init__(self):
+            self.calls = []
+
+        def stream_tools(self, *, step, tier, messages, tools, require_tool):
+            self.calls.append((step, tier, require_tool))
+            if tier == "fast":
+                if first_plan == "error":
+                    raise LLMError("빠른 모델 사용 불가")
+                yield "delta", "화면에는 보내지 않는 중간 텍스트"
+                if first_plan == "empty":
+                    yield "final", {"content": "", "tool_calls": []}
+                    return
+            if require_tool:
+                yield "final", {"content": "", "tool_calls": [{"id": "law-1", "type": "function", "function": {
+                    "name": "search_laws", "arguments": '{"query":"식품위생법"}',
+                }}]}
+                return
+            assert messages[-1]["role"] == "tool" and "식품위생법" in messages[-1]["content"]
+            answer = "식품위생법 제41조를 확인해 주세요 [S1]."
+            yield "delta", answer
+            yield "final", {"content": answer, "tool_calls": []}
+
+    llm = ChatLLM()
+    box = ToolBox({"search_laws": lambda _: [{"law_name": "식품위생법", "article": "제41조"}]})
+    events = list(run_turn(llm, profile={}, history=[], question="법적으로 위생교육을 받아야 하나요?",
+                           box=box, today=date(2026, 11, 22)))
+    expected_calls = [("chat_plan", "fast", True)]
+    if first_plan != "tool":
+        expected_calls.append(("chat", "main", True))
+    assert llm.calls == [*expected_calls, ("chat", "main", False)]
+    assert [kind for kind, _ in events] == ["assistant_tools", "tool", "delta", "done"]
+    assert events[-1][1]["citations"][0]["source_title"] == "식품위생법 제41조"
 
 
 @pytest.fixture(scope="module")

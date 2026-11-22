@@ -1,3 +1,5 @@
+import { navigate } from './helpers/navigate.mjs';
+import { signIn } from './helpers/sign-in.mjs';
 import { chromium, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -5,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(project, 'work', 'migrated', 'functional');
-const baseURL = process.env.FOUNDY_URL || 'http://localhost:3102';
+const baseURL = process.env.FOUNDY_URL || 'http://localhost:3000';
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
 const page = await context.newPage();
@@ -16,11 +18,11 @@ try {
   await expect(page).toHaveURL(`${baseURL}/login`);
   await expect(page.locator('#authScreen')).toBeVisible();
   result.checks.push('Unauthenticated direct report URL redirects to login');
-  await page.locator('[data-nx="demologin"]').click();
+  await signIn(page);
   await expect(page).toHaveURL(`${baseURL}/dashboard`);
-  await page.locator('#nav [data-page="report"]').click();
+  await navigate(page, 'report');
   await expect(page).toHaveURL(`${baseURL}/report`);
-  await page.locator('#nav [data-page="checklist"]').click();
+  await navigate(page, 'checklist');
   await expect(page).toHaveURL(`${baseURL}/checklist`);
   await page.goBack();
   await expect(page).toHaveURL(`${baseURL}/report`);
@@ -34,7 +36,10 @@ try {
   await page.reload();
   await expect(page).toHaveURL(`${baseURL}/mypage`);
   await expect(page.locator('#page-mypage.active')).toBeVisible();
-  await expect(page.locator('[data-mp="name"]')).toHaveValue('모노커피');
+  const mypage = page.locator('#page-mypage.active');
+  await expect(mypage.getByText('모노커피', { exact: true })).toBeVisible();
+  await expect(mypage.getByRole('button', { name: '가게 이름 수정', exact: true })).toBeVisible();
+  await expect(mypage.locator('input, select, textarea')).toHaveCount(0);
   result.checks.push('Direct mypage URL and reload preserve session and store data');
   await page.locator('header [data-nx="logout"]').click();
   await expect(page).toHaveURL(`${baseURL}/login`);

@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/loading/PageSkeleton";
+import { GrantsSkeleton } from "@/components/grants/GrantsSkeleton";
 
 export default function Loading() {
-  return <PageSkeleton page="grants" />;
+  return <GrantsSkeleton />;
 }

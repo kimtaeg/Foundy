@@ -35,6 +35,8 @@ SYSTEM = """너는 FOUNDY의 AI 창업 상담사 "파운디"다. 카페·음식�
 
 [정보 활용]
 - 법령·인허가·의무에 관한 질문은 반드시 search_laws 로 조문을 찾은 뒤 답한다. 학습한 지식만으로 법적 의무를 단정하지 않는다.
+- 영업신고 대상 여부를 묻는 경우, 해당 업종이 신고 대상이라고 명시한 검색 결과를 결론의 근거로 쓴다.
+  예: "식품위생법 시행령 제25조에 따르면 휴게음식점은 신고 대상이에요. [S1]" S1은 예시이며 해당 조문의 실제 ref 번호를 쓴다. 이 답변에서는 항·호·목 번호를 생략한다.
 - 체크리스트·할 일·일정 질문은 get_checklist, 서류 질문은 get_documents, 점검 결과(건물 용도·상표·영업신고 등)는 get_report,
   지원사업은 search_support_programs 로 조회한 뒤 답한다.
 - 도구 결과에 없는 내용은 "확인되지 않았어요"라고 말하고 관할 기관 확인을 안내한다.
@@ -138,6 +140,7 @@ class ToolBox:
         self.readers = readers
         self.sources = Sources()
         self.used: list[str] = []
+        self._reads: dict[tuple, Any] = {}
 
     def run(self, name: str, args: dict) -> dict:
         if name not in self.readers:
@@ -146,14 +149,21 @@ class ToolBox:
         self.used.append(name)
         return out
 
+    def _read(self, name: str, *args: str) -> Any:
+        # 한 답변 안에서는 동일한 조회를 재사용한다. 예외가 난 조회는 다음 도구 호출에서 다시 시도한다.
+        key = (name, *args)
+        if key not in self._reads:
+            self._reads[key] = self.readers[name](*args)
+        return self._reads[key]
+
     # 각 도구는 LLM에 넘길 작은 JSON 을 만든다 (토큰을 아끼려고 필요한 필드만)
     def _get_business_profile(self, args: dict) -> dict:
-        profile = self.readers["get_business_profile"]()
+        profile = self._read("get_business_profile")
         ref = self.sources.add("profile", "내 가게 정보", source_id="store")
         return {"ref": ref, **profile}
 
     def _get_checklist(self, args: dict) -> dict:
-        data = self.readers["get_checklist"]()
+        data = self._read("get_checklist")
         rows = []
         for group in data.get("groups", []):
             for it in group.get("items", []):
@@ -167,7 +177,7 @@ class ToolBox:
         return {"progress": data.get("progress"), "items": rows}
 
     def _get_documents(self, args: dict) -> dict:
-        data = self.readers["get_documents"]()
+        data = self._read("get_documents")
         rows = []
         for req in data.get("requirements", []):
             if args.get("only_open") and req.get("status") in ("obtained", "submitted", "not_applicable"):
@@ -180,7 +190,7 @@ class ToolBox:
         return {"summary": data.get("summary"), "documents": rows}
 
     def _get_report(self, args: dict) -> dict:
-        data = self.readers["get_report"]()
+        data = self._read("get_report")
         rows = []
         for group in data.get("groups", []):
             for it in group.get("items", []):
@@ -193,7 +203,7 @@ class ToolBox:
         query = str(args.get("query") or "").strip()
         if len(query) < 2:
             return {"error": "검색어가 너무 짧아요"}
-        articles = self.readers["search_laws"](query)
+        articles = self._read("search_laws", query)
         rows = []
         for a in articles:
             title = f"{a.get('law_name')} {a.get('article')}".strip()
@@ -203,7 +213,7 @@ class ToolBox:
         return {"query": query, "articles": rows} if rows else {"query": query, "articles": [], "note": "관련 조문을 찾지 못했어요"}
 
     def _search_support_programs(self, args: dict) -> dict:
-        data = self.readers["search_support_programs"]()
+        data = self._read("search_support_programs")
         rows = []
         for g in data.get("items", []):
             ref = self.sources.add("grant", g.get("title", ""), source_id=g.get("grant_id"), url=g.get("url"))
@@ -247,6 +257,18 @@ def finalize(text: str, box: ToolBox) -> tuple[str, list[dict], list[dict]]:
     return clean, citations, actions[:2]
 
 
+def _first_tool_plan(llm, messages: list[dict]) -> dict | None:
+    """첫 호출은 조회 도구만 고른다. 모델을 쓸 수 없거나 호출이 없으면 본 모델이 이어받는다."""
+    try:
+        for kind, value in llm.stream_tools(step="chat_plan", tier="fast", messages=messages,
+                                            tools=TOOLS, require_tool=True):
+            if kind == "final" and value["tool_calls"]:
+                return value
+    except LLMError:
+        pass
+    return None
+
+
 def run_turn(llm, *, profile: dict, history: list[dict], question: str, box: ToolBox,
              today: date) -> Iterator[tuple[str, Any]]:
     """질문 하나를 처리한다. 이벤트를 차례로 낸다.
@@ -258,15 +280,16 @@ def run_turn(llm, *, profile: dict, history: list[dict], question: str, box: Too
     """
     if not hasattr(llm, "stream_tools"):
         raise LLMError("이 AI 설정에서는 상담(도구 호출)을 쓸 수 없어요. LLM_PROVIDER=openai 로 설정해 주세요.")
-    system = SYSTEM.format(today=today.isoformat(), profile=json.dumps(profile, ensure_ascii=False))
+    system = SYSTEM.format(today=today.isoformat(), profile=json.dumps(profile, ensure_ascii=False, separators=(",", ":")))
     messages: list[dict] = [{"role": "system", "content": system}, *history, {"role": "user", "content": question}]
     for round_no in range(MAX_TOOL_ROUNDS + 1):
         tools = TOOLS if round_no < MAX_TOOL_ROUNDS else []  # 마지막 차례에는 도구 없이 답하게 한다
         final: dict = {"content": "", "tool_calls": []}
         buffered: list[str] = []
-        # 첫 차례에는 도구를 반드시 하나 이상 쓰게 한다 (학습한 지식만으로 답하지 않게)
-        stream = (llm.stream_tools(step="chat", tier="main", messages=messages, tools=tools, require_tool=round_no == 0)
-                  if tools else _no_tools(llm, messages))
+        # 첫 차례에는 한 개 이상의 도구를 고르고, 답변 본문은 본 모델로 생성한다.
+        plan = _first_tool_plan(llm, messages) if round_no == 0 else None
+        stream = (("final", plan),) if plan else llm.stream_tools(
+            step="chat", tier="main", messages=messages, tools=tools, require_tool=round_no == 0)
         for kind, value in stream:
             if kind == "delta":
                 buffered.append(value)
@@ -290,12 +313,7 @@ def run_turn(llm, *, profile: dict, history: list[dict], question: str, box: Too
                 args, result, status = {}, {"error": f"조회 실패: {type(exc).__name__}"}, "failed"
             if isinstance(result, dict) and "error" in result:
                 status = "failed"
-            payload = json.dumps(result, ensure_ascii=False, default=str)
+            payload = json.dumps(result, ensure_ascii=False, default=str, separators=(",", ":"))
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": payload})
             yield "tool", {"name": name, "label": TOOL_LABELS.get(name, name), "arguments": args, "result": result,
                            "status": status, "call_id": call["id"]}
-
-
-def _no_tools(llm, messages: list[dict]):
-    """도구 없이 답만 받는다 (도구 호출 횟수를 다 쓴 경우)."""
-    return llm.stream_tools(step="chat", tier="main", messages=messages, tools=[])

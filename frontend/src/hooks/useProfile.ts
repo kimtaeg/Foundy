@@ -1,11 +1,51 @@
+import { EMPTY_STORE, IMP, MPF, REGIONS } from "@/data/store";
+import { formFromStore } from "@/lib/api/store-update";
+import { provLabel } from "@/lib/format-provider";
 import { useFeatureData } from "@/hooks/useFeatureData";
-import { type ProfileViewModel, type StoreChange } from "@/types/profile";
+import { isBooleanProfileField } from "@/lib/profile/editable-fields";
+import type { EditableProfileField, ProfileViewModel, StoreChange } from "@/types/profile";
 
-export function useProfile(): ProfileViewModel | null {
-  const { context, profileView, apiPending } = useFeatureData("mypage");
+type PendingSave = { field: EditableProfileField; value: string | boolean };
+
+export function useProfile(pending?: PendingSave): ProfileViewModel | null {
+  const { context, api, apiActive, snapshot } = useFeatureData("mypage");
+  if (apiActive) {
+    const me = api?.bundle.me;
+    const store = api?.bundle.store;
+    const onboarded = snapshot?.onboarded ?? false;
+    if (!me || (onboarded && !store)) return null;
+    const form = store && onboarded ? formFromStore(store) : null;
+    const { field, value } = pending ?? {};
+    if (form && field && field !== "accountName" && field !== "region") {
+      if (isBooleanProfileField(field)) {
+        if (typeof value === "boolean") form[field] = value;
+      } else if (typeof value === "string") {
+        form[field] = value;
+      }
+    }
+    return {
+      onboarded,
+      draft: form ? {
+        name: form.name, type: form.type, address: form.address, detail: form.detail, opening: form.opening,
+        birth: form.birth, funds: form.funds, region: store?.region ?? "", location: "decided",
+        alcohol: !!form.alcohol, employees: !!form.employees, terrace: !!form.terrace,
+      } : { ...EMPTY_STORE, birth: "", funds: "" },
+      answers: form ? { alcohol: form.alcohol, employees: form.employees, terrace: form.terrace } : undefined,
+      profile: {
+        name: field === "accountName" && typeof value === "string" ? value : me.user.name,
+        provider: me.user.provider,
+        joined: me.user.joined_at?.slice(0, 10),
+      },
+      providerLabel: me.user.provider === "local" ? "아이디 계정" : provLabel(me.user.provider),
+      canReset: false,
+      impacts: IMP, fields: MPF, regions: REGIONS, changes: [], affectedLabels: [], resetCards: [],
+    };
+  }
   if (!context) return null;
-  if (apiPending) return null; // 서버 가게 정보를 받기 전에는 로컬 값으로 폼을 채우지 않는다
-  const base = {
+  const changes: StoreChange[] = context.mpDiff();
+  const affected = context.mpImpacts(changes);
+  return {
+    edit: context.edit,
     onboarded: context.S.onboarded,
     draft: context.mpDraft(),
     profile: context.profile(),
@@ -13,14 +53,6 @@ export function useProfile(): ProfileViewModel | null {
     impacts: context.IMP,
     fields: context.MPF,
     regions: context.REGIONS,
-  };
-  // 서버 연결 모드: 폼은 서버 저장값, 영향·초기화 카드는 서버 미리보기 응답 (프론트 고정 영향표로 계산하지 않는다)
-  if (profileView) return profileView({ ...base, changes: [], affectedLabels: [], resetCards: [] });
-  // 서버를 쓰지 않는 데모 모드: 기존 로컬 계산 그대로
-  const changes: StoreChange[] = context.mpDiff();
-  const affected = context.mpImpacts(changes);
-  return {
-    ...base,
     changes,
     affectedLabels: [...affected.set].map((key) => context.IMP[key]),
     resetCards: context.resetList(affected.cardIds),

@@ -4,7 +4,6 @@ import { ChatProcessing } from "@/components/chat/ChatProcessing";
 import { MessageCitations } from "@/components/chat/MessageCitations";
 import { MessageText } from "@/components/chat/MessageText";
 import { QuestionSuggestions } from "@/components/chat/QuestionSuggestions";
-import { PhoneContact } from "@/components/common/PhoneContact";
 import {
   type CallGuide,
   type ChatMessageModel,
@@ -48,6 +47,9 @@ export function ChatMessage({
   const call = message.call
     ? cards.find((card) => card.id === message.call)
     : undefined;
+  const agencies = (message.contacts ?? []).flatMap((key) =>
+    contacts[key] ? [contacts[key].name] : [],
+  );
   const status =
     message.kind === "oos"
       ? { label: "확인이 필요해요", tone: "bg-neutral-100 text-neutral-600" }
@@ -59,7 +61,7 @@ export function ChatMessage({
   const citations: CitationItem[] = (message.cites || []).flatMap<CitationItem>(
     (citation) => {
       if (typeof citation !== "string")
-        return [{ page: citation.p, label: citation.label, url: citation.url }];
+        return [{ page: citation.p, url: citation.url, focus: citation.focus, label: citation.label }];
       const card = cards.find((item) => item.id === citation);
       return card
         ? card.evidence.slice(0, 3).map((evidence) => ({
@@ -73,9 +75,6 @@ export function ChatMessage({
   return (
     <article className="min-w-0 space-y-3" aria-label="파운디 답변" data-chat-role="assistant">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-foundy-primary text-xs font-bold text-white" aria-hidden="true">
-          f
-        </span>
         <span className="text-sm font-semibold text-neutral-900">파운디</span>
         {status && (
           <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${status.tone}`}>
@@ -100,13 +99,14 @@ export function ChatMessage({
           <CallPreparation
             cardId={call.id}
             guide={callGuides[call.id]}
-            contact={call.contact ? contacts[call.contact] : undefined}
             memo={memo[call.id] || ""}
           />
         )}
-        {(message.contacts || []).map((key, position) => (
-          <PhoneContact key={`${key}-${position}`} contact={contacts[key]} />
-        ))}
+        {agencies.length > 0 && (
+          <ul aria-label="담당 기관" className="m-0 list-disc space-y-1 pl-5">
+            {agencies.map((name, index) => <li key={index}>{name}</li>)}
+          </ul>
+        )}
         <MessageCitations citations={citations} />
         {(message.acts || []).map((action, actionIndex) => (
           <ChatActionCard

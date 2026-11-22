@@ -12,7 +12,7 @@ const entries = [];
 const nativeInputs = new Set(['Input', 'Select', 'Textarea', 'Element']);
 
 for (const file of program.getSourceFiles()) {
-  const relative = path.relative(root, file.fileName);
+  const relative = path.relative(root, file.fileName).split(path.sep).join('/');
   if (!relative.startsWith('src/components/') || !relative.endsWith('.tsx')) continue;
   for (const node of file.statements) {
     if (!ts.isFunctionDeclaration(node) || !node.name || !node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)) continue;
@@ -27,7 +27,7 @@ for (const file of program.getSourceFiles()) {
       return {
         name: property.name,
         optional: Boolean(property.flags & ts.SymbolFlags.Optional),
-        type: checker.typeToString(type, parameter, ts.TypeFormatFlags.NoTruncation),
+        type: checker.typeToString(type, parameter, ts.TypeFormatFlags.NoTruncation).replaceAll(`${root.split(path.sep).join('/')}/`, './'),
         callback: checker.getNonNullableType(type).getCallSignatures().length > 0,
       };
     });

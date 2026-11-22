@@ -27,6 +27,7 @@ from .schemas import (
 )
 
 MAX_NOTICE_CHARS = 6000
+_extraction_workers = ThreadPoolExecutor(max_workers=8, thread_name_prefix="grant-extraction")
 
 
 class Condition(BaseModel):
@@ -102,19 +103,9 @@ def _meta(g: dict, deadline: date | None) -> dict:
                 url=g.get("url"), deadline=deadline, org=g.get("org"), category=g.get("category"), region=g.get("region"))
 
 
-def _judge_one(llm: LLM, store: StoreInput, facts: dict, g: dict, deadline: date | None, today: date) -> GrantMatch | None:
+def _judge_one(ex: GrantExtraction, store: StoreInput, notice: str, g: dict, deadline: date | None,
+               today: date) -> GrantMatch | None:
     """공고 하나를 판정한다. 조건이 명확히 맞지 않으면 None (목록에서 뺀다)."""
-    notice = (g.get("text") or "")[:MAX_NOTICE_CHARS]
-    try:
-        ex = llm.parse(
-            step="grants_extract", tier="main", system=prompt.SYSTEM,
-            user=prompt.USER.format(store=json.dumps(facts, ensure_ascii=False), title=g.get("title", ""), notice=notice),
-            schema=GrantExtraction,
-        )
-    except LLMError:
-        return GrantMatch(**_meta(g, deadline), eligibility=GrantEligibility(result="unknown"),
-                          summary=GrantSummary(until=deadline.isoformat() if deadline else None))
-
     checks: list[GrantCheck] = []
     seen: set[str] = set()
     for c in ex.conditions:
@@ -127,7 +118,34 @@ def _judge_one(llm: LLM, store: StoreInput, facts: dict, g: dict, deadline: date
         checks.append(check)
     until = deadline.isoformat() if deadline else (ex.until if _parse_date(ex.until) else None)
     return GrantMatch(**_meta(g, deadline), eligibility=GrantEligibility(result=_eligibility(checks), checks=checks),
-                      summary=GrantSummary(who=ex.who, how_much=ex.how_much, until=until, what_to_submit=ex.what_to_submit))
+                      summary=GrantSummary(who=ex.who, how_much=ex.how_much, until=until,
+                                           what_to_submit=ex.what_to_submit))
+
+
+def _judge_same_prompt(llm: LLM, store: StoreInput, facts: str, title: str, notice: str,
+                       grants: list[tuple[int, dict, date | None]], today: date
+                       ) -> dict[int, tuple[GrantMatch | None, bool]]:
+    user = prompt.USER.format(store=facts, title=title, notice=notice)
+    extraction = None
+    results = {}
+    for index, grant, deadline in grants:
+        if extraction is None:
+            try:
+                extraction = llm.parse(step="grants_extract", tier="main", system=prompt.SYSTEM,
+                                       user=user, schema=GrantExtraction)
+            except LLMError:
+                fallback = GrantMatch(**_meta(grant, deadline), eligibility=GrantEligibility(result="unknown"),
+                                      summary=GrantSummary(until=deadline.isoformat() if deadline else None))
+                results[index] = (fallback, True)
+                continue
+        match = _judge_one(extraction, store, notice, grant, deadline, today)
+        results[index] = (match, False)
+        # 원문을 확인하지 못한 추출은 같은 공고를 다시 판정할 때 재사용하지 않는다.
+        if match is not None and (not match.eligibility.checks or any(
+            check.evidence is None for check in match.eligibility.checks
+        )):
+            extraction = None
+    return results
 
 
 def judge_grants(llm: LLM, store: StoreInput, res: ToolResult, today: date | None = None) -> GrantsResult:
@@ -135,26 +153,35 @@ def judge_grants(llm: LLM, store: StoreInput, res: ToolResult, today: date | Non
     if not res.ok or not res.data:
         return GrantsResult(ok=False, fetched_at=res.fetched_at)
 
-    facts = {"name": store.name, "address": store.address, "opening_date": str(store.opening_date),
-             "owner_birth_year": store.owner_birth_year, "business_type": store.business_type_input,
-             "answers": store.answers}
-    open_grants: list[tuple[dict, date | None]] = []
+    facts = json.dumps({"name": store.name, "address": store.address, "opening_date": str(store.opening_date),
+                       "owner_birth_year": store.owner_birth_year, "business_type": store.business_type_input,
+                       "answers": store.answers}, ensure_ascii=False, separators=(",", ":"))
+    groups: dict[tuple[str, str], list[tuple[int, dict, date | None]]] = {}
     closed = 0
-    for g in res.data.get("grants", []):
+    for index, g in enumerate(res.data.get("grants", [])):
         deadline = _parse_date(g.get("deadline"))
         if deadline and deadline < today:
             closed += 1
             continue
-        open_grants.append((g, deadline))
-    # 공고마다 AI 호출이 하나씩이라 동시에 보낸다 (결과 순서는 아래에서 다시 정렬한다)
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        judged = list(pool.map(lambda pair: _judge_one(llm, store, facts, pair[0], pair[1], today), open_grants))
-    items = [m for m in judged if m is not None]
-    excluded = sum(1 for m in judged if m is None)
+        title = str(g.get("title", ""))
+        notice = (g.get("text") or "")[:MAX_NOTICE_CHARS]
+        groups.setdefault((title, notice), []).append((index, g, deadline))
+    # 같은 제목과 본문은 AI 추출을 공유하되, 공고별 마감일과 근거 링크는 각각 검증한다.
+    def judge_group(group):
+        (title, notice), grants = group
+        return _judge_same_prompt(llm, store, facts, title, notice, grants, today)
+
+    by_index = {}
+    for group_results in _extraction_workers.map(judge_group, groups.items()):
+        by_index.update(group_results)
+    judged = [by_index[index] for index in sorted(by_index)]
+    items = [m for m, _ in judged if m is not None]
+    excluded = sum(1 for m, _ in judged if m is None)
 
     order = {"eligible": 0, "partial": 1, "unknown": 2}
     items.sort(key=lambda m: (order[m.eligibility.result], m.deadline or date.max))
-    return GrantsResult(ok=True, fetched_at=res.fetched_at, items=items, excluded_count=excluded, closed_count=closed)
+    return GrantsResult(ok=True, fetched_at=res.fetched_at, items=items, excluded_count=excluded, closed_count=closed,
+                        extraction_failed=any(failed for _, failed in judged))
 
 
 def grant_checklist_items(

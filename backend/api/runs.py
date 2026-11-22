@@ -8,13 +8,14 @@ import uuid
 from fastapi import APIRouter, Depends, Header, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.deps import current_user, owned_store
-from api.errors import ApiError, forbidden, invalid_input
+from api.deps import SignedToken, owned_store, signed_token
+from api.errors import ApiError, forbidden, invalid_input, unauthorized
 from db.models import Run, Store, User
 from db.session import get_db
-from services.analysis import ACTIVE, create_run, normalize_scope, read_run
+from services.analysis import ACTIVE, create_run, normalize_scope, read_run, read_run_state
 
 router = APIRouter()
 
@@ -31,25 +32,29 @@ def analyze(request: Request, body: AnalyzeBody | None = None, store: Store = De
     return {"run_id": str(run_id), "status": "queued"}
 
 
-def owned_run(run_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> Run:
+def owned_run(run_id: str, token: SignedToken = Depends(signed_token), db: Session = Depends(get_db)) -> Run:
     try:
         key = uuid.UUID(run_id)
     except ValueError:
-        raise ApiError(404, "RUN_NOT_FOUND", "분석 실행을 찾을 수 없습니다.") from None
-    row = db.get(Run, key)
+        key = None
+    result = db.execute(select(User.id, Run, Store.user_id).select_from(User).outerjoin(Run, Run.id == key)
+                        .outerjoin(Store, Store.id == Run.store_id).where(token.user_filter())).one_or_none()
+    if result is None:
+        raise unauthorized()
+    user_id, row, owner_id = result
     if row is None:
         raise ApiError(404, "RUN_NOT_FOUND", "분석 실행을 찾을 수 없습니다.")
-    store = db.get(Store, row.store_id)
-    if store is None or store.user_id != user.id:
+    if owner_id != user_id:
         raise forbidden()
     return row
 
 
 @router.get("/api/runs/{run_id}")
 def get_run(row: Run = Depends(owned_run), db: Session = Depends(get_db)) -> dict:
-    key = row.id
-    db.close()
-    return read_run(key)
+    state = read_run_state(db, row)
+    if db.dirty:
+        db.commit()
+    return state
 
 
 @router.get("/api/runs/{run_id}/stream")
@@ -58,14 +63,15 @@ def stream(request: Request, row: Run = Depends(owned_run), db: Session = Depend
     if last_event_id is not None and last_event_id < 0:
         raise invalid_input("Last-Event-ID는 0 이상이어야 합니다.")
     key = row.id
+    initial = get_run(row, db)
     db.close()  # SSE 연결 동안 요청 인증용 DB 연결을 점유하지 않는다.
 
     async def events():
         cursor = last_event_id or 0
         loop = asyncio.get_running_loop()
         heartbeat = loop.time()
+        state = initial
         while not await request.is_disconnected():
-            state = await asyncio.to_thread(read_run, key)
             for index, record in enumerate(state["events"][cursor:], start=cursor + 1):
                 event, data = record["event"], record["data"]
                 if event == "done":
@@ -80,6 +86,9 @@ def stream(request: Request, row: Run = Depends(owned_run), db: Session = Depend
                 yield ": keep-alive\n\n"
                 heartbeat = loop.time()
             await asyncio.sleep(0.25)
+            if await request.is_disconnected():
+                return
+            state = await asyncio.to_thread(read_run, key)
 
     return StreamingResponse(events(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

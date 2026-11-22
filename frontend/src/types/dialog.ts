@@ -1,9 +1,11 @@
 import { type Grant } from "@/types/grants";
-import type { EvidenceItemData as EvidenceItem } from "./report";
+import type { EvidenceItemData as EvidenceItem, ReportCardData, ReportCardModel } from "./report";
 
 /** Serializable dialog data; state logic never constructs view markup. */
 export type DialogContent =
-  | { kind: "evidence"; items: EvidenceItem[]; date: string }
+  | { kind: "evidence"; items: EvidenceItem[]; date?: string }
+  | { kind: "option-choices"; card: ReportCardData }
+  | { kind: "option-result"; model: ReportCardModel }
   | {
       kind: "grant";
       grant: Grant;
@@ -23,14 +25,7 @@ export type DialogContent =
     }
   | { kind: "opening-date"; opening: string }
   | { kind: "location-pick"; areaId: string }
-  | { kind: "social-sign-in"; provider: string; providerLabel: string }
-  | { kind: "store-reset" }
-  | {
-      kind: "analysis-progress";
-      steps: string[];
-      completed: number;
-      changes: string[];
-    };
+  | { kind: "store-reset" };
 
 export interface ApplicationDialog {
   title: string;

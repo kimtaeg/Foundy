@@ -1,64 +1,33 @@
 import { VerdictBadge } from "@/components/report/VerdictBadge";
-import { Element } from "@/components/view/Element";
-import {
-  type ReportCardData,
-  type ReportState,
-  type Verdict,
-} from "@/types/report";
+import type { ReportCardData, ReportState, Verdict } from "@/types/report";
 
-/** 접힌 상태에서도 보이는 한 줄: 판정, 제목, 안 하면 생기는 일, 결정 상태. */
 export type ReportCardSummaryProps = {
   card: ReportCardData;
   state: ReportState;
   verdict: Verdict;
   followUpPending: boolean;
-  status: string;
 };
 
-export function ReportCardSummary({
-  card,
-  state,
-  verdict,
-  followUpPending,
-  status,
-}: ReportCardSummaryProps) {
+export function ReportCardSummary({ card, state, verdict, followUpPending }: ReportCardSummaryProps) {
   const selected = card.options.find((option) => option.id === state.chosen);
-  const resolved =
-    selected?.fx.resolved && verdict !== card.base
-      ? selected.fx.resolved
-      : null;
+  const title = !followUpPending && selected?.fx.resolved && verdict !== card.base
+    ? selected.fx.resolved
+    : card.title;
+
   return (
-    <summary className="flex cursor-pointer list-none items-start gap-3 [&::-webkit-details-marker]:hidden">
-      <div className="min-w-0 flex-1">
-        <Element className="nx-badges">
-          {followUpPending ? (
-            <Element as="span" className="nx-badge low">
-              결정함 · 할 일 남음
-            </Element>
-          ) : (
-            <VerdictBadge verdict={verdict} />
-          )}
-          <Element as="span" className="nx-muted">
-            {card.stage}
-          </Element>
-        </Element>
-        <h3>{(!followUpPending && resolved) || card.title}</h3>
-        {card.consequence && verdict !== "ok" && !selected && (
-          <Element className="nx-muted">안 하면 · {card.consequence}</Element>
-        )}
-      </div>
-      <Element
-        as="span"
-        className="mt-1 flex shrink-0 items-center gap-1.5 text-sm font-bold text-foundy-primary"
-      >
-        {status}
-        <span
-          aria-hidden="true"
-          className="transition-transform group-open:rotate-180"
-        >
-          ▾
-        </span>
-      </Element>
+    <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_2rem] items-center gap-x-3 gap-y-1.5 rounded-sm py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foundy-primary sm:py-5 [&::-webkit-details-marker]:hidden">
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
+        {followUpPending
+          ? <VerdictBadge verdict="low" label="결정함" />
+          : <VerdictBadge verdict={verdict} />}
+      </span>
+      <h3 className="col-start-1 row-start-2 m-0 min-w-0 break-keep text-lg leading-snug font-semibold tracking-tight text-neutral-900 [overflow-wrap:anywhere] sm:text-xl">
+        {title}
+      </h3>
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
+        className="col-start-2 row-span-2 row-start-1 place-self-center text-neutral-600 transition-transform duration-200 ease-out group-open/report:rotate-180 motion-reduce:transition-none">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
     </summary>
   );
 }

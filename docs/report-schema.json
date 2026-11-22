@@ -20,6 +20,12 @@
         "$ref": "#/$defs/report_group"
       }
     },
+    "next_steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/next_step"
+      }
+    },
     "disclaimer": {
       "type": "string"
     },
@@ -608,6 +614,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/document"
+          }
+        },
+        "document_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
         "agency": {

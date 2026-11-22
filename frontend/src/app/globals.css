@@ -95,7 +95,82 @@
   }
 }
 
-/* Only document-wide accessibility and motion primitives remain in CSS. */
+/* Keep native summary activation and animate the full, variable-height body. */
+@media (prefers-reduced-motion: no-preference) {
+  details::details-content {
+    display: grid;
+    grid-template-rows: minmax(0, 0fr);
+    align-items: start;
+    overflow-y: clip;
+    opacity: 0;
+    transition: grid-template-rows 200ms ease-out, opacity 200ms ease-out,
+      content-visibility 200ms allow-discrete;
+  }
+  details[open]::details-content {
+    grid-template-rows: minmax(0, 1fr);
+    opacity: 1;
+  }
+}
+
+@utility disclosure-panel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: start;
+  overflow-y: clip;
+  &[aria-hidden="true"] {
+    grid-template-rows: minmax(0, 0fr);
+    visibility: hidden;
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    transition: grid-template-rows 200ms ease-out, opacity 200ms ease-out, visibility 200ms;
+  }
+}
+
+/* Map panels stay docked on desktop and disclose over the map on mobile. */
+@utility map-disclosure {
+  @variant max-lg {
+    &[data-open="false"] {
+      display: none;
+      interactivity: inert;
+      pointer-events: none;
+      opacity: 0;
+      translate: 0 -0.25rem;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      transition: opacity 200ms ease-out, translate 200ms ease-out, display 200ms allow-discrete;
+      @starting-style {
+        opacity: 0;
+        translate: 0 -0.25rem;
+      }
+    }
+  }
+}
+
+/* Shared text motion for in-progress AI responses. */
+.foundy-shining-text {
+  display: inline-block;
+  color: var(--primary);
+  background: linear-gradient(110deg, #0c6564 35%, #72b9b1 45%, #e0f4ed 50%, #72b9b1 55%, #0c6564 65%);
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: foundy-text-shine 2.4s linear infinite;
+}
+@keyframes foundy-text-shine {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  .foundy-shining-text {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+/* Document-wide accessibility and motion primitives. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

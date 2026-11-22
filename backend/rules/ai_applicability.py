@@ -15,6 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from agent.analysis_cache import accept_response
 from agent.llm import LLM, LLMError
 from agent.ports import ToolResult
 from agent.prompts import judge as prompt
@@ -63,41 +64,61 @@ def _articles(res: ToolResult | None) -> dict[str, dict]:
     return {f"{a.get('law_name')} {a.get('article')}": a for a in arts if a.get("text")}
 
 
+def _group_inputs(baseline: list[RuleOutcome], laws: dict[str, ToolResult]) -> tuple[list[dict], dict[str, dict]]:
+    groups, by_rule = {}, {}
+    for outcome in baseline:
+        check_id = outcome.check_id
+        if not check_id:
+            continue
+        if check_id not in groups:
+            arts = _articles(laws.get(check_id))
+            groups[check_id] = (arts, {
+                "articles": [{"key": k, "text": a["text"][:MAX_ARTICLE_CHARS]} for k, a in arts.items()],
+                "rules": [],
+            })
+        arts, group = groups[check_id]
+        if not arts:
+            continue  # 읽을 조문이 없으면 AI가 판단할 근거가 없다
+        by_rule[outcome.rule_id] = arts
+        group["rules"].append({
+            "rule_id": outcome.rule_id, "title": outcome.title, "law": f"{outcome.law_name} {outcome.article_label}",
+            "required_action": outcome.required_action,
+        })
+    shown = [group for arts, group in groups.values() if arts]
+    return shown, by_rule
+
+
 def refine_obligations(
     llm: LLM, pack: dict, store, business_type: str | None, baseline: list[RuleOutcome],
     laws: dict[str, ToolResult], facts: dict,
 ) -> list[RuleOutcome]:
     """규칙 엔진 결과(baseline)를 AI 판정으로 바꾼 결과. 순서·개수는 baseline 과 같다."""
-    rules_by_id = {r["rule_id"]: r for r in pack.get("applicability_rules") or []}
-    shown, by_rule = [], {}
-    for outcome in baseline:
-        rule = rules_by_id.get(outcome.rule_id) or {}
-        arts = _articles(laws.get(outcome.check_id)) if outcome.check_id else {}
-        if not arts:
-            continue  # 읽을 조문이 없으면 AI가 판단할 근거가 없다
-        by_rule[outcome.rule_id] = arts
-        shown.append({
-            "rule_id": outcome.rule_id, "title": outcome.title, "law": f"{outcome.law_name} {outcome.article_label}",
-            "required_action": outcome.required_action,
-            "articles": [{"key": k, "text": (a.get("text") or "")[:MAX_ARTICLE_CHARS]} for k, a in arts.items()],
-        })
+    shown, by_rule = _group_inputs(baseline, laws)
     if not shown:
         return baseline
     try:
         j = llm.parse(
             step="judge_applicability", tier="main", system=prompt.APPLICABILITY_SYSTEM, schema=ApplicabilityJudgment,
             user=prompt.APPLICABILITY_USER.format(
-                business_type=business_type or "[확인 필요]", store=json.dumps(facts, ensure_ascii=False),
-                rules=json.dumps(shown, ensure_ascii=False)))
+                business_type=business_type or "[확인 필요]",
+                store=json.dumps({k: v for k, v in facts.items() if k != "business_type"},
+                                 ensure_ascii=False, separators=(",", ":")),
+                rules=json.dumps(shown, ensure_ascii=False, separators=(",", ":"))))
     except LLMError:
         return baseline
 
     judged = {r.rule_id: r for r in j.rules}
+    complete = len(j.rules) == len(by_rule) and judged.keys() == by_rule.keys()
     out: list[RuleOutcome] = []
     for outcome in baseline:
         verdict = judged.get(outcome.rule_id)
         arts = by_rule.get(outcome.rule_id)
-        out.append(_merge(outcome, verdict, arts) if verdict and arts else outcome)
+        merged = _merge(outcome, verdict, arts) if verdict and arts else outcome
+        if arts and (verdict is None or merged is outcome or not verdict.reason.strip()):
+            complete = False
+        out.append(merged)
+    if complete:
+        accept_response(llm, j)
     return out
 
 

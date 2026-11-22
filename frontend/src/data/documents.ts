@@ -1,4 +1,4 @@
-import type { DocFilter, DocumentSite, ManagedDocumentStatus, TaskDocument } from "@/types/documents";
+import type { DocumentSite, TaskDocument } from "@/types/documents";
 
 /** 서류를 받는 공식 사이트. 링크는 사이트 첫 화면이며 찾는 방법은 안내 문구에 적는다. */
 export const DOCUMENT_SITES: Record<string, DocumentSite> = {
@@ -118,30 +118,3 @@ export const TASK_DOCUMENTS: Record<string, TaskDocument[]> = {
 export function documentsOf(taskId: string): TaskDocument[] {
   return TASK_DOCUMENTS[taskId] ?? [];
 }
-
-/** 서류 상태 선택지. 발급·취득 완료와 제출 완료는 다르다 (발급받았다고 제출한 것은 아니다). */
-export const DOC_STATUS_OPTIONS: { value: ManagedDocumentStatus; label: string }[] = [
-  { value: "not_started", label: "준비 전" },
-  { value: "in_progress", label: "준비 중" },
-  { value: "obtained", label: "발급·취득 완료" },
-  { value: "submitted", label: "제출 완료" },
-  { value: "needs_fix", label: "보완 필요" },
-  { value: "not_applicable", label: "해당 없음" },
-];
-
-export const DOC_FILTERS: { value: DocFilter; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "todo", label: "준비 전" },
-  { value: "doing", label: "준비 중" },
-  { value: "fix", label: "보완 필요" },
-  { value: "done", label: "완료" },
-];
-
-/** 상태가 보기에 속하는지. 해당 없음은 "전체"에서만 보인다. */
-export const DOC_FILTER_MATCH: Record<DocFilter, (status: ManagedDocumentStatus) => boolean> = {
-  all: () => true,
-  todo: (status) => status === "not_started",
-  doing: (status) => status === "in_progress",
-  fix: (status) => status === "needs_fix",
-  done: (status) => status === "obtained" || status === "submitted",
-};

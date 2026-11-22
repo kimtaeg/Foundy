@@ -1,5 +1,7 @@
+import { downloadChecklistCalendar } from "@/lib/checklist-calendar";
+import { ACTLBL, CALLQ } from "@/data/chat";
 import { CATCOLOR, GROUPS, OFFS, TASK_LINKS, X_DEFS } from "@/data/checklist";
-import { CONTACT, contactOfAgency } from "@/data/contacts";
+import { CONTACT } from "@/data/contacts";
 import { GRANTS, GRANT_EXCLUDED, RES } from "@/data/grants";
 import {
   AREAS,
@@ -15,10 +17,13 @@ import { VL } from "@/data/report";
 import { DEMO_STORE, EMPTY_STORE, IMP, MPF, REGIONS } from "@/data/store";
 import { createAuthActions } from "@/lib/actions/auth";
 import { logoutServer } from "@/lib/api/auth";
-import { createPasswordAuth } from "@/lib/auth/password-auth";
+import { apiEnabled, ApiError, apiFetch } from "@/lib/api/client";
+import { clearSession, createStoreApi, loadSession, saveSession } from "@/lib/api/foundy-api";
+import { readServerIdentity, signInWithServer, signUpWithServer } from "@/lib/auth/server-sign-in";
+import { createServerOnboarding, SERVER_STEPS } from "@/lib/onboarding/server-onboarding";
+import { createDemoSignIn } from "@/lib/auth/demo-sign-in";
 import { createChatActions } from "@/lib/actions/chat";
 import { createChecklistActions } from "@/lib/actions/checklist";
-import { createDocumentsActions } from "@/lib/actions/documents";
 import { createGrantsActions } from "@/lib/actions/grants";
 import { createMarketActions } from "@/lib/actions/market";
 import { createNavigationActions } from "@/lib/actions/navigation";
@@ -27,20 +32,24 @@ import { createProfileActions } from "@/lib/actions/profile";
 import { createReportActions } from "@/lib/actions/report";
 import { documentsOf } from "@/data/documents";
 import { createAlertSelectors } from "@/lib/alerts/alert-selectors";
+import { createReplyModel } from "@/lib/chat/reply-model";
+import { createChatRequest } from "@/lib/chat/chat-request";
+import { createInitialChatState } from "@/lib/chat/chat-state";
 import { createTasks } from "@/lib/checklist/tasks";
 import { D, addDays, dday, diffDays, iso, pad, realToday } from "@/lib/date";
-import { copyDocumentText } from "@/lib/documents/browser";
 import { won } from "@/lib/format";
 import { provLabel } from "@/lib/format-provider";
 import { createOnboardingWorkflow } from "@/lib/onboarding/onboarding-workflow";
 import { createProfileSelectors } from "@/lib/profile/profile-selectors";
 import { createProfileWorkflow } from "@/lib/profile/profile-workflow";
 import { buildCards as buildReportCards } from "@/lib/report/build-report-cards";
+import { getReportCardModel } from "@/lib/report/card-model";
 import { createFollowUp } from "@/lib/report/follow-up";
 import { createReportSelectors } from "@/lib/report/report-selectors";
 import { createBrowserStorage } from "@/lib/storage/browser-storage";
 import { createUserRepository } from "@/lib/storage/user-repository";
 import { createTaskScope } from "@/lib/store/task-scope";
+import type { ActionHandlers } from "@/types/actions";
 import { type DialogContent } from "@/types/dialog";
 import {
   type FeatureContextFactories,
@@ -48,13 +57,16 @@ import {
   type FeatureContextPage,
 } from "@/types/features";
 import { type FoundySnapshot, type FoundyStore } from "@/types/foundy";
-import { type Grant, type GrantFilters } from "@/types/grants";
+import type { OnboardingAnswers } from "@/types/onboarding";
+import type { ProfileFieldEdit } from "@/types/profile";
+import { type GrantFilters } from "@/types/grants";
 import { type Store } from "@/types/store";
+
+const emptySetupAnswers: OnboardingAnswers = { alcohol: null, terrace: null, employees: null };
+type ServerIdentity = Awaited<ReturnType<typeof readServerIdentity>>;
 
 /** Composes account-scoped state and commands; React owns all rendering. */
 export function createFoundyStore(onChange: () => void): FoundyStore {
-  // 지원사업 목록: 서버 연결 모드에서는 실제 공고로 바뀐다 (setGrants)
-  let grantList: Grant[] = GRANTS;
   const realDocument = globalThis.document;
   const document = realDocument;
   const listeners: Record<string, Array<(event: any) => void>> = {};
@@ -63,8 +75,10 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   const listen = (type: string, callback: (event: any) => void) => {
     (listeners[type] ??= []).push(callback);
   };
-  let modalState: FoundySnapshot["modal"] = null;
+  let modalState: FoundySnapshot["modal"] | { resultFor: string } = null;
+  let profileEdit: ProfileFieldEdit | undefined;
   let toastMessage = "";
+  let toastId = 0;
   const closeModal = () => {
     modalState = null;
   };
@@ -82,19 +96,21 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   let currentPage = "dashboard";
   let reportFilter = "all";
   let checkView: "timeline" | "category" | "calendar" = "timeline";
-  let toastTimeout: ReturnType<typeof globalThis.setTimeout>;
   const navigateTo = (page: string) => {
-    profileDraft = null;
+    if (modalState && (
+      "resultFor" in modalState ||
+      modalState.content.kind === "option-choices" ||
+      modalState.content.kind === "option-confirm"
+    )) closeModal();
+    if (page !== "mypage") profileEdit = undefined;
     currentPage = page;
     recalc();
     if (page === "register") prepareRegistration();
   };
   const toast = (message: string) => {
     toastMessage = message;
-    clearTimeout(toastTimeout);
-    toastTimeout = setTimeout(() => {
-      toastMessage = "";
-    }, 2800);
+    toastId += 1;
+    notify();
   };
   const modal = (title: string, content: DialogContent) => {
     modalState = { title, content };
@@ -116,12 +132,11 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   let automaticTasks: Record<string, boolean> = {};
   let currentPrice = "";
   let onboarding: any = { step: "choose", path: null, done: [], timers: [] };
+  let setupIdentity: ServerIdentity | null = null;
   let calendar: any = { y: null, m: null, sel: null };
   let grantFilters: GrantFilters = {
     res: "all",
     cat: "all",
-    sort: "deadline",
-    view: "card",
   };
   let market: { sel: string | null; r: number; cat: string } = {
     sel: null,
@@ -130,6 +145,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   };
   const saveS: any = () => put("store", store);
   function loadState(): any {
+    profileEdit = undefined;
     store = take(
       "store",
       userId === "demo" ? { ...DEMO_STORE } : { ...EMPTY_STORE },
@@ -154,13 +170,13 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     tasks.forEach((t: any) => {
       t.done = !!td[t.id];
     });
+    chat = createInitialChatState();
     calendar = { y: null, m: null, sel: null };
     market = { sel: null, r: 300, cat: "all" };
-    grantFilters = { res: "all", cat: "all", sort: "deadline", view: "card" };
+    grantFilters = { res: "all", cat: "all" };
     onboarding = { step: "choose", path: null, done: [], timers: [] };
     reportFilter = "all";
     checkView = "timeline";
-    profileDraft = null;
   }
   /* ---------- 리포트 카드 ---------- */
   const buildCards = () => buildReportCards(store);
@@ -213,15 +229,10 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     const l: any = allTasks();
     return { done: l.filter((t: any) => t.done).length, total: l.length };
   };
-  /* ---------- 공통 UI ---------- */
-  const copyText = (text: string) => {
-    void copyDocumentText(text, toast);
-  };
-
-  function applyChoice(id: any, oid: any): any {
+  function applyChoice(id: string, oid: string): boolean {
     const c: any = buildCards().find((x: any) => x.id === id);
     const o: any = c && c.options.find((x: any) => x.id === oid);
-    if (!o) return;
+    if (!o) return false;
     reportStates[id] = {
       chosen: oid,
       action: "pending",
@@ -233,9 +244,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       store.mainManual = null;
       saveS();
     }
-    toast("“" + o.label + "” 적용 · 변경 내용을 카드에서 확인하세요");
-    const el: any = findElement("result-" + id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
   }
   function evidenceModal(id: any): any {
     const c: any = buildCards().find((x: any) => x.id === id);
@@ -243,7 +252,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     modal("판정 근거", {
       kind: "evidence",
       items: c.evidence,
-      date: iso(realToday()),
     });
   }
   /* ---------- 체크리스트 ---------- */
@@ -268,10 +276,10 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         kind: "task",
       }),
     );
-    grantList.filter((g: any) => g.deadline && g.res !== "unknown").forEach(
+    GRANTS.filter((g: any) => g.deadline && g.res !== "unknown").forEach(
       (g: any) =>
         add(g.deadline, {
-          t: "지원사업 마감 · " + g.title.replace(" (예시 공고)", ""),
+          t: "지원사업 마감 · " + g.title,
           cat: "정책",
           id: g.id,
           done: false,
@@ -287,38 +295,8 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     });
     return map;
   }
-  function icsDownload(): any {
-    const lines: any = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//Foundy//Prototype//KO",
-    ];
-    const evs: any = allTasks().map((t: any) => ({ d: t.due, s: t.task }));
-    evs.push({ d: store.opening, s: "개업일" });
-    evs.forEach((e: any, i: any) => {
-      const d: any = e.d.replace(/-/g, "");
-      const n: any = iso(addDays(D(e.d), 1)).replace(/-/g, "");
-      lines.push(
-        "BEGIN:VEVENT",
-        "UID:foundy-" + i + "@prototype",
-        "DTSTAMP:" + iso(realToday()).replace(/-/g, "") + "T000000Z",
-        "DTSTART;VALUE=DATE:" + d,
-        "DTEND;VALUE=DATE:" + n,
-        "SUMMARY:" + e.s.replace(/[,;]/g, " "),
-        "END:VEVENT",
-      );
-    });
-    lines.push("END:VCALENDAR");
-    const blob: any = new Blob([lines.join("\r\n")], { type: "text/calendar" });
-    const a: any = realDocument.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "foundy-checklist.ics";
-    realDocument.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(a.href);
-      a.remove();
-    }, 500);
+  function icsDownload() {
+    downloadChecklistCalendar(userId ?? "local", store.opening, allTasks());
     toast(".ics 파일을 내려받았어요");
   }
   /* ---------- 알림 센터 ---------- */
@@ -346,7 +324,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     grant: "지원사업",
   };
   function grantModal(id: any): any {
-    const g = grantList.find((x: any) => x.id === id);
+    const g = GRANTS.find((x: any) => x.id === id);
     if (!g) return;
     modal(g.title, {
       kind: "grant",
@@ -440,7 +418,9 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       saveS,
     });
 
-  /* ---------- AI 상담: 서버 상담 API를 붙이기 전까지 비활성 (열면 준비 중 안내만 보인다) ---------- */
+  /* ---------- AI 상담 (예시 응답: 규칙 기반 시뮬레이션) ---------- */
+  let chat = createInitialChatState();
+  let replyFocus: string | null | undefined;
   let chatOpen = false;
   const cardShort: any = (c: any) =>
     (
@@ -452,22 +432,136 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         labeling: "표시 의무",
       }) as any
     )[c.check] || c.title.slice(0, 12);
+  const A: any = (o: any) =>
+    Object.assign(
+      {
+        role: "a",
+        kind: "grounded",
+        text: "",
+        cites: [],
+        acts: [],
+        follow: [],
+        contacts: [],
+        call: null,
+      },
+      o,
+    );
+  const optList: any = (c: any) =>
+    c.options
+      .map((o: any, i: any) => "①②③④"[i] + " " + o.label + ": " + o.summary)
+      .join("\n");
+  const bizName: any = () =>
+    effectiveStore().alcohol ? "일반음식점" : "휴게음식점";
+  function callSteps(c: any): any {
+    const addr: any = store.address + " " + store.detail,
+      qs: any = (
+        CALLQ[c.check] || ["문의 내용을 확인하고 싶습니다. [확인 필요]"]
+      ).map((q: any) => q.replace("{biz}", bizName()));
+    const who: any = CONTACT[c.contact] ? CONTACT[c.contact].name : "담당 부서";
+    return {
+      who,
+      qs,
+      steps: [
+        "“안녕하세요, 카페 창업을 준비 중인 예비 창업자입니다. " +
+          who +
+          " 담당자를 연결해 주실 수 있을까요?”",
+        "“" +
+          addr +
+          " 건물과 관련해 확인하고 싶은 게 있어 전화드렸습니다.” (건물 주소를 먼저 말하면 담당자가 조회하기 쉬워요)",
+        "아래 “꼭 물어볼 것”을 위에서부터 하나씩 묻고, 답을 메모하세요.",
+        "마지막으로 담당자 성함과 서면 회신이 가능한지 확인하세요.",
+      ],
+    };
+  }
+  const { reply, suggestions } = createReplyModel({
+    get S() {
+      return store;
+    },
+    get RS() {
+      return reportStates;
+    },
+    optList,
+    A,
+    pendingDecisions,
+    curAction: actionFor,
+    allTasks,
+    tasks,
+    cardShort,
+    buildCards,
+    get CH() {
+      return replyFocus === undefined ? chat : { ...chat, focus: replyFocus };
+    },
+  });
+  const { send: sendChat, stop: stopChat, retry: retryChat } = createChatRequest({
+    getState: () => chat,
+    reply: (question, focus) => {
+      replyFocus = focus;
+      try {
+        return reply(question);
+      } finally {
+        replyFocus = undefined;
+      }
+    },
+    schedule: setTimeout,
+    cancelTimer: clearTimeout,
+  });
+  function applyAct(mi: any, ai: any): any {
+    const a: any = chat.msgs[mi]?.acts?.[ai];
+    if (!a || a.state) return;
+    if (a.type === "update_store") {
+      const before: any = store.opening;
+      a.state = "applied";
+      a.result = [
+        "개업일 " + before + " → " + a.payload.date,
+        "체크리스트 " + allTasks().length + "개 항목의 날짜를 다시 계산했어요",
+      ];
+      store.opening = a.payload.date;
+      saveS();
+      recalc();
+      calendar.y = null;
+      toast("개업일이 변경됐어요 · 체크리스트가 다시 계산됐어요");
+    } else if (a.type === "choose_option") {
+      a.state = "applied";
+      a.result = ["점검 리포트에 반영했어요. ‘다음’을 누르면 변경 내용을 확인할 수 있어요."];
+      applyChoice(a.payload.id, a.payload.o);
+    } else if (a.type === "check_item") {
+      a.state = "applied";
+      a.result = ["“" + a.payload.task + "”를 완료로 표시했어요"];
+      setTaskDone(a.payload.id, true);
+    }
+  }
   /* ---------- 계정 · 마이페이지 · 다음 할 일 ---------- */
   const profile: any = () => take("profile", { name: "", provider: "" });
-  function login(uid: any, name: any, provider: any): any {
+  function login(uid: string, name: string, provider: string, remote?: ServerIdentity) {
     cancelPending();
     userId = uid;
     storage.set("foundy-session", JSON.stringify({ uid, name, provider }));
     if (!take("profile", null))
       put("profile", { name, provider, joined: iso(realToday()) });
     loadState();
+    if (remote) {
+      put("profile", { ...profile(), name, provider });
+      const ready = remote.setup.status === "ready";
+      store = {
+        ...(ready ? EMPTY_STORE : store),
+        ...(remote.storeName ? { name: remote.storeName } : {}),
+        ...(remote.storeOpening ? { opening: remote.storeOpening } : {}),
+        onboarded: ready,
+      };
+      setupIdentity = ready ? null : remote;
+      saveS();
+    }
     enter();
+    if (setupIdentity) {
+      onboarding.answers = setupAnswersFromDraft();
+      void hydrateSetup();
+    }
   }
   function enter(): any {
     if (!store.onboarded) {
       onboarding = { step: "choose", path: null, done: [], timers: [] };
       prepareRegistration();
-      navigateTo("register");
+      navigateTo(apiEnabled() ? "mypage" : "register");
       browserWindow.scrollTo(0, 0);
       return;
     }
@@ -475,15 +569,16 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     navigateTo("dashboard");
     browserWindow.scrollTo(0, 0);
   }
-  function logout(): any {
-    void logoutServer();
+  function logout(message = "로그아웃했어요"): any {
+    if (apiEnabled()) void logoutServer();
     cancelPending();
+    closeModal();
     clearTimers();
     storage.del("foundy-session");
     userId = null;
-    profileDraft = null;
+    setupIdentity = null;
     chatOpen = false;
-    toast("로그아웃했어요");
+    toast(message);
   }
   /* ----- 점검 리포트 ↔ 체크리스트 연동 ----- */
   const cardDone: any = (cid: any) => {
@@ -554,9 +649,8 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   });
 
   /* ----- 마이페이지 ----- */
-  let profileDraft: any = null;
   const {
-    mpDraft: getProfileDraft,
+    mpBase: currentProfileStore,
     mpDiff: getProfileChanges,
     mpImpacts: getProfileImpacts,
     resetList,
@@ -565,12 +659,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     eff: effectiveStore,
     get S() {
       return store;
-    },
-    get MP() {
-      return profileDraft;
-    },
-    set MP(value) {
-      profileDraft = value;
     },
     get normMp() {
       return normMp;
@@ -583,15 +671,15 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   });
   const num: any = (v: any) => Number(v) || 0;
   const normMp: any = (k: any, v: any) =>
-    k === "birth" || k === "funds" || k === "area"
-      ? (k === "funds" || k === "area") && (v == null || String(v).trim() === "")
+    k === "birth" || k === "funds"
+      ? k === "funds" && (v == null || String(v).trim() === "")
         ? null
         : num(v)
-      : k === "alcohol" || k === "terrace" || k === "employees" || k === "delivery"
+      : k === "alcohol" || k === "terrace" || k === "employees"
         ? !!v
         : String(v == null ? "" : v).trim();
   const formatProfileValue: any = (k: any, v: any) =>
-    k === "alcohol" || k === "terrace" || k === "employees" || k === "delivery"
+    k === "alcohol" || k === "terrace" || k === "employees"
       ? v
         ? "네"
         : "아니요"
@@ -599,22 +687,12 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         ? v === "decided"
           ? "자리 확정"
           : "자리 미정"
-        : k === "area"
-          ? v == null || String(v).trim() === ""
-            ? "(없음)"
-            : `${v}㎡`
-          : k === "funds"
+        : k === "funds"
           ? v == null || String(v).trim() === ""
             ? "(없음)"
             : won(v)
           : String(v == null ? "" : v).trim() || "(비어 있음)";
   const { applyMp, wipeStore } = createProfileWorkflow({
-    get modalState() {
-      return modalState;
-    },
-    modal,
-    setTimeout,
-    mpDraft: getProfileDraft,
     mpDiff: getProfileChanges,
     toast,
     mpValidate,
@@ -653,12 +731,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     set CHGLOG(value) {
       changeLog = value;
     },
-    get MP() {
-      return profileDraft;
-    },
-    set MP(value) {
-      profileDraft = value;
-    },
     get W() {
       return onboarding;
     },
@@ -693,6 +765,12 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       currentPrice = value;
     },
     tasks,
+    get CH() {
+      return chat;
+    },
+    set CH(value) {
+      chat = value;
+    },
     closeModal,
   });
 
@@ -718,18 +796,16 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     toast("체크리스트 상태가 변경되었습니다");
   };
   /* ---------- 이벤트 ---------- */
-  const passwordAuth = createPasswordAuth({
-    $: findElement,
-    login,
-    toast,
-    notify,
-  });
   listen("submit", (e: any) => {
     if (e.target.id === "nxForm") {
       e.preventDefault();
+      if (onboarding.saving) return;
       readForm();
-      onboarding.step = 2;
-      prepareRegistration();
+      if (apiEnabled()) void serverRegistration.saveProfile();
+      else {
+        onboarding.step = 2;
+        prepareRegistration();
+      }
     }
     if (e.target.matches('[data-nx-form="cand"]')) {
       e.preventDefault();
@@ -741,22 +817,21 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       }
       candidateAddresses.push(v);
       put("candx", candidateAddresses);
-      toast("후보를 추가했어요 · 건물 용도와 상권 지표는 예시값이에요");
+      toast("후보를 추가했어요");
     }
   });
-  listen("change", (e: any) => {
-    const m: any = e.target;
-    if (m.dataset && m.dataset.mp) {
-      getProfileDraft()[m.dataset.mp] = m.value;
-      return;
-    }
-    const b: any = e.target.closest("[data-nx]");
-    if (!b) return;
-    if (b.dataset.nx === "gsort") {
-      grantFilters.sort = b.value;
-    }
+  const auth = createAuthActions({
+    logout, toast, profile, put, LS: storage,
+    get UID() { return userId; },
   });
-  const actionHandlers = {
+  const profileEditor = createProfileActions({
+    currentStore: currentProfileStore,
+    accountName: () => profile().name,
+    saveAccountName: auth.saveAccountName,
+    setEdit: (edit) => { profileEdit = edit; },
+    applyMp, modal, toast, wipeStore,
+  });
+  const actionHandlers: ActionHandlers = {
     ...createNavigationActions({
       goto: navigateTo,
       setTimeout,
@@ -773,6 +848,9 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       modal,
       closeModal,
       applyChoice,
+      openOptionResult: (id) => {
+        modalState = { resultFor: id };
+      },
       get RS() {
         return reportStates;
       },
@@ -780,12 +858,11 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       logNext,
       syncLinks,
       toast,
-      showNext,
+      showNext: (id) => {
+        if (!modalState || !("resultFor" in modalState)) showNext(id);
+      },
       $: findElement,
       evidenceModal,
-    }),
-    ...createDocumentsActions({
-      copyText,
     }),
     ...createChecklistActions({
       get checkView() {
@@ -828,32 +905,8 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       put,
       modal,
     }),
-    ...createAuthActions({
-      modal,
-      setTimeout,
-      $: findElement,
-      login,
-      logout,
-      toast,
-      profile,
-      put,
-      LS: storage,
-      get UID() {
-        return userId;
-      },
-    }),
-    ...createProfileActions({
-      mpDraft: getProfileDraft,
-      applyMp,
-      get MP() {
-        return profileDraft;
-      },
-      set MP(value) {
-        profileDraft = value;
-      },
-      modal,
-      wipeStore,
-    }),
+    ...auth.actions,
+    ...profileEditor.actions,
     ...createOnboardingActions({
       clearTimers,
       get W() {
@@ -884,9 +937,25 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       put,
     }),
     ...createChatActions({
+      get CH() {
+        return chat;
+      },
+      goto: navigateTo,
       setChatOpen: (open: boolean | "toggle") => {
         chatOpen = open === "toggle" ? !chatOpen : open;
       },
+      sendChat,
+      stopChat,
+      retryChat,
+      applyAct,
+      buildCards,
+      get RS() {
+        return reportStates;
+      },
+      put,
+      A,
+      logNext,
+      toast,
     }),
   };
   listen("click", (event: any) => {
@@ -902,29 +971,22 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       put("myprice", currentPrice);
       return;
     }
-    if (t.dataset && t.dataset.mp) {
-      getProfileDraft()[t.dataset.mp] = t.value;
-      return;
-    }
+    if (t.id === "chatIn") chat.draft = t.value;
+    else if (t.id && t.id.indexOf("callmemo-") === 0)
+      chat.memo[t.id.slice(9)] = t.value;
   });
   listen("submit", (e: any) => {
-    if (e.target.id === "nxPwLogin") {
+    if (e.target.dataset.profileField) {
       e.preventDefault();
-      void passwordAuth.login();
+      const value = new FormData(e.target).get("value");
+      if (profileEdit && profileEdit.field === e.target.dataset.profileField && typeof value === "string") {
+        profileEditor.saveField(profileEdit, value);
+      }
       return;
     }
-    if (e.target.id === "nxPwSignup") {
+    if (e.target.id === "nxChat") {
       e.preventDefault();
-      void passwordAuth.signup();
-      return;
-    }
-    if (e.target.id === "nxSocial") {
-      e.preventDefault();
-      const n: any = findElement("socialName").value.trim();
-      if (!n) return;
-      const p: any = e.target.dataset.p;
-      closeModal();
-      login(p + ":" + encodeURIComponent(n.toLowerCase()), n, p);
+      sendChat(findElement("chatIn").value);
       return;
     }
     if (e.target.id === "nxDate") {
@@ -955,7 +1017,116 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     }
   });
   /* ---------- 초기화 ---------- */
+  function acceptIdentity(identity: ServerIdentity) {
+    if (lifecycle.disposed || loadSession()?.token !== identity.session.token) return;
+    if (loadSession()?.storeId !== identity.session.storeId) saveSession(identity.session);
+    login(identity.uid, identity.name, identity.provider, identity);
+    notify();
+  }
+
+  function setupAnswersFromDraft(): OnboardingAnswers {
+    const saved = take("setupAnswers", emptySetupAnswers) as OnboardingAnswers;
+    return {
+      alcohol: typeof saved.alcohol === "boolean" ? saved.alcohol : null,
+      terrace: typeof saved.terrace === "boolean" ? saved.terrace : null,
+      employees: typeof saved.employees === "boolean" ? saved.employees : null,
+    };
+  }
+
+  async function hydrateSetup() {
+    const identity = setupIdentity;
+    if (!identity?.session.storeId || onboarding.loading) return;
+    const { session, setup } = identity;
+    const current = () => !lifecycle.disposed && setupIdentity === identity && loadSession()?.token === session.token;
+    Object.assign(onboarding, { loading: true, error: undefined });
+    notify();
+    try {
+      const saved = await createStoreApi(session).store();
+      if (!current()) return;
+      const draft = setupAnswersFromDraft();
+      const answers: OnboardingAnswers = {
+        alcohol: saved.answers.sells_alcohol ?? draft.alcohol,
+        terrace: saved.answers.uses_terrace ?? draft.terrace,
+        employees: saved.answers.has_employees ?? draft.employees,
+      };
+      store = {
+        ...EMPTY_STORE,
+        name: saved.name, type: saved.business_type_input, address: saved.address, detail: saved.address_detail,
+        opening: saved.opening_date, birth: saved.owner_birth_year, region: saved.region ?? "",
+        alcohol: answers.alcohol ?? false, terrace: answers.terrace ?? false, employees: answers.employees ?? false,
+        funds: saved.answers.funds_krw,
+      };
+      serverRegistration.rememberProfile(session.token);
+      saveS();
+      put("setupAnswers", answers);
+      const missingProfile = !store.name.trim() || !store.type.trim() || !store.address.trim() || !store.opening;
+      Object.assign(onboarding, { step: missingProfile ? 1 : 2, answers, analysisFailed: setup.status === "failed" });
+      if (setup.status === "analyzing" && setup.run_id) serverRegistration.resume(session, setup.run_id);
+    } catch (error) {
+      if (current()) onboarding.error = error instanceof Error ? error.message : "저장한 가게 정보를 불러오지 못했어요.";
+    } finally {
+      if (current()) {
+        onboarding.loading = false;
+        notify();
+      }
+    }
+  }
+
+  const serverRegistration = createServerOnboarding({
+    currentStore: () => store,
+    answers: () => onboarding.answers ?? emptySetupAnswers,
+    persist: saveS,
+    active: (token) => !lifecycle.disposed && loadSession()?.token === token,
+    saving: (saving) => {
+      onboarding.saving = saving;
+      notify();
+    },
+    progress: (done, notes, finished) => {
+      clearTimers();
+      Object.assign(onboarding, { step: 3, done, notes, finished, analysisFailed: false });
+      notify();
+    },
+    questions: () => {
+      if (onboarding.step === 3) onboarding.analysisFailed = true;
+      onboarding.step = 2;
+      notify();
+    },
+    toast,
+    finish: () => {
+      setupIdentity = null;
+      put("setupAnswers", null);
+      store.onboarded = true;
+      saveS();
+      navigateTo("dashboard");
+      browserWindow.dispatchEvent(new Event("foundy:analysis-complete"));
+      notify();
+    },
+    preview: async () => {
+      const previous = loadSession();
+      const identity = await signInWithServer({ username: "demo", password: "demo" });
+      acceptIdentity(identity);
+      if (previous) void apiFetch("/api/auth/logout", { method: "POST", token: previous.token }).catch(() => {});
+    },
+  });
+  async function restoreSession() {
+    if (!apiEnabled()) return;
+    const session = loadSession();
+    if (!session) {
+      storage.del("foundy-session");
+      return;
+    }
+    try {
+      acceptIdentity(await readServerIdentity(session));
+    } catch (error) {
+      if (lifecycle.disposed || loadSession()?.token !== session.token) return;
+      if (!(error instanceof ApiError && error.status === 401)) throw error;
+      clearSession();
+      storage.del("foundy-session");
+      toast(error.message);
+    }
+  }
   (function boot() {
+    if (apiEnabled()) return;
     let ses: any = null;
     try {
       ses = JSON.parse(storage.get("foundy-session") ?? "null");
@@ -969,6 +1140,25 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   function handleEvent(type: string, event: any): any {
     if (lifecycle.disposed) return;
     const target: any = event.target as HTMLElement;
+    if (apiEnabled() && !store.onboarded && (currentPage === "register" || currentPage === "mypage")) {
+      if (type === "input" && target.id === "fFunds") {
+        store.funds = target.value === "" ? null : Number(target.value);
+        saveS();
+      }
+      if (type === "click") {
+        const button = target.closest?.("[data-nx]") as HTMLElement | null;
+        const command = button?.dataset.nx;
+        if (serverRegistration.click(command, onboarding.step, onboarding.finished)) return;
+        if (command === "yn") {
+          const field = button?.dataset.k;
+          if (field === "alcohol" || field === "terrace" || field === "employees") {
+            const answers = { ...onboarding.answers, [field]: button?.dataset.v === "1" } as OnboardingAnswers;
+            onboarding.answers = answers;
+            put("setupAnswers", answers);
+          }
+        }
+      }
+    }
     if (type === "click") {
       const navigation: any = target.closest("[data-page]") as HTMLElement;
       const task: any = target.closest("[data-task]") as HTMLElement;
@@ -997,6 +1187,19 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
     for (const handler of listeners[type] || []) handler(event);
     notify();
   }
+  function currentDialog(): FoundySnapshot["modal"] {
+    if (!modalState || "content" in modalState) return modalState;
+    const { resultFor } = modalState;
+    const context = getViewContext("report");
+    const card = context.buildCards().find((item) => item.id === resultFor);
+    if (!card) return null;
+    const model = getReportCardModel(context, card);
+    if (card.options.length) {
+      if (!card.options.some((option) => option.id === model.state.chosen)) return null;
+      return { title: "선택 결과", content: { kind: "option-result", model } };
+    }
+    return model.action ? { title: "후속 작업", content: { kind: "option-result", model } } : null;
+  }
   function snapshot(): FoundySnapshot {
     return {
       notifications:
@@ -1015,8 +1218,9 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       uid: userId,
       onboarded: !!store.onboarded,
       currentPage: !userId ? "login" : currentPage,
-      modal: modalState,
+      modal: currentDialog(),
       toast: toastMessage,
+      toastId,
       userName: userId ? profile().name || "사용자" : "",
       storeName: store.onboarded
         ? effectiveStore().name || "내 가게"
@@ -1037,6 +1241,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         S: store,
         realToday,
         buildCards,
+        ev: verdictFor,
         curAction: actionFor,
         RS: reportStates,
         allTasks,
@@ -1067,7 +1272,6 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         checkView,
         GROUPS,
         documentCount: (taskId: string) => documentsOf(taskId).length,
-        contactOfAgency,
         dday,
         S: store,
         CAL: calendar,
@@ -1082,7 +1286,7 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       };
     },
     docs: () => {
-      return { allTasks, dday, CONTACT };
+      return { allTasks, dday };
     },
     grants: () => {
       return { GRANTS, G: grantFilters, RES, dday, GRANT_EXCLUDED };
@@ -1110,13 +1314,29 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
         profile,
         W: onboarding,
         STEPS_UNDECIDED,
-        STEPS_DECIDED,
+        STEPS_DECIDED: apiEnabled() ? SERVER_STEPS : STEPS_DECIDED,
+      };
+    },
+    chat: () => {
+      return {
+        S: store,
+        CH: chat,
+        buildCards,
+        eff: effectiveStore,
+        cardShort,
+        VL,
+        ev: verdictFor,
+        suggestions,
+        callSteps,
+        CONTACT,
+        ACTLBL,
       };
     },
     mypage: () => {
       return {
+        edit: profileEdit,
         S: store,
-        mpDraft: getProfileDraft,
+        mpDraft: currentProfileStore,
         profile,
         IMP,
         REGIONS,
@@ -1138,12 +1358,25 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
   return {
     getViewContext,
     handleEvent,
-    setGrants: (list) => {
-      grantList = list ?? GRANTS;
+    restoreSession,
+    retrySetup: () => { void hydrateSetup(); },
+    adoptServerStore: (next: Store) => {
+      store = { ...next };
+      saveS();
       notify();
     },
-    logout: () => {
-      logout();
+    signIn: apiEnabled() ? async (credentials) => {
+      acceptIdentity(await signInWithServer(credentials));
+    } : createDemoSignIn(() => {
+      if (lifecycle.disposed) throw new Error("로그인을 다시 시도해 주세요.");
+      login("demo", "이서연", "demo");
+      notify();
+    }),
+    async signUp(credentials) {
+      acceptIdentity(await signUpWithServer(credentials));
+    },
+    logout: (message) => {
+      logout(message);
       notify();
     },
     openNotification: (id: string) => {
@@ -1163,49 +1396,21 @@ export function createFoundyStore(onChange: () => void): FoundyStore {
       notify();
     },
     getSnapshot: snapshot,
+    openChat: () => {
+      chatOpen = true;
+      notify();
+    },
     navigate: (p: string) => {
       if (!userId) {
         notify();
         return;
       }
-      if (!store.onboarded) p = "register";
+      if (!store.onboarded && (!apiEnabled() || p !== "register")) p = apiEnabled() ? "mypage" : "register";
       if (pages[p]) navigateTo(p);
       notify();
     },
     closeModal: () => {
       closeModal();
-      notify();
-    },
-    // API 연결 계층이 서버 데이터로 만든 확인 창·안내를 띄울 때 쓴다.
-    showModal: (title: string, content: DialogContent) => {
-      modal(title, content);
-      notify();
-    },
-    showToast: (message: string) => {
-      toast(message);
-      notify();
-    },
-    // 서버에 저장된 가게로 로컬 가게 정보를 맞춘다 (다른 기기에서 등록했거나 마이페이지에서 수정한 값).
-    adoptServerStore: (next: Store) => {
-      store = { ...store, ...next, onboarded: true };
-      profileDraft = null;
-      saveS();
-      recalc();
-      calendar.y = null;
-      if (userId && currentPage === "register") navigateTo("dashboard");
-      notify();
-    },
-    // 서버 분석이 진행되는 동안 가게 등록 화면의 단계 표시를 서버 이벤트에 맞춘다 (가짜 타이머를 멈춘다).
-    setAnalysisProgress: (done: number[], notes: Record<number, string> = {}) => {
-      clearTimers();
-      onboarding.step = 3;
-      onboarding.done = [...done];
-      onboarding.server = true; // 서버가 알려 주는 실제 진행이다 (시뮬레이션이 아니다)
-      onboarding.notes = { ...notes };
-      notify();
-    },
-    navigateTo: (page: string) => {
-      if (pages[page]) navigateTo(page);
       notify();
     },
     destroy: lifecycle.destroy,

@@ -182,7 +182,8 @@ def test_kakao_login_creates_user_without_store(client, configured, fake, create
     profile_req = fake.requests[-1]
     assert profile_req.url.host == "kapi.kakao.com" and profile_req.headers["Authorization"] == "Bearer provider-token"
     me = client.get("/api/me", headers=bearer(body["access_token"])).json()
-    assert me == {"user": body["user"], "store_id": None}
+    assert me == {key: body[key] for key in ("user", "store_id", "store_name", "store_opening", "setup")}
+    assert me["setup"]["status"] == "missing_store"
 
 
 def test_google_login_sends_redirect_uri_and_uses_sub(client, configured, fake, created):

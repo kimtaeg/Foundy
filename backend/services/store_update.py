@@ -9,8 +9,9 @@ from decimal import Decimal
 from datetime import date, timedelta
 from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import String, cast, delete, select
 from sqlalchemy.orm import Session
 
 from db.models import Alert, ChangeLog, ChecklistItem, ReportItem, Store
@@ -20,7 +21,7 @@ from services.cards import find_option, reset_card
 from services.effective import STORE_KEYS, effective_store
 from services.links import sync_links
 from services.pack import business_type
-from services.timeutil import now_utc
+from services.timeutil import now_utc, today_kst
 
 # 규칙 묶음 impacts 키 → API 필드 이름 (answers.* 는 요청 본문의 answers 안에 온다)
 API_FIELDS = {
@@ -138,10 +139,20 @@ def plan_update(pack: dict, store: Store, cards: list[ReportItem], items: list[C
                       recomputed=recomputed, lines=lines)
 
 
+def apply_profile_fields(pack: dict, store: Store, cards: list[ReportItem], plan: UpdatePlan) -> dict:
+    for change in plan.changes:
+        setattr(store, change.field, change.after)
+    if {"address", "address_detail"}.intersection(plan.fields):
+        store.address_codes = None  # 다음 분석에서 새 주소로 다시 조회한다 (옛 코드로 건축물대장을 찾지 않도록)
+    effective = effective_store(pack, store, cards)
+    store.business_type = business_type(pack, effective["sells_alcohol"])
+    store.updated_at = now_utc()
+    return effective
+
+
 def apply_update(session: Session, pack: dict, store: Store, cards: list[ReportItem], items: list[ChecklistItem],
-                 plan: UpdatePlan) -> ChangeLog:
+                 plan: UpdatePlan) -> tuple[Alert, list[str]]:
     """plan을 저장한다. 커밋은 호출하는 쪽이 한다 (재분석 run과 같은 트랜잭션)."""
-    now = now_utc()
     reset_rows = [{"item_id": c.item_key, "title": c.title,
                    "chosen_label": (find_option(c, c.chosen_option) or {}).get("label") if c.chosen_option else None}
                   for c in plan.reset_cards]
@@ -149,13 +160,8 @@ def apply_update(session: Session, pack: dict, store: Store, cards: list[ReportI
         items = reset_card(session, store, card, items)
 
     fields = set(plan.fields)
-    for change in plan.changes:
-        setattr(store, change.field, change.after)
-    if fields & {"address", "address_detail"}:
-        store.address_codes = None  # 다음 분석에서 새 주소로 다시 조회한다 (옛 코드로 건축물대장을 찾지 않도록)
-    effective = effective_store(pack, store, cards)
-    store.business_type = business_type(pack, effective["sells_alcohol"])
-    store.updated_at = now
+    effective = apply_profile_fields(pack, store, cards, plan)
+    now = store.updated_at
 
     if "opening_date" in fields:
         for item in items:
@@ -171,29 +177,42 @@ def apply_update(session: Session, pack: dict, store: Store, cards: list[ReportI
         )
         session.add(item)
         items.append(item)
-    session.flush()
     sync_links(pack, cards, items, now)
 
-    log = ChangeLog(store_id=store.id, impacts=plan.impacts, reset_items=reset_rows, lines=plan.lines,
+    log = ChangeLog(id=uuid4(), store_id=store.id, impacts=plan.impacts, reset_items=reset_rows, lines=plan.lines,
                     changed=[{"field": API_FIELDS[c.field], "from": _json(c.before), "to": _json(c.after)}
                              for c in plan.changes])
-    session.add(log)
+    alert = Alert(store_id=store.id, dedupe_key=f"chg-{log.id}", type="change",
+                  title="가게 정보를 바꿔 다시 반영했어요", body=" · ".join(plan.lines[:3]),
+                  cta={"label": "마이페이지 열기", "page": "mypage"},
+                  diff={"changed": log.changed}, is_example=False)
+    session.add_all([log, alert])
     session.flush()
-    session.add(Alert(store_id=store.id, dedupe_key=f"chg-{log.id}", type="change",
-                      title="가게 정보를 바꿔 다시 반영했어요", body=" · ".join(plan.lines[:3]),
-                      cta={"label": "마이페이지 열기", "page": "mypage"},
-                      diff={"changed": log.changed}, is_example=False))
-    session.flush()
-    _prune_changes(session, store)
-    return log
+    return alert, _prune_changes(session, store)
 
 
-def _prune_changes(session: Session, store: Store) -> None:
-    keep = list(session.scalars(select(ChangeLog.id).where(ChangeLog.store_id == store.id)
-                                .order_by(ChangeLog.created_at.desc(), ChangeLog.id.desc()).limit(KEEP_CHANGES)))
-    session.execute(delete(ChangeLog).where(ChangeLog.store_id == store.id, ChangeLog.id.not_in(keep)))
-    session.execute(delete(Alert).where(Alert.store_id == store.id, Alert.type == "change",
-                                        Alert.dedupe_key.not_in([f"chg-{i}" for i in keep])))
+def _prune_changes(session: Session, store: Store) -> list[str]:
+    kept = (select(ChangeLog.id).where(ChangeLog.store_id == store.id)
+            .order_by(ChangeLog.created_at.desc(), ChangeLog.id.desc()).limit(KEEP_CHANGES).cte())
+    pruned = (delete(ChangeLog).where(ChangeLog.store_id == store.id, ChangeLog.id.not_in(select(kept.c.id)))
+              .cte())
+    alert_keys = select("chg-" + cast(kept.c.id, String))
+    removed = session.scalars(delete(Alert).where(Alert.store_id == store.id, Alert.type == "change",
+                                                Alert.dedupe_key.not_in(alert_keys)).add_cte(pruned)
+                              .returning(Alert.id).execution_options(synchronize_session=False))
+    return [str(alert_id) for alert_id in removed]
+
+
+def checklist_dates(items: list[ChecklistItem]) -> dict:
+    today = today_kst()
+    return {
+        "as_of": today.isoformat(),
+        "items": [{
+            "item_id": item.item_key, "due_date": item.due_date.isoformat(),
+            "dday": (item.due_date - today).days,
+            "statutory_deadline": item.statutory_deadline.isoformat() if item.statutory_deadline else None,
+        } for item in items],
+    }
 
 
 def plan_response(store: Store, plan: UpdatePlan, run_id: Any = None, dry_run: bool = False) -> dict:

@@ -1,13 +1,19 @@
-import { Element } from "@/components/view/Element";
 import { VL } from "@/data/report";
-import { type Verdict } from "@/types/report";
+import type { Verdict } from "@/types/report";
 
-export type VerdictBadgeProps = { verdict: Verdict };
+const colors: Record<Verdict, string> = {
+  high: "bg-orange-50 text-orange-800",
+  low: "bg-[var(--amber-bg)] text-[var(--amber)]",
+  unknown: "bg-neutral-100 text-neutral-700",
+  ok: "bg-foundy-primary/10 text-foundy-primary-ink",
+};
 
-export function VerdictBadge({ verdict }: VerdictBadgeProps) {
+export type VerdictBadgeProps = { verdict: Verdict; label?: string };
+
+export function VerdictBadge({ verdict, label }: VerdictBadgeProps) {
   return (
-    <Element as="span" className={`nx-badge ${verdict}`}>
-      {VL[verdict]}
-    </Element>
+    <span className={`inline-block w-fit max-w-full rounded-md px-2 py-0.5 text-[13px] leading-5 font-semibold [overflow-wrap:anywhere] ${colors[verdict]}`}>
+      {label ?? VL[verdict]}
+    </span>
   );
 }

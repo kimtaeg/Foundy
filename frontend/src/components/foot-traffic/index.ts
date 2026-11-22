@@ -1,4 +1,5 @@
 export * from "./FootTrafficMap";
+export * from "./FootTrafficMapSkeleton";
 export * from "./MapAvailability";
 export * from "./MapCanvas";
 export * from "./MapControls";

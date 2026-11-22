@@ -1,81 +1,25 @@
-import { ProfileBooleanField } from "@/components/mypage/ProfileBooleanField";
 import { ProfileField } from "@/components/mypage/ProfileField";
-import { Element } from "@/components/view/Element";
-import { type FieldDefinitions, type ProfileViewModel, type StoreDraft } from "@/types/profile";
+import { ProfileBooleanField } from "@/components/mypage/ProfileBooleanField";
+import { won } from "@/lib/format";
+import { profileFieldLabels } from "@/lib/profile/editable-fields";
+import type { ProfileFieldEdit, ProfileViewModel, StoreDraft } from "@/types/profile";
+import { profileTitle } from "../profile-styles";
 
-export interface BusinessConditionsCardProps {
-  draft: StoreDraft;
-  fields: FieldDefinitions;
-  impacts: Record<string, string>;
-  /** 서버 연결 모드: 미답변(null)을 포함한 예/아니요 값 */
-  answered?: ProfileViewModel["answered"];
-  /** 카드 선택으로 저장값과 다르게 적용 중인 값 안내 */
-  notes?: ProfileViewModel["notes"];
-}
+export interface BusinessConditionsCardProps { draft: StoreDraft; edit?: ProfileFieldEdit; answers?: ProfileViewModel["answers"] }
 
-type YesNoKey = "alcohol" | "terrace" | "employees" | "delivery";
-
-export function BusinessConditionsCard({
-  draft,
-  fields,
-  impacts,
-  answered,
-  notes,
-}: BusinessConditionsCardProps) {
-  const hints = (key: keyof StoreDraft) =>
-    fields[key][1].map((id) => impacts[id]);
-  const yesNo = (key: YesNoKey) => (answered && key in answered ? (answered[key] ?? null) : draft[key]);
+export function BusinessConditionsCard({ draft, edit, answers }: BusinessConditionsCardProps) {
   return (
-    <Element as="section" className="nx-card">
-      <h3>영업 조건</h3>
-      <Element className="nx-form">
-        <ProfileBooleanField
-          field="alcohol"
-          label="술도 판매하나요?"
-          value={yesNo("alcohol")}
-          hints={hints("alcohol")}
-          note={notes?.alcohol}
-        />
-        <ProfileBooleanField
-          field="terrace"
-          label="테라스·가게 앞 공간을 쓰나요?"
-          value={yesNo("terrace")}
-          hints={hints("terrace")}
-          note={notes?.terrace}
-        />
-        <ProfileBooleanField
-          field="employees"
-          label="직원을 고용하나요?"
-          value={yesNo("employees")}
-          hints={hints("employees")}
-          note={notes?.employees}
-        />
-        <ProfileBooleanField
-          field="delivery"
-          label="배달도 하나요?"
-          value={yesNo("delivery")}
-          hints={hints("delivery")}
-          note={notes?.delivery}
-        />
-        <ProfileField label="영업장 면적 (㎡)" hints={hints("area")}>
-          <Element
-            as="input"
-            data-mp="area"
-            type="number"
-            min="1"
-            step="0.1"
-            value={draft.area}
-          />
-        </ProfileField>
-        <ProfileField label="준비 자금 (원)" hints={hints("funds")}>
-          <Element
-            as="input"
-            data-mp="funds"
-            type="number"
-            value={draft.funds}
-          />
-        </ProfileField>
-      </Element>
-    </Element>
+    <section aria-labelledby="profile-business-title" className="min-w-0 border-0 border-t border-solid border-neutral-200 pt-7 lg:border-t-0 lg:pt-0">
+      <h2 id="profile-business-title" className={profileTitle}>영업 조건</h2>
+      <dl className="m-0 mt-3">
+        {(["alcohol", "terrace", "employees"] as const).map((field) => (
+          <div key={field} className="flex min-w-0 items-center justify-between gap-3 border-0 border-b border-solid border-neutral-100 py-2.5">
+            <dt className="text-[15px] font-medium leading-6 text-neutral-900">{profileFieldLabels[field]}</dt>
+            <dd className="m-0 shrink-0"><ProfileBooleanField field={field} value={answers ? answers[field] : draft[field]} /></dd>
+          </div>
+        ))}
+        <ProfileField edit={edit} field="funds" value={draft.funds == null || draft.funds === "" ? "" : won(draft.funds)} />
+      </dl>
+    </section>
   );
 }

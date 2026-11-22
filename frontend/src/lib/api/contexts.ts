@@ -1,27 +1,28 @@
-/** API 응답 묶음 → 기존 화면 계산 계층(*Context)의 데이터 부분.
- *
- * 화면 상태(필터·보기·달력 위치)는 로컬 엔진 값을 그대로 쓰고, 가게·카드·할 일·알림만 API 값으로 바꾼다.
- * 판정·자동 체크·다음 할 일은 백엔드가 계산한 값을 그대로 보여 준다 (프론트에서 다시 계산하지 않는다).
- */
-import { CATCOLOR, GROUPS } from "@/data/checklist";
-import { D, dday, dday as dday_, diffDays, iso, realToday } from "@/lib/date";
-import { grantsModel } from "@/lib/api/grants";
+/** 페이지별 API 응답을 화면 데이터로 변환한다. */
+import { CATCOLOR } from "@/data/checklist";
+import { buildDashboardPreparation } from "@/lib/dashboard/preparation";
+import { addDays, D, diffDays, iso } from "@/lib/date";
+import { readGrants } from "@/lib/grants/read-grants";
+import { toReportNextStep } from "@/lib/report/api-next-step";
 import type {
-  ApiBundle,
+  ApiChecklist,
   ApiChecklistItem,
   ApiContact,
-  ApiDocumentRequirement,
+  ApiDashboard,
+  ApiDocuments,
   ApiEvidence,
-  ApiLawBasis,
   ApiOption,
+  ApiReport,
   ApiReportItem,
+  ApiResources,
 } from "@/lib/api/types";
-import type { ChecklistTask, CalendarEvent, TaskLawBasis } from "@/types/checklist";
+import type { CalendarEvent, ChecklistContext, ChecklistTask } from "@/types/checklist";
 import type { Contact } from "@/types/contact";
-import type { DocumentViewData, ManagedDocsData, ManagedDocument, ManagedDocumentSection } from "@/types/documents";
-import type { EvidenceItemData, NextStep, ReportAction, ReportCardData, ReportOption, ReportState } from "@/types/report";
+import type { DashboardTask, DashboardViewData } from "@/types/dashboard";
+import type { DocsViewData, DocumentViewData } from "@/types/documents";
+import type { Grant } from "@/types/grants";
+import type { EvidenceItemData, ReportAction, ReportCardData, ReportContext, ReportOption, ReportState } from "@/types/report";
 import type { NotificationSummary } from "@/types/notifications";
-import type { Store } from "@/types/store";
 
 const ALERT_LABEL: Record<string, string> = {
   decision: "결정 필요",
@@ -31,14 +32,8 @@ const ALERT_LABEL: Record<string, string> = {
   grant: "지원사업",
 };
 
-const NEXT_CTA: Record<string, string> = {
-  report: "카드 열기",
-  checklist: "체크리스트 열기",
-  docs: "서류함 열기",
-};
-
 function toContact(contact: ApiContact): Contact {
-  return { name: contact.agency, phone: contact.phone, ex: Boolean(contact.is_example) };
+  return { name: contact.agency };
 }
 
 function toAction(action: ApiReportItem["user_action"]): ReportAction | null {
@@ -75,231 +70,180 @@ function toCard(item: ApiReportItem): ReportCardData {
     check: item.check_id,
     stage: item.stage,
     contact: item.contact ? item.item_id : undefined,
-    base: item.verdict,
+    base: item.verdict_before ?? item.verdict,
     by: item.decided_by,
     title: item.chosen_option && item.resolved_title ? item.resolved_title : item.title,
     reason: item.reason ?? "",
     consequence: item.consequence ?? "",
-    options: item.options.map(toOption),
+    options: item.options.map((option) => {
+      const view = toOption(option);
+      if (option.option_id === item.chosen_option) view.fx.changes = item.applied_changes;
+      return view;
+    }),
     rec: item.recommendation ? { id: item.recommendation.option_id, reason: item.recommendation.reason } : null,
     action: toAction(item.user_action),
   };
 }
 
 export function toEvidence(evidence: ApiEvidence): EvidenceItemData {
-  // 예시 자료 여부는 근거 창이 "모의 응답" 표시로 따로 보여 준다.
   const mock = evidence.from_cache && !evidence.from_mock ? " (저장된 조회 결과)" : "";
   const value =
     evidence.type === "law"
       ? [evidence.law_name, evidence.article, evidence.text].filter(Boolean).join(" · ")
       : evidence.value ?? "";
   return {
-    source: evidence.source + mock,
+    source: evidence.source + (evidence.from_mock ? " (예시 자료)" : mock),
     value,
     kind: evidence.type,
     url: evidence.url ?? undefined,
-    mock: Boolean(evidence.from_mock),
   };
 }
 
-function toLawBasis(basis: ApiLawBasis | null | undefined): TaskLawBasis | null {
-  if (!basis?.law_name) return null;
-  return { label: [basis.law_name, basis.article].filter(Boolean).join(" "), url: basis.url ?? undefined };
-}
-
-/** 작업에 필요한 서류 이름. 서류함 응답이 있으면 그 기준(법령 규칙이 더한 서류 포함, 해당 없음 제외)이고, 없으면 체크리스트에 붙은 안내다. */
-function toTask(item: ApiChecklistItem, documentNames?: string[]): ChecklistTask {
+function toTaskSummary(item: ApiDashboard["checklist_tasks"][number]): DashboardTask {
   return {
     id: item.item_id,
     task: item.task,
     category: item.category,
     group: item.group_label,
     due: item.due_date,
-    documents: (documentNames ?? item.documents.map((d) => d.name)).join(", "),
-    agency: item.agency ?? item.contact?.agency ?? "",
     done: item.done,
-    kind: item.task_type,
-    aiAdded: item.added_by_ai ?? false,
-    reason: item.reason ?? null,
-    lawBasis: toLawBasis(item.law_basis),
-    statutory:
-      item.statutory_deadline && item.statutory_basis
-        ? { date: item.statutory_deadline, basis: item.statutory_basis }
-        : null,
-    review: item.review_needed ? (item.review_reason ?? "다시 확인이 필요해요") : null,
   };
 }
 
-/** 서류함 응답 → 화면 데이터. 서류는 연결된 첫 작업의 카테고리로 묶고, 기한이 빠른 순으로 둔다. */
-function toManagedDocs(bundle: ApiBundle): ManagedDocsData | null {
-  const documents = bundle.documents;
-  if (!documents) return null;
-  const dday = (date: string | null) => (date ? dday_(date) : null);
-  const toDoc = (req: ApiDocumentRequirement): ManagedDocument => ({
-    id: req.doc_key,
-    name: req.name,
-    type: req.type,
-    typeLabel: req.type_label,
-    status: req.status,
-    statusLabel: req.status_label,
-    applicability: req.applicability,
-    aiAdded: req.added_by_ai,
-    reason: req.reason,
-    lawBasis: toLawBasis(req.law_basis),
-    agency: req.agency,
-    guide: req.guide,
-    sites: req.links.map((link) => ({ label: link.label, url: link.url })),
-    form: req.form
-      ? {
-          title: req.form.title ?? req.name,
-          pdfUrl: req.form.pdf_url,
-          fileUrl: req.form.file_url,
-          revision: req.form.revision_date,
-        }
-      : null,
-    tasks: req.tasks.map((task) => ({ id: task.item_id, task: task.task, done: task.done })),
-    anchors: [],
-    due: req.due_date,
-    deadline: dday(req.due_date),
-    statutoryDate: req.statutory_deadline,
-    review: req.review_needed ? (req.review_reason ?? "다시 확인이 필요해요") : null,
-  });
-  const sections = new Map<string, ManagedDocumentSection>();
-  const claimed = new Set<string>();
-  const firstCategory = (req: ApiDocumentRequirement) => req.tasks.find((task) => task.category)?.category ?? "기타";
-  for (const req of documents.requirements) {
-    const title = firstCategory(req);
-    const section = sections.get(title) ?? { title, documents: [] };
-    const doc = toDoc(req);
-    doc.anchors = doc.tasks.map((task) => task.id).filter((id) => !claimed.has(id));
-    doc.anchors.forEach((id) => claimed.add(id));
-    section.documents.push(doc);
-    sections.set(title, section);
-  }
-  const summary = documents.summary;
+function dashboardFromApi(data: ApiDashboard, tasks: DashboardTask[]): DashboardViewData {
+  const store = data.store;
   return {
-    total: summary.total,
-    finished: summary.finished,
-    remaining: summary.remaining,
-    notApplicable: summary.not_applicable,
-    toObtain: summary.to_obtain,
-    toWrite: summary.to_write_or_keep,
-    reviewCount: summary.review_needed,
-    byStatus: summary.by_status,
-    sections: [...sections.values()],
+    ...buildDashboardPreparation(tasks),
+    store: {
+      name: store.registered_name,
+      type: store.business_type_input,
+      address: store.address,
+      detail: store.address_detail,
+      opening: store.opening_date,
+      location: "decided",
+      region: store.region ?? "",
+    },
+    name: store.name,
+    undecided: false,
+    days: -store.d_day,
+    decisions: data.pending_decisions.map((item) => ({
+      id: item.item_id,
+      stage: item.stage,
+      title: item.title,
+      base: item.verdict,
+    })),
+    taskCount: data.checklist_progress,
+    actions: data.today_todos.map((todo) => ({
+      id: todo.item_id,
+      action: { type: "task", text: todo.task, min: todo.est_minutes ?? 0 },
+    })),
+    reportCounts: data.report_summary,
+    asOf: iso(addDays(D(store.opening_date), store.d_day)),
   };
 }
 
-/** API 묶음에서 화면들이 함께 쓰는 값을 한 번만 계산한다. */
-export function createApiModel(bundle: ApiBundle) {
-  const items = bundle.report.groups.flatMap((group) => group.items);
-  const byId = new Map(items.map((item) => [item.item_id, item]));
+type ApiReportContext = Pick<ReportContext, "S" | "buildCards" | "ev" | "RS" |
+  "curAction" | "CONTACT" | "nextSteps" | "cardShort">;
+
+function reportFromApi(data: ApiReport) {
+  const items = data.groups.flatMap((group) => group.items);
   const cards = items.map(toCard);
-  const checklistItems = bundle.checklist.groups.flatMap((group) => group.items);
-  const documentNames = new Map<string, string[]>();
-  for (const req of bundle.documents?.requirements ?? []) {
-    if (req.applicability === "not_applicable" || req.status === "not_applicable") continue;
-    for (const task of req.tasks) documentNames.set(task.item_id, [...(documentNames.get(task.item_id) ?? []), req.name]);
-  }
-  const namesOf = (id: string) => (bundle.documents ? (documentNames.get(id) ?? []) : undefined);
-  const tasks = checklistItems.map((item) => toTask(item, namesOf(item.item_id))).sort((a, b) => (a.due < b.due ? -1 : 1));
-  const taskById = new Map(checklistItems.map((item) => [item.item_id, item]));
-
-  const RS: Record<string, ReportState> = Object.fromEntries(
-    items.map((item) => [
-      item.item_id,
-      {
-        chosen: item.chosen_option ?? undefined,
-        action: item.action_status,
-        reply: item.action_reply ?? "",
-      },
-    ]),
-  );
-  const CONTACT: Record<string, Contact> = Object.fromEntries(
-    items.flatMap((item) => (item.contact ? [[item.item_id, toContact(item.contact)]] : [])),
-  );
-  const TASK_LINKS: Record<string, string[]> = Object.fromEntries(
-    checklistItems.map((item) => [item.item_id, item.report_item_ids]),
-  );
-  const AUTO: Record<string, boolean> = Object.fromEntries(
-    checklistItems.map((item) => [item.item_id, item.auto_checked]),
-  );
-  const AR: Record<string, boolean> = Object.fromEntries(bundle.alerts.map((a) => [a.alert_id, a.read]));
-
-  const answers = bundle.store.effective.answers;
-  const S: Store = {
-    name: bundle.store.name,
-    type: bundle.store.business_type_input,
-    address: bundle.store.address,
-    detail: bundle.store.address_detail,
-    opening: bundle.store.opening_date,
-    birth: bundle.store.owner_birth_year,
-    location: "decided",
-    region: bundle.store.region ?? "",
-    alcohol: Boolean(answers.sells_alcohol),
-    terrace: Boolean(bundle.store.answers.uses_terrace),
-    employees: Boolean(answers.has_employees),
-    funds: bundle.store.answers.funds_krw,
-    area: bundle.store.answers.area_sqm ?? null,
-    delivery: Boolean(bundle.store.answers.does_delivery),
-    mainManual: null,
-    onboarded: true,
+  const byId = new Map(items.map((item) => [item.item_id, item]));
+  const RS: Record<string, ReportState> = Object.fromEntries(items.map((item) => [
+    item.item_id,
+    { chosen: item.chosen_option ?? undefined, action: item.action_status, reply: item.action_reply ?? "" },
+  ]));
+  const context: ApiReportContext = {
+    S: { location: "decided" },
+    buildCards: () => cards,
+    ev: (card) => byId.get(card.id)?.verdict ?? card.base,
+    RS,
+    curAction: (card) => card.action ?? null,
+    CONTACT: Object.fromEntries(items.flatMap((item) =>
+      item.contact ? [[item.item_id, toContact(item.contact)]] : [])),
+    nextSteps: (excludeId) => data.next_steps.filter((step) => step.go.item_id !== excludeId).slice(0, 3).map(toReportNextStep),
+    cardShort: (card) => card.title,
   };
+  return { byId, cards, RS, context };
+}
 
-  const nextSteps = (excludeId: string): NextStep[] =>
-    bundle.dashboard.next_steps
-      .filter((step) => step.go.item_id !== excludeId)
-      .slice(0, 3)
-      .map((step) => ({
-        k: step.kind === "new" ? "new" : undefined,
-        t: step.title,
-        s: step.sub,
-        go: [step.go.page, step.go.item_id ?? ""],
-        cta: NEXT_CTA[step.go.page] ?? "열기",
+function documentNames(item: ApiChecklistItem): string[] {
+  return item.document_names ?? item.documents.map((document) => document.name);
+}
+
+function deadlineLabel(days: number): string {
+  return days >= 0 ? `D-${days}` : `D+${Math.abs(days)}`;
+}
+
+function checklistFromApi(data: ApiChecklist, grants: Grant[]): Omit<ChecklistContext, "checkView" | "CAL"> {
+  const items = data.groups.flatMap((group) => group.items);
+  const today = D(data.as_of);
+  const namesByTask = new Map(items.map((item) => [item.item_id, documentNames(item)]));
+  const tasks: ChecklistTask[] = items.map((item) => ({
+    ...toTaskSummary(item),
+    documents: (namesByTask.get(item.item_id) ?? []).join(", "),
+    agency: item.agency ?? item.contact?.agency ?? "",
+  })).sort((a, b) => a.due.localeCompare(b.due));
+
+  return {
+    allTasks: () => tasks,
+    taskCount: () => data.progress,
+    GROUPS: data.groups.map((group) => group.group_label),
+    documentCount: (taskId) => namesByTask.get(taskId)?.length ?? 0,
+    dday: (date) => deadlineLabel(diffDays(D(date), today)),
+    S: { opening: data.opening_date, employees: data.has_employees },
+    calEvents: () => {
+      const events: Record<string, CalendarEvent[]> = {};
+      for (const task of tasks) {
+        (events[task.due] ??= []).push({ t: task.task, cat: task.category, id: task.id, done: task.done, kind: "task" });
+      }
+      (events[data.opening_date] ??= []).push({ t: "개업일", cat: "개업", id: "open", done: false, kind: "open" });
+      for (const grant of grants) {
+        if (grant.deadline && grant.deadline >= data.as_of && grant.res !== "unknown") {
+          (events[grant.deadline] ??= []).push({
+            t: `지원사업 마감 · ${grant.title}`, cat: "정책", id: grant.id, done: false, kind: "grant",
+          });
+        }
+      }
+      return events;
+    },
+    CATCOLOR,
+    iso,
+    realToday: () => new Date(today),
+    TASK_LINKS: Object.fromEntries(items.map((item) => [item.item_id, item.report_item_ids])),
+    AUTO: Object.fromEntries(items.map((item) => [item.item_id, item.auto_checked])),
+  };
+}
+
+function docsFromApi(data: ApiDocuments): DocsViewData {
+  return {
+    summaryBasis: "documents",
+    total: data.summary.total,
+    remaining: data.summary.remaining,
+    finished: data.summary.finished,
+    rows: data.groups.map((group) => {
+      const documents: DocumentViewData[] = group.documents.map((doc) => ({
+        id: doc.doc_key, name: doc.name, agency: doc.agency, guide: doc.guide, sites: doc.links, status: doc.status,
       }));
-
-  const pendingDecisions = () => cards.filter((card) => card.options.length && !RS[card.id]?.chosen);
-  const curAction = (card: ReportCardData) => card.action ?? null;
-  const allTasks = () => tasks;
-  const taskCount = () => bundle.checklist.progress;
-  const calEvents = () => {
-    const map: Record<string, CalendarEvent[]> = {};
-    const add = (date: string, event: CalendarEvent) => (map[date] ??= []).push(event);
-    tasks.forEach((task) =>
-      add(task.due, { t: task.task, cat: task.category, id: task.id, done: task.done, kind: "task" }),
-    );
-    add(S.opening, { t: "개업일", cat: "개업", id: "open", done: false, kind: "open" });
-    // 신청 가능성이 있는 실제 지원사업 공고의 마감일
-    for (const grant of bundle.grants?.items ?? []) {
-      if (grant.deadline && grant.result !== "unknown")
-        add(grant.deadline, { t: `지원사업 마감 · ${grant.title}`, cat: "정책", id: grant.grant_id, done: false, kind: "grant" });
-    }
-    return map;
+      return {
+        task: {
+          ...toTaskSummary(group),
+          documents: documents.map((doc) => doc.name).join(", "),
+          agency: group.agency ?? "",
+        },
+        deadline: deadlineLabel(group.dday),
+        documents,
+      };
+    }),
   };
-  const documentsOf = (taskId: string): DocumentViewData[] =>
-    (taskById.get(taskId)?.documents ?? []).map((doc) => ({
-      id: doc.doc_id,
-      name: doc.name,
-      agency: doc.agency,
-      guide: doc.guide,
-      sites: doc.links.map((link) => ({ label: link.label, url: link.url })),
-      contact: doc.contact ? `doc:${taskId}:${doc.doc_id}` : undefined,
-    }));
-  const docContacts: Record<string, Contact> = Object.fromEntries([
-    ...checklistItems.flatMap((item) =>
-      item.documents.flatMap((doc) =>
-        doc.contact ? [[`doc:${item.item_id}:${doc.doc_id}`, toContact(doc.contact)] as const] : [],
-      ),
-    ),
-  ]);
-  const managedDocs = toManagedDocs(bundle);
-  // 체크리스트 행은 기관 이름으로 연락처를 찾는다. 같은 기관이면 서버가 준 관할 연락처를 쓴다.
-  const contactOfAgency = (agency: string) => {
-    const contact = checklistItems.find((item) => (item.agency ?? item.contact?.agency) === agency && item.contact)?.contact;
-    return contact ? { phone: contact.phone, ex: Boolean(contact.is_example) } : null;
-  };
+}
 
-  const notifications: NotificationSummary[] = bundle.alerts.map((alert) => ({
+export function createApiModel(bundle: Partial<ApiResources>) {
+  const dashboardTasks = bundle.dashboard?.checklist_tasks.map(toTaskSummary) ?? [];
+  const report = bundle.report && reportFromApi(bundle.report);
+  const grants = bundle.grants ? readGrants(bundle.grants, bundle.me?.user.provider === "demo").catalog : [];
+  const checklist = bundle.checklist && checklistFromApi(bundle.checklist, grants);
+  const notifications: NotificationSummary[] = (bundle.alerts ?? []).map((alert) => ({
     id: alert.alert_id,
     title: alert.title,
     body: alert.body ?? "",
@@ -311,78 +255,15 @@ export function createApiModel(bundle: ApiBundle) {
 
   return {
     bundle,
-    byId,
-    cards,
-    RS,
-    S,
-    CONTACT: { ...CONTACT, ...docContacts },
-    TASK_LINKS,
-    AUTO,
-    AR,
+    dashboard: bundle.dashboard && dashboardFromApi(bundle.dashboard, dashboardTasks),
+    report: report?.context,
+    checklist,
+    docsView: bundle.documents && docsFromApi(bundle.documents),
+    byId: report?.byId ?? new Map<string, ApiReportItem>(),
+    cards: report?.cards ?? [],
+    RS: report?.RS ?? {},
     notifications,
-    pendingDecisions,
-    curAction,
-    allTasks,
-    taskCount,
-    calEvents,
-    documentsOf,
-    nextSteps,
-    dashboard: {
-      S,
-      RS,
-      SIM: "now",
-      AR,
-      eff: () => ({ name: bundle.store.effective.name }),
-      pendingDecisions,
-      taskCount,
-      alertsFor: () => bundle.alerts.map((a) => ({ id: a.alert_id })),
-      diffDays,
-      D,
-      realToday,
-      buildCards: () => cards,
-      curAction,
-      allTasks,
-    },
-    report: {
-      obligations: bundle.obligations,
-      // 근거에 모의·예시 자료(from_mock)가 쓰인 점검 항목: 실제 조회로 판정한 결과가 아니라는 뜻이다
-      exampleItems: items.filter((item) => item.evidence.some((e) => e.from_mock)).map((item) => item.title),
-      S,
-      buildCards: () => cards,
-      ev: (card: ReportCardData) => card.base,
-      RS,
-      curAction,
-      CONTACT,
-      allTasks,
-      TASK_LINKS,
-      cardDone: (id: string) => RS[id]?.action === "done",
-      AUTO,
-      nextSteps,
-      cardShort: (card: ReportCardData) => card.title,
-    },
-    checklist: {
-      allTasks,
-      taskCount,
-      GROUPS,
-      typeCounts: () => bundle.checklist.type_counts ?? null,
-      documentCount: (taskId: string) => namesOf(taskId)?.length ?? taskById.get(taskId)?.documents.length ?? 0,
-      contactOfAgency,
-      dday,
-      S,
-      calEvents,
-      CATCOLOR,
-      iso,
-      realToday,
-      TASK_LINKS,
-      AUTO,
-    },
-    docs: {
-      allTasks,
-      dday,
-      documentsOf,
-      managedDocuments: () => managedDocs,
-    },
-    grants: grantsModel(bundle.grants),
+    allTasks: () => checklist?.allTasks() ?? dashboardTasks,
   };
 }
 

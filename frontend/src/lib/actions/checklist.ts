@@ -33,6 +33,7 @@ export function createChecklistActions(
       const d = new Date(context.CAL.y, context.CAL.m + Number(b.dataset.n), 1);
       context.CAL.y = d.getFullYear();
       context.CAL.m = d.getMonth();
+      context.CAL.sel = null;
 
       return true;
     },

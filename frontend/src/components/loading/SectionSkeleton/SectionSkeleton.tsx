@@ -6,6 +6,7 @@ export interface SectionSkeletonProps {
   rows?: number;
   label?: string;
   className?: string;
+  appearance?: "card" | "plain";
 }
 
 /** The section keeps its approximate layout while its data is unavailable. */
@@ -14,6 +15,7 @@ export function SectionSkeleton({
   rows = 3,
   label = "내용을 불러오는 중",
   className = "",
+  appearance = "card",
 }: SectionSkeletonProps) {
   const items = Array.from({ length: rows }, (_, index) => index);
   return (
@@ -22,7 +24,7 @@ export function SectionSkeleton({
       aria-busy="true"
       aria-label={label}
       data-skeleton={variant}
-      className={`min-w-0 overflow-hidden rounded-2xl bg-neutral-50 p-5 ${variant === "map" ? "relative h-full min-h-64" : ""} ${className}`}
+      className={`min-w-0 overflow-hidden ${appearance === "card" ? "rounded-2xl bg-neutral-50 p-5" : ""} ${variant === "map" ? "relative h-full min-h-64" : ""} ${className}`}
     >
       <span className="sr-only">{label}</span>
       <div aria-hidden="true" className="space-y-5">

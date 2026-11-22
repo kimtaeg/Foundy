@@ -16,7 +16,6 @@ export function FieldChecklistCard({
   return (
     <MarketPanelCard
       title="현장에서 확인할 것"
-      description="생활인구와 예시 점포 자료만으로 알 수 없는 내용을 확인하세요."
     >
       <ol className="m-0 list-none space-y-3 p-0">
         {questions.map((question, index) => (
@@ -34,7 +33,7 @@ export function FieldChecklistCard({
       {onOpenReport && <button
         type="button"
         onClick={onOpenReport}
-        className="mt-4 min-h-10 w-full rounded-xl border-0 bg-foundy-primary px-3 text-sm font-semibold text-white hover:bg-foundy-primary/90"
+        className="mt-3 inline-flex min-h-11 cursor-pointer items-center rounded-md border-0 bg-transparent p-0 text-sm font-semibold text-foundy-primary-ink hover:text-neutral-900 focus-visible:outline-foundy-primary"
       >
         창업 점검 리포트 보기 →
       </button>}

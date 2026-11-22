@@ -50,8 +50,11 @@ def test_signup_logs_in_and_stores_only_a_hash(client, username):
     assert response.status_code == 201
     body = response.json()
     assert body["user"]["provider"] == "local" and body["user"]["username"] == username
-    assert body["store_id"] is None
-    assert client.get("/api/me", headers={"Authorization": f"Bearer {body['access_token']}"}).status_code == 200
+    assert body["store_id"] is None and body["store_name"] is None and body["store_opening"] is None
+    assert body["setup"]["status"] == "missing_store"
+    assert body["setup"]["run_id"] is None
+    me = client.get("/api/me", headers={"Authorization": f"Bearer {body['access_token']}"})
+    assert me.status_code == 200 and me.json()["setup"] == body["setup"]
     with transaction() as session:
         stored = session.scalar(select(User.password_hash).where(User.username == username))
     assert stored and "password1" not in stored and stored.startswith("$2")
@@ -62,6 +65,7 @@ def test_login_with_right_password(client, username):
     response = client.post("/api/auth/login", json={"username": username, "password": "password1"})
     assert response.status_code == 200
     assert response.json()["user"]["name"] == "김창업"
+    assert response.json()["setup"]["status"] == "missing_store"
 
 
 def test_username_is_case_insensitive(client, username):

@@ -14,8 +14,6 @@ export function createProfileSelectors(context: ProfileDependencies) {
       region: context.S.region,
       opening: context.S.opening,
       birth: context.S.birth || "",
-      area: context.S.area ?? "",
-      delivery: !!context.S.delivery,
       alcohol: e.alcohol,
       terrace: context.S.terrace,
       employees: context.S.employees,
@@ -24,18 +22,13 @@ export function createProfileSelectors(context: ProfileDependencies) {
     };
   };
 
-  const mpDraft: any = () => context.MP || (context.MP = mpBase());
-
-  function mpDiff(): any {
-    const d: any = mpDraft(),
-      b: any = mpBase(),
+  function mpDiff(d = mpBase()): any {
+    const b: any = mpBase(),
       keys: any = [
         "name",
         "type",
         "opening",
         "birth",
-        "area",
-        "delivery",
         "alcohol",
         "terrace",
         "employees",
@@ -97,5 +90,5 @@ export function createProfileSelectors(context: ProfileDependencies) {
     if (!d.opening) return "개업 예정일을 입력해 주세요";
     return null;
   }
-  return { mpBase, mpDraft, mpDiff, mpImpacts, resetList, mpValidate };
+  return { mpBase, mpDiff, mpImpacts, resetList, mpValidate };
 }

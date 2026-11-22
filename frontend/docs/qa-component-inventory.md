@@ -1,0 +1,1268 @@
+# 페이지·컴포넌트 QA 체크리스트
+
+컴포넌트 파일 273개, 컴포넌트 선언 287개, 페이지 10개, 앱 진입 파일 21개를 읽었습니다. 페이지 진입점에서 참조되지 않은 컴포넌트 파일은 13개입니다.
+
+체크된 컴포넌트는 소스, Props, 모듈 연결을 정적으로 대조한 항목입니다. 아래 페이지 체크박스는 실제 기능 검증 항목이며 테스트 링크는 실행 대상입니다. 브라우저 실행 결과와 개별 오류 재현 여부는 [QA 실행 보고서](./qa-execution.md)에서 확인합니다. 공통 레이아웃의 참조는 권한이나 화면 상태에 따라 조건부로 렌더링됩니다. `↗`는 콜백입니다.
+
+다시 만들려면 `node scripts/generate-qa-component-inventory.mjs`를 실행하세요. `--check`를 붙이면 같은 소스에서 체크리스트가 재현되는지 확인합니다. 동적 지도 import, barrel을 거치는 값 참조, 루트 페이지 재내보내기, 내부 JSX 선언을 포함합니다.
+
+## 페이지와 공통 흐름
+
+- [ ] [`/checklist`](../src/app/checklist/page.tsx) 기간/카테고리/달력, 필터, 준비 정보, 서류 링크, 체크 변경, 날짜 재계산, 캘린더 내보내기 · 34개 코드 모듈 참조 · [로딩](../src/app/checklist/loading.tsx) · [checklist-redesign.mjs](../tests/checklist-redesign.mjs), [api-integration.mjs](../tests/api-integration.mjs), [disclosure-motion.mjs](../tests/disclosure-motion.mjs)
+- [ ] [`/dashboard`](../src/app/dashboard/page.tsx) 개업 D-day, 진행률, 임박 항목, 점검 바로가기, 생활인구 그래프, 날짜와 접근성 · 61개 코드 모듈 참조 · [로딩](../src/app/dashboard/loading.tsx) · [dashboard-bento.mjs](../tests/dashboard-bento.mjs), [dashboard-greeting.mjs](../tests/dashboard-greeting.mjs), [preparation-ring-motion.mjs](../tests/preparation-ring-motion.mjs), [dashboard-data.mjs](../tests/dashboard-data.mjs), [dashboard-population.mjs](../tests/dashboard-population.mjs)
+- [ ] [`/docs`](../src/app/docs/page.tsx) 발급 안내, 필터, 항목 상태, 단일 토글, 링크, 서류 상태 저장 · 25개 코드 모듈 참조 · [로딩](../src/app/docs/loading.tsx) · [api-integration.mjs](../tests/api-integration.mjs), [disclosure-motion.mjs](../tests/disclosure-motion.mjs), [functional-parity.mjs](../tests/functional-parity.mjs)
+- [ ] [`/grants`](../src/app/grants/page.tsx) 저장 공고, 자격·분야 필터, 텍스트형 새로 조회, 결과 유지, 오류·재시도, 상세·외부 링크 · 45개 코드 모듈 참조 · [로딩](../src/app/grants/loading.tsx) · [grants-integration.mjs](../tests/grants-integration.mjs), [api-view-contracts.mjs](../tests/api-view-contracts.mjs)
+- [ ] [`/login`](../src/app/login/page.tsx) ID 로그인, 회원가입, 입력 검증, 비밀번호 보기, 재시도, 세션 유지·로그아웃 · 17개 코드 모듈 참조 · [로딩](../src/app/login/loading.tsx) · [login.mjs](../tests/login.mjs), [api-integration.mjs](../tests/api-integration.mjs)
+- [ ] [`/mypage`](../src/app/mypage/page.tsx) 초기 등록, 인라인 편집, 토글, 날짜, 주소, 계정, 저장 실패 복구 · 62개 코드 모듈 참조 · [로딩](../src/app/mypage/loading.tsx) · [api-integration.mjs](../tests/api-integration.mjs), [functional-parity.mjs](../tests/functional-parity.mjs)
+- [ ] [`/`](../src/app/page.tsx) 첫 진입 주소 정규화, 인증 여부에 따른 홈·로그인·초기 등록 분기 · 62개 코드 모듈 참조 · [로딩](../src/app/loading.tsx) · [routing-smoke.mjs](../tests/routing-smoke.mjs)
+- [ ] [`/register`](../src/app/register/page.tsx) 가게 정보와 주소, 일정, 영업 조건, 이전 단계, 재개, 분석 SSE와 대시보드 진입 · 37개 코드 모듈 참조 · [로딩](../src/app/register/loading.tsx) · [api-integration.mjs](../tests/api-integration.mjs), [functional-parity.mjs](../tests/functional-parity.mjs)
+- [ ] [`/report`](../src/app/report/page.tsx) 시기와 위험도, 접기, 근거 모달, 선택, 완료·취소, 영향 항목과 채팅 · 32개 코드 모듈 참조 · [로딩](../src/app/report/loading.tsx) · [api-integration.mjs](../tests/api-integration.mjs), [disclosure-motion.mjs](../tests/disclosure-motion.mjs), [chat-api-integration.mjs](../tests/chat-api-integration.mjs)
+- [ ] [`/sites`](../src/app/sites/page.tsx) 주소·좌표, SDK·정적 데이터, 반경, 시간·분류, 점포, 통계, 로딩·오류·재시도 · 76개 코드 모듈 참조 · [로딩](../src/app/sites/loading.tsx) · [market-map.mjs](../tests/market-map.mjs), [market-loading.mjs](../tests/market-loading.mjs), [population-age-map.mjs](../tests/population-age-map.mjs), [market-calculations.mjs](../tests/market-calculations.mjs)
+- [ ] [공통 셸](../src/app/layout.tsx) 브레드크럼, 네비게이션·드롭다운, 알림 읽음, 모달 포커스, 토스트, 권한 복구 · [네비게이션 테스트](../tests/navbar-regression.mjs) · [로딩 테스트](../tests/page-loading.mjs)
+- [ ] [공통 상담](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx) 세션 복구·재시도, 첫 답변, 중단·재전송, 출처·추천 행동, POST JSON/SSE 오류 · [API 브라우저 테스트](../tests/chat-api-integration.mjs) · [위젯 테스트](../tests/chat-widget.mjs)
+- [ ] 교차 상태 API 지연과 취소, 네트워크 끊김, 400·401·403·404·409·422·429·500, JSON이 없는 실패, 저장 중 이동과 로그아웃, 반응형과 reduced motion
+
+## API와 예외 화면 확인 대상
+
+동일한 앱 코드가 여러 화면을 갱신하는 경로도 호출 단위로 나열했습니다. 아래 예외 목록은 호출별 브라우저 검증을 위한 할 일입니다.
+
+- [ ] `POST /api/auth/signup` · 회원가입 · [연결 코드](../src/lib/api/auth.ts) · 422 입력·409 아이디 중복과 폼 값 보존
+- [ ] `POST /api/auth/login` · 아이디 로그인 · [연결 코드](../src/lib/api/auth.ts) · 401 계정 정보 오류·429 제한·재시도
+- [ ] `POST /api/auth/logout` · 공통 로그아웃 · [연결 코드](../src/lib/api/auth.ts) · 실패해도 브라우저 세션·화면 정리
+- [ ] `POST /api/demo` · 예시 계정 로그인 분기 · [연결 코드](../src/lib/auth/server-sign-in.ts) · 오류 통지·세션 변경 여부
+- [ ] `GET /api/me` · 세션 복구·초기 등록 판단 · [연결 코드](../src/hooks/useApiBridge.ts) · 401 정리·500 시작 화면 재시도
+- [ ] `PATCH /api/me` · 마이페이지 계정 이름 · [연결 코드](../src/lib/profile/save-server-profile.ts) · 거절 시 이름 및 입력 복구
+- [ ] `POST /api/stores` · 최초 가게 등록 · [연결 코드](../src/lib/onboarding/server-onboarding.ts) · 주소 오류·중복 등록·스텝 유지
+- [ ] `GET /api/stores/{store_id}` · 마이페이지·상권 위치·진행 중인 등록 복구 · [연결 코드](../src/lib/api/foundy-api.ts) · 오류 표시·스켈레톤 종료·재조회
+- [ ] `PATCH /api/stores/{store_id}` · 가게 정보·영업 조건·개업일 수정 · [연결 코드](../src/lib/profile/save-server-profile.ts) · 충돌·유효성 오류·회귀 복구
+- [ ] `POST /api/stores/{store_id}/answers` · 등록 중 영업 조건 저장 · [연결 코드](../src/lib/onboarding/server-onboarding.ts) · 서버 거부·질문 값 유지
+- [ ] `POST /api/stores/{store_id}/analyze` · 분석 시작 · [연결 코드](../src/lib/onboarding/server-onboarding.ts) · 미입력·이미 실행 중·실패의 다음 행동
+- [ ] `GET /api/runs/{run_id}/stream` · 등록·프로필·리포트 분석 진행 SSE · [연결 코드](../src/lib/api/run-stream.ts) · error, 중단, 재개 및 완료 이벤트
+- [ ] `GET /api/runs/{run_id}` · 분석 SSE 중단 시 폴링 · [연결 코드](../src/lib/api/run-stream.ts) · 상태값과 실패 사유·시간 초과
+- [ ] `GET /api/stores/{store_id}/dashboard` · 홈 통계·다음 할 일 · [연결 코드](../src/hooks/useDashboard.ts) · 조회 실패·재시도·이전 데이터
+- [ ] `GET /api/stores/{store_id}/report` · 판정·근거·선택지·다음 할 일 · [연결 코드](../src/hooks/useReport.ts) · 조회 실패·재시도·빈 항목
+- [ ] `POST /api/stores/{store_id}/report/items/{item_id}/choose` · 리포트 선택 확정 · [연결 코드](../src/hooks/useReportApiActions.ts) · 충돌·재점검 실패·중복 저장
+- [ ] `POST /api/stores/{store_id}/report/items/{item_id}/action` · 완료·완료 취소·메모 · [연결 코드](../src/hooks/useReportApiActions.ts) · 거절 시 모달·완료 상태
+- [ ] `GET /api/stores/{store_id}/checklist` · 체크리스트·캘린더 · [연결 코드](../src/hooks/useChecklist.ts) · 조회 오류·현재 선택 필터
+- [ ] `PATCH /api/stores/{store_id}/checklist/{item_id}` · 체크·해제 · [연결 코드](../src/hooks/useChecklistAlertActions.ts) · 실패 복구·동시 저장·진행률 동기화
+- [ ] `GET /api/stores/{store_id}/documents` · 서류함 목록과 상세 토글에 필요한 데이터 · [연결 코드](../src/hooks/useDocs.ts) · 조회 오류·빈 상태·재시도
+- [ ] `PATCH /api/stores/{store_id}/documents/{doc_key}` · 서류 상태 변경 · [연결 코드](../src/hooks/useChecklistAlertActions.ts) · 실패 복구·상태 유지·변경된 목록 확인
+- [ ] `GET /api/stores/{store_id}/alerts` · 상단 알림 목록 · [연결 코드](../src/hooks/useApiBridge.ts) · 조회 실패 안내·알림 복구
+- [ ] `PATCH /api/stores/{store_id}/alerts/{alert_id}` · 상단 알림 읽음 · [연결 코드](../src/hooks/useChecklistAlertActions.ts) · 읽음 표시와 카운트 실패 복구
+- [ ] `GET /api/stores/{store_id}/grants` · 지원사업 저장 결과 · [연결 코드](../src/hooks/useGrants.ts) · 조회 실패·미조회·조건이 없는 상태
+- [ ] `POST /api/stores/{store_id}/grants/refresh` · 지원사업 실시간 조회 · [연결 코드](../src/hooks/useGrants.ts) · HTTP 오류와 성공 응답 내 오류·이전 목록 보존
+- [ ] `GET /api/chat/sessions` · 최신 상담 세션 및 대화 이력 · [연결 코드](../src/hooks/useServerChat.ts) · 404·401·500·재시도
+- [ ] `GET /api/chat/sessions/{session_id}/messages` · 이전 상담 응답 계약 호환 · [연결 코드](../src/hooks/useServerChat.ts) · 실패 시 오작동 없는 복구
+- [ ] `POST /api/chat/sessions` · 세션 생성 · [연결 코드](../src/lib/chat/run-turn.ts) · 생성 실패 및 원래 질문 재전송
+- [ ] `POST /api/chat/sessions/{session_id}/messages` · AI 상담 SSE · [연결 코드](../src/lib/chat/run-turn.ts) · HTTP 오류와 SSE 오류, 연결 중단, 취소 후 복구
+- [ ] `/data/foot-traffic/*` · 격자·도로·시간별 통계 정적 파일 · [연결 코드](../src/lib/foot-traffic/data-loader.ts) · 404·파싱·빈 데이터·재시도
+- [ ] `Kakao 지도 SDK·주소 검색` · 상권 지도와 주소 입력 · [연결 코드](../src/lib/kakao-postcode.ts) · 스크립트 로드 실패·주소 미선택
+
+건강 상태, 소셜 로그인, 법령 검색/동기화, 법령 의무 목록, 변경 이력, 단일 서류 상세, 상담 세션 삭제는 브라우저 연결을 찾지 못한 백엔드 경로입니다. 체크리스트·서류함의 재검토 확인과 수정 영향 미리보기는 프론트 호출 헬퍼를 통해 활용할 수 있는 계약입니다. 현재 브라우저에서 각 기능을 실행하는 연결은 찾지 못했습니다.
+
+## 컴포넌트별 소스 점검
+
+### charts
+
+- [x] [DonutChart](../src/components/charts/DonutChart/DonutChart.tsx#L13) · 수치와 그래프 표시 · `<svg>`
+  - Props `DonutChartProps` · `title` · `rows` · `unit?` · `centerLabel?` · `formatValue?`↗ · `showPercent?`
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`PopulationBreakdownCard`](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx)
+- [x] [HorizontalBarChart](../src/components/charts/HorizontalBarChart/HorizontalBarChart.tsx#L11) · 수치와 그래프 표시
+  - Props `HorizontalBarChartProps` · `title` · `rows` · `unit?` · `formatValue?`↗ · `maxValue?`
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`PopulationBreakdownCard`](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx)
+- [x] [HourlyPopulationChart](../src/components/charts/HourlyPopulationChart/HourlyPopulationChart.tsx#L21) · 수치와 그래프 표시 · `24시간 공개 생활인구 막대그래프` · `공개값 · 명` · `<button>`
+  - Props `HourlyPopulationChartProps` · `points` · `selectedHour` · `onSelectHour`↗
+  - 연결 [`format`](../src/lib/foot-traffic/format.ts) / 하위 [`PopulationChartTooltip`](../src/components/dashboard/PopulationChartTooltip/PopulationChartTooltip.tsx)
+  - 참조 `/sites` / 상위 [`PopulationHourlyCard`](../src/components/sites/PopulationHourlyCard/PopulationHourlyCard.tsx)
+- [x] [RangeChart](../src/components/charts/RangeChart/RangeChart.tsx#L11) · 수치와 그래프 표시 · `비교 범위를 확인할 수 없어요.` · `내 가격`
+  - Props `RangeChartProps` · `title` · `min` · `median` · `max` · `value?` · `format?`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`PriceComparison`](../src/components/sites/PriceComparison/PriceComparison.tsx)
+
+### chat
+
+- [x] [CallPreparation](../src/components/chat/CallPreparation/CallPreparation.tsx#L8) · 하위 UI 또는 상태 표현 · `담당 기관 ·` · `30초 통화 순서` · `data-nx=callsave`
+  - Props `CallPreparationProps` · `cardId` · `guide` · `memo`
+  - 연결 — / 하위 [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatMessage`](../src/components/chat/ChatMessage/ChatMessage.tsx)
+- [x] [ChatActionCard](../src/components/chat/ChatActionCard/ChatActionCard.tsx#L10) · 목록 또는 항목 표시 · `✓ 적용했어요` · `취소했어요. 아무것도 바뀌지 않았어요.` · `<button>` · `data-nx=cnav` · `data-nx=cact` · `data-nx=ccancel`
+  - Props `ChatActionCardProps` · `action` · `messageIndex` · `actionIndex` · `typeLabel?`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatMessage`](../src/components/chat/ChatMessage/ChatMessage.tsx)
+- [x] [ChatComposer](../src/components/chat/ChatComposer/ChatComposer.tsx#L11) · 하위 UI 또는 상태 표현 · `질문 입력` · `내 가게 기준` · `<form>` · `<textarea>` · `<svg>`
+  - Props `ChatComposerProps` · `draft` · `busy`
+  - 연결 — / 하위 [`ChatSubmitButton`](../src/components/chat/ChatSubmitButton/ChatSubmitButton.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatPanelContent`](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx)
+- [x] [ChatConversation](../src/components/chat/ChatConversation/ChatConversation.tsx#L27) · 하위 UI 또는 상태 표현 · `상담 대화` · `답변 내용을 불러오는 중` · `<button>`
+  - Props `ChatConversationProps` · `storeName` · `undecided` · `messages` · `busy` · `request` · `cards` · `contacts` · `actionLabels` · `callGuides` · `memo`
+  - 연결 — / 하위 [`ChatMessage`](../src/components/chat/ChatMessage/ChatMessage.tsx) · [`ChatProcessing`](../src/components/chat/ChatProcessing/ChatProcessing.tsx) · [`ChatWelcome`](../src/components/chat/ChatWelcome/ChatWelcome.tsx) · [`FavoriteQuestions`](../src/components/chat/FavoriteQuestions/FavoriteQuestions.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatPanelContent`](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx)
+- [x] [ChatHeader](../src/components/chat/ChatHeader/ChatHeader.tsx#L3) · 제목과 안내 · `파운디 도우미` · `내 가게 맞춤 안내` · `<button>` · `<svg>` · `data-nx=chattoggle`
+  - Props —
+  - 연결 — / 하위 [`ChatSupportIcon`](../src/components/chat/ChatSupportIcon/ChatSupportIcon.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatPanel`](../src/components/chat/ChatPanel/ChatPanel.tsx)
+- [x] [ChatLauncher](../src/components/chat/ChatLauncher/ChatLauncher.tsx#L5) · 하위 UI 또는 상태 표현 · `<button>` · `<svg>` · `data-nx=chattoggle`
+  - Props `ChatLauncherProps` · `open`
+  - 연결 — / 하위 [`ChatSupportIcon`](../src/components/chat/ChatSupportIcon/ChatSupportIcon.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatWidget`](../src/components/chat/ChatWidget/ChatWidget.tsx)
+- [x] [ChatMessage](../src/components/chat/ChatMessage/ChatMessage.tsx#L27) · 하위 UI 또는 상태 표현 · `내 질문` · `파운디 답변`
+  - Props `ChatMessageProps` · `message` · `index` · `last` · `busy?` · `cards` · `contacts` · `actionLabels` · `callGuides` · `memo`
+  - 연결 — / 하위 [`CallPreparation`](../src/components/chat/CallPreparation/CallPreparation.tsx) · [`ChatActionCard`](../src/components/chat/ChatActionCard/ChatActionCard.tsx) · [`ChatProcessing`](../src/components/chat/ChatProcessing/ChatProcessing.tsx) · [`MessageCitations`](../src/components/chat/MessageCitations/MessageCitations.tsx) · [`MessageText`](../src/components/chat/MessageText/MessageText.tsx) · [`QuestionSuggestions`](../src/components/chat/QuestionSuggestions/QuestionSuggestions.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatConversation`](../src/components/chat/ChatConversation/ChatConversation.tsx)
+- [x] [ChatPanel](../src/components/chat/ChatPanel/ChatPanel.tsx#L12) · 화면과 하위 영역 조합 · `상담 내용을 불러오는 중`
+  - Props `ChatPanelProps` · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`ChatHeader`](../src/components/chat/ChatHeader/ChatHeader.tsx) · [`ChatPanelContent`](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx) · [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatWidget`](../src/components/chat/ChatWidget/ChatWidget.tsx)
+- [x] [ChatPanelContent](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx#L13) · 화면과 하위 영역 조합 · `상담 내용을 불러오는 중`
+  - Props `ChatPanelContentProps` · `data`
+  - 연결 — / 하위 [`ChatComposer`](../src/components/chat/ChatComposer/ChatComposer.tsx) · [`ChatConversation`](../src/components/chat/ChatConversation/ChatConversation.tsx) · [`PinnedQuestion`](../src/components/chat/PinnedQuestion/PinnedQuestion.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatPanel`](../src/components/chat/ChatPanel/ChatPanel.tsx)
+- [x] [ChatProcessing](../src/components/chat/ChatProcessing/ChatProcessing.tsx#L15) · 하위 UI 또는 상태 표현 · `다시 요청` · `<button>` · `<svg>` · `data-nx=cretry`
+  - Props `ChatProcessingProps` · `processing` · `actions?` · `messageIndex?`
+  - 연결 [`useChatElapsed`](../src/hooks/useChatElapsed.ts) / 하위 [`ChatProcessingStep`](../src/components/chat/ChatProcessingStep/ChatProcessingStep.tsx) · [`ShiningText`](../src/components/ui/ShiningText/ShiningText.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ChatConversation`](../src/components/chat/ChatConversation/ChatConversation.tsx) · [`ChatMessage`](../src/components/chat/ChatMessage/ChatMessage.tsx)
+- [x] [ChatProcessingStep](../src/components/chat/ChatProcessingStep/ChatProcessingStep.tsx#L8) · 하위 UI 또는 상태 표현 · `<svg>`
+  - Props `ChatProcessingStepProps` · `label` · `detail?` · `state` · `last`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatProcessing`](../src/components/chat/ChatProcessing/ChatProcessing.tsx)
+- [x] [ChatSubmitButton](../src/components/chat/ChatSubmitButton/ChatSubmitButton.tsx#L6) · 사용자 동작 · `<button>` · `<svg>`
+  - Props `ChatSubmitButtonProps` · `busy` · `disabled`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatComposer`](../src/components/chat/ChatComposer/ChatComposer.tsx)
+- [x] [ChatSupportIcon](../src/components/chat/ChatSupportIcon/ChatSupportIcon.tsx#L3) · 하위 UI 또는 상태 표현 · `<svg>`
+  - Props `ChatSupportIconProps` · `className?`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatHeader`](../src/components/chat/ChatHeader/ChatHeader.tsx) · [`ChatLauncher`](../src/components/chat/ChatLauncher/ChatLauncher.tsx)
+- [x] [ChatWelcome](../src/components/chat/ChatWelcome/ChatWelcome.tsx#L6) · 하위 UI 또는 상태 표현 · `무엇을 도와드릴까요?`
+  - Props `ChatWelcomeProps` · `storeName` · `undecided`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatConversation`](../src/components/chat/ChatConversation/ChatConversation.tsx)
+- [x] [ChatWidget](../src/components/chat/ChatWidget/ChatWidget.tsx#L14) · 하위 UI 또는 상태 표현
+  - Props `ChatWidgetProps` · `open` · `onboarded` · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`ChatLauncher`](../src/components/chat/ChatLauncher/ChatLauncher.tsx) · [`ChatPanel`](../src/components/chat/ChatPanel/ChatPanel.tsx) · [`EventBoundary`](../src/components/view/EventBoundary/EventBoundary.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ConnectedChatWidget`](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx)
+- [x] [ConnectedChatWidget](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx#L11) · 하위 UI 또는 상태 표현 · `ApiChatWidget` · `LocalChatWidget`
+  - Props —
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [LocalChatWidget](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx#L18) (파일 내부) · 하위 UI 또는 상태 표현
+  - Props `open` · `onEvent`↗
+  - 연결 [`useChat`](../src/hooks/useChat.ts) / 하위 [`ChatWidget`](../src/components/chat/ChatWidget/ChatWidget.tsx)
+  - 참조 공통 레이아웃 / 상위 [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [ApiChatWidget](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx#L25) (파일 내부) · 하위 UI 또는 상태 표현 · `ServerChatWidget`
+  - Props —
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) · [`foundy-api`](../src/lib/api/foundy-api.ts) / 하위 [`ChatWidget`](../src/components/chat/ChatWidget/ChatWidget.tsx)
+  - 참조 공통 레이아웃 / 상위 [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [ServerChatWidget](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx#L36) (파일 내부) · 하위 UI 또는 상태 표현
+  - Props `session`
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) · [`useServerChat`](../src/hooks/useServerChat.ts) / 하위 [`ChatWidget`](../src/components/chat/ChatWidget/ChatWidget.tsx)
+  - 참조 공통 레이아웃 / 상위 [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [FavoriteQuestions](../src/components/chat/FavoriteQuestions/FavoriteQuestions.tsx#L9) · 하위 UI 또는 상태 표현 · `추천 질문` · `<button>` · `data-nx=cask`
+  - Props `FavoriteQuestionsProps` · `busy?`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatConversation`](../src/components/chat/ChatConversation/ChatConversation.tsx)
+- [x] [MessageCitations](../src/components/chat/MessageCitations/MessageCitations.tsx#L10) · 하위 UI 또는 상태 표현 · `답변 근거` · `<a>` · `<button>`
+  - Props `MessageCitationsProps` · `citations`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatMessage`](../src/components/chat/ChatMessage/ChatMessage.tsx)
+- [x] [MessageText](../src/components/chat/MessageText/MessageText.tsx#L5) · 하위 UI 또는 상태 표현
+  - Props `MessageTextProps` · `text`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatMessage`](../src/components/chat/ChatMessage/ChatMessage.tsx)
+- [x] [PinnedQuestion](../src/components/chat/PinnedQuestion/PinnedQuestion.tsx#L7) · 하위 UI 또는 상태 표현 · `· 현재 상담 주제` · `상담 주제 고정 해제` · `<button>` · `data-nx=cfocus`
+  - Props `PinnedQuestionProps` · `title` · `verdict` · `verdictLabel`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatPanelContent`](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx)
+- [x] [QuestionSuggestions](../src/components/chat/QuestionSuggestions/QuestionSuggestions.tsx#L6) · 하위 UI 또는 상태 표현 · `이어서 물어보기` · `<button>` · `data-nx=cask`
+  - Props `QuestionSuggestionsProps` · `questions` · `busy?`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatMessage`](../src/components/chat/ChatMessage/ChatMessage.tsx)
+
+### checklist
+
+- [x] [CalendarAgendaCard](../src/components/checklist/CalendarAgendaCard/CalendarAgendaCard.tsx#L10) · 목록 또는 항목 표시 · `선택한 날짜의 일정` · `개`
+  - Props `CalendarAgendaCardProps` · `selected` · `events` · `colors`
+  - 연결 — / 하위 [`CalendarEventRow`](../src/components/checklist/CalendarEventRow/CalendarEventRow.tsx)
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [CalendarDayCell](../src/components/checklist/CalendarDayCell/CalendarDayCell.tsx#L10) · 하위 UI 또는 상태 표현 · `개업` · `개업일` · `<button>`
+  - Props `CalendarDayCellProps` · `day` · `colors` · `pickerButton?`
+  - 연결 — / 하위 —
+  - 참조 `/checklist` / 상위 [`CalendarMonthCard`](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx)
+- [x] [CalendarEventRow](../src/components/checklist/CalendarEventRow/CalendarEventRow.tsx#L6) · 목록 또는 항목 표시
+  - Props `CalendarEventRowProps` · `event` · `color`
+  - 연결 — / 하위 [`Input`](../src/components/ui/Input/Input.tsx)
+  - 참조 `/checklist` / 상위 [`CalendarAgendaCard`](../src/components/checklist/CalendarAgendaCard/CalendarAgendaCard.tsx)
+- [x] [CalendarLegend](../src/components/checklist/CalendarLegend/CalendarLegend.tsx#L3) · 상태·기준 표시 · `일정 분류`
+  - Props `CalendarLegendProps` · `colors`
+  - 연결 — / 하위 —
+  - 참조 `/checklist` / 상위 [`CalendarMonthCard`](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx)
+- [x] [ScheduleDayButton](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx#L23) (파일 내부) · 사용자 동작
+  - Props `DayButtonProps` (291개 속성)
+  - 연결 — / 하위 [`CalendarDayCell`](../src/components/checklist/CalendarDayCell/CalendarDayCell.tsx)
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [PreviousMonthButton](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx#L34) (파일 내부) · 사용자 동작 · `<button>` · `data-nx=calmove`
+  - Props `ComponentProps<"button">`
+  - 연결 — / 하위 —
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [NextMonthButton](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx#L40) (파일 내부) · 사용자 동작 · `<button>` · `data-nx=calmove`
+  - Props `ComponentProps<"button">`
+  - 연결 — / 하위 —
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [CalendarMonthCard](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx#L50) · 목록 또는 항목 표시 · `월별 준비 일정` · `<button>` · `data-nx=calmove`
+  - Props `CalendarMonthCardProps` · `year` · `month` · `days` · `colors`
+  - 연결 [`date`](../src/lib/date.ts) / 하위 [`CalendarLegend`](../src/components/checklist/CalendarLegend/CalendarLegend.tsx) · [`Calendar`](../src/components/ui/Calendar/Calendar.tsx)
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [ChecklistHeader](../src/components/checklist/ChecklistHeader/ChecklistHeader.tsx#L3) · 제목과 안내 · `개업 체크리스트` · `캘린더로 내보내기 (.ics)` · `<button>` · `<svg>` · `data-nx=ics`
+  - Props —
+  - 연결 — / 하위 [`PageHeader`](../src/components/common/PageHeader/PageHeader.tsx)
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [ChecklistPage](../src/components/checklist/ChecklistPage/ChecklistPage.tsx#L7) · 페이지 데이터 연결
+  - Props —
+  - 연결 [`useChecklist`](../src/hooks/useChecklist.ts) · [`useFoundy`](../src/hooks/useFoundy.ts) / 하위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+  - 참조 `/checklist` / 상위 [`page`](../src/app/checklist/page.tsx)
+- [x] [ChecklistProgress](../src/components/checklist/ChecklistProgress/ChecklistProgress.tsx#L7) · 수치와 그래프 표시 · `전체 준비 현황` · `체크리스트 완료율` · `<button>` · `<svg>` · `data-testid=checklist-progress` · `data-nx=editDate`
+  - Props `ChecklistProgressProps` · `opening` · `done` · `total`
+  - 연결 — / 하위 —
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [ChecklistSkeleton](../src/components/checklist/ChecklistSkeleton/ChecklistSkeleton.tsx#L3) · 로딩 자리 표시 · `체크리스트를 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/checklist`, 공통 레이아웃, `/checklist` 로딩, `/` 로딩 / 상위 [`loading`](../src/app/checklist/loading.tsx) · [`ChecklistView`](../src/components/checklist/ChecklistView.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx)
+- [x] [ChecklistTaskFilter](../src/components/checklist/ChecklistTaskFilter/ChecklistTaskFilter.tsx#L14) · 필터 또는 보기 전환 · `완료 상태 필터` · `<button>`
+  - Props `ChecklistTaskFilterProps` · `value` · `onChange`↗
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/docs` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx) · [`DocsDirectory`](../src/components/docs/DocsDirectory/DocsDirectory.tsx)
+- [x] [ChecklistTaskList](../src/components/checklist/ChecklistTaskList/ChecklistTaskList.tsx#L10) · 목록 또는 항목 표시
+  - Props `ChecklistTaskListProps` · `groups` · `filter`
+  - 연결 [`filter`](../src/lib/checklist/filter.ts) / 하위 [`TaskGroupCard`](../src/components/checklist/TaskGroupCard/TaskGroupCard.tsx)
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [ChecklistView](../src/components/checklist/ChecklistView.tsx#L22) · 화면과 하위 영역 조합 · `월간 일정` · `선택한 날짜의 일정` · `data-testid=checklist-toolbar`
+  - Props `ChecklistViewProps` · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`CalendarAgendaCard`](../src/components/checklist/CalendarAgendaCard/CalendarAgendaCard.tsx) · [`CalendarMonthCard`](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx) · [`ChecklistHeader`](../src/components/checklist/ChecklistHeader/ChecklistHeader.tsx) · [`ChecklistProgress`](../src/components/checklist/ChecklistProgress/ChecklistProgress.tsx) · [`ChecklistSkeleton`](../src/components/checklist/ChecklistSkeleton/ChecklistSkeleton.tsx) · [`ChecklistTaskFilter`](../src/components/checklist/ChecklistTaskFilter/ChecklistTaskFilter.tsx) · [`ChecklistTaskList`](../src/components/checklist/ChecklistTaskList/ChecklistTaskList.tsx) · [`ChecklistViewTabs`](../src/components/checklist/ChecklistViewTabs/ChecklistViewTabs.tsx) · [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+  - 참조 `/checklist` / 상위 [`ChecklistPage`](../src/components/checklist/ChecklistPage/ChecklistPage.tsx)
+- [x] [ChecklistViewTabs](../src/components/checklist/ChecklistViewTabs/ChecklistViewTabs.tsx#L13) · 필터 또는 보기 전환 · `체크리스트 보기 방식` · `<button>` · `data-nx=cview`
+  - Props `ChecklistViewTabsProps` · `view`
+  - 연결 — / 하위 —
+  - 참조 `/checklist` / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx)
+- [x] [OpeningDateDialog](../src/components/checklist/OpeningDateDialog/OpeningDateDialog.tsx#L11) · 팝업과 열림 상태 · `개업 예정일` · `개업일에 맞춰 체크리스트의 준비 일정도 함께 변경돼요.` · `<form>` · `<button>`
+  - Props `OpeningDateDialogProps` · `opening`
+  - 연결 [`dialog-styles`](../src/components/feedback/Modal/dialog-styles.ts) · [`save-server-profile`](../src/lib/profile/save-server-profile.ts) · [`FoundyContext`](../src/providers/FoundyContext.ts) / 하위 [`DatePickerField`](../src/components/ui/DatePickerField/DatePickerField.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx)
+- [x] [TaskDeadline](../src/components/checklist/TaskDeadline/TaskDeadline.tsx#L7) · 하위 UI 또는 상태 표현 · `완료`
+  - Props `TaskDeadlineProps` · `due` · `deadline` · `done`
+  - 연결 — / 하위 —
+  - 참조 `/checklist` / 상위 [`TaskRow`](../src/components/checklist/TaskRow/TaskRow.tsx)
+- [x] [TaskGroupCard](../src/components/checklist/TaskGroupCard/TaskGroupCard.tsx#L9) · 목록 또는 항목 표시 · `완료`
+  - Props `TaskGroupCardProps` · `group` · `visibleTasks?`
+  - 연결 — / 하위 [`TaskRow`](../src/components/checklist/TaskRow/TaskRow.tsx)
+  - 참조 `/checklist` / 상위 [`ChecklistTaskList`](../src/components/checklist/ChecklistTaskList/ChecklistTaskList.tsx)
+- [x] [TaskMetadata](../src/components/checklist/TaskMetadata/TaskMetadata.tsx#L10) · 하위 UI 또는 상태 표현 · `준비 정보` · `필요 서류` · `<button>` · `<svg>`
+  - Props `TaskMetadataProps` · `task`
+  - 연결 — / 하위 —
+  - 참조 `/checklist` / 상위 [`TaskRow`](../src/components/checklist/TaskRow/TaskRow.tsx)
+- [x] [TaskRow](../src/components/checklist/TaskRow/TaskRow.tsx#L10) · 목록 또는 항목 표시 · `서류 안내` · `개` · `<button>` · `<svg>` · `data-nx=godocs`
+  - Props `TaskRowProps` · `contextLabel?` · `task` · `deadline` · `documentCount`
+  - 연결 — / 하위 [`TaskDeadline`](../src/components/checklist/TaskDeadline/TaskDeadline.tsx) · [`TaskMetadata`](../src/components/checklist/TaskMetadata/TaskMetadata.tsx) · [`Input`](../src/components/ui/Input/Input.tsx)
+  - 참조 `/checklist` / 상위 [`TaskGroupCard`](../src/components/checklist/TaskGroupCard/TaskGroupCard.tsx)
+
+### common
+
+- [x] [AnalysisStatusItem](../src/components/common/AnalysisStatusItem/AnalysisStatusItem.tsx#L9) · 목록 또는 항목 표시
+  - Props `AnalysisStatusItemProps` · `label` · `index` · `complete` · `running` · `completeLabel?`
+  - 연결 — / 하위 —
+  - 참조 `/mypage`, `/register` / 상위 [`AnalysisStep`](../src/components/onboarding/AnalysisStep/AnalysisStep.tsx)
+- [x] [MetricCard](../src/components/common/MetricCard/MetricCard.tsx#L10) · 목록 또는 항목 표시
+  - Props `MetricCardProps` · `label` · `value` · `caption?`
+  - 연결 — / 하위 [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 [`DashboardMetrics`](../src/components/dashboard/DashboardMetrics/DashboardMetrics.tsx)
+- [x] [PageHeader](../src/components/common/PageHeader/PageHeader.tsx#L13) · 페이지 데이터 연결 · `현재 위치` · `홈` · `<nav>` · `<a>` · `<svg>`
+  - Props `PageHeaderProps` · `eyebrow` · `title` · `description` · `notice?` · `actions?` · `actionsLayout?` · `breadcrumbLabel?`
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/docs`, `/grants`, `/mypage`, `/register`, `/report`, 공통 레이아웃, `/docs` 로딩, `/grants` 로딩, `/` 로딩, `/mypage` 로딩 / 상위 [`ChecklistHeader`](../src/components/checklist/ChecklistHeader/ChecklistHeader.tsx) · [`DocsHeader`](../src/components/docs/DocsHeader/DocsHeader.tsx) · [`GrantsHeader`](../src/components/grants/GrantsHeader/GrantsHeader.tsx) · [`ProfileHeader`](../src/components/mypage/ProfileHeader/ProfileHeader.tsx) · [`OnboardingHeader`](../src/components/onboarding/OnboardingHeader/OnboardingHeader.tsx) · [`ReportHeader`](../src/components/report/ReportHeader/ReportHeader.tsx)
+
+### dashboard
+
+- [x] [ActionItem](../src/components/dashboard/ActionItem/ActionItem.tsx#L6) · 목록 또는 항목 표시 · `결과 카드 ·` · `분` · `data-nx=go`
+  - Props `ActionItemProps` · `item`
+  - 연결 — / 하위 [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 [`TaskList`](../src/components/dashboard/TaskList/TaskList.tsx)
+- [x] [DashboardBentoGrid](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx#L19) · 하위 UI 또는 상태 표현 · `개업 일정` · `준비 현황` · `data-testid=dashboard-bento`
+  - Props `DashboardBentoGridProps` · `dashboard` · `population?`
+  - 연결 — / 하위 [`DashboardSectionDivider`](../src/components/dashboard/DashboardSectionDivider/DashboardSectionDivider.tsx) · [`OpeningScheduleCard`](../src/components/dashboard/OpeningScheduleCard/OpeningScheduleCard.tsx) · [`PopulationSnapshotCard`](../src/components/dashboard/PopulationSnapshotCard/PopulationSnapshotCard.tsx) · [`PreparationProgressCard`](../src/components/dashboard/PreparationProgressCard/PreparationProgressCard.tsx) · [`PriorityDecisionCard`](../src/components/dashboard/PriorityDecisionCard/PriorityDecisionCard.tsx) · [`UpcomingTasksCard`](../src/components/dashboard/UpcomingTasksCard/UpcomingTasksCard.tsx) · [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardView`](../src/components/dashboard/DashboardView.tsx)
+- [x] [CardHeading](../src/components/dashboard/DashboardBentoSkeleton/DashboardBentoSkeleton.tsx#L4) (파일 내부) · 제목과 안내
+  - Props —
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/dashboard`, `/`, 공통 레이아웃, `/dashboard` 로딩, `/` 로딩 / 상위 [`DashboardSkeleton`](../src/components/dashboard/DashboardSkeleton/DashboardSkeleton.tsx)
+- [x] [DashboardBentoSkeleton](../src/components/dashboard/DashboardBentoSkeleton/DashboardBentoSkeleton.tsx#L13) · 로딩 자리 표시 · `대시보드 현황을 불러오는 중` · `CardHeading` · `data-testid=dashboard-bento-skeleton`
+  - Props —
+  - 연결 — / 하위 [`DashboardSectionDivider`](../src/components/dashboard/DashboardSectionDivider/DashboardSectionDivider.tsx) · [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/dashboard`, `/`, 공통 레이아웃, `/dashboard` 로딩, `/` 로딩 / 상위 [`DashboardSkeleton`](../src/components/dashboard/DashboardSkeleton/DashboardSkeleton.tsx)
+- [x] [DashboardCard](../src/components/dashboard/DashboardCard/DashboardCard.tsx#L9) · 목록 또는 항목 표시
+  - Props `DashboardCardProps` · `children` · `className?` · `label?`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`OpeningScheduleCard`](../src/components/dashboard/OpeningScheduleCard/OpeningScheduleCard.tsx) · [`PopulationSnapshotCard`](../src/components/dashboard/PopulationSnapshotCard/PopulationSnapshotCard.tsx) · [`PreparationProgressCard`](../src/components/dashboard/PreparationProgressCard/PreparationProgressCard.tsx) · [`PriorityDecisionCard`](../src/components/dashboard/PriorityDecisionCard/PriorityDecisionCard.tsx) · [`UpcomingTasksCard`](../src/components/dashboard/UpcomingTasksCard/UpcomingTasksCard.tsx)
+- [x] [DashboardCardLink](../src/components/dashboard/DashboardCardLink/DashboardCardLink.tsx#L10) · 목록 또는 항목 표시 · `<button>` · `<svg>` · `data-nx=go`
+  - Props `DashboardCardLinkProps` · `page` · `children` · `focusId?` · `className?`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`PopulationSnapshotCard`](../src/components/dashboard/PopulationSnapshotCard/PopulationSnapshotCard.tsx) · [`PreparationProgressCard`](../src/components/dashboard/PreparationProgressCard/PreparationProgressCard.tsx) · [`PriorityDecisionCard`](../src/components/dashboard/PriorityDecisionCard/PriorityDecisionCard.tsx) · [`PriorityDecisionContent`](../src/components/dashboard/PriorityDecisionContent/PriorityDecisionContent.tsx) · [`ReportActionCallout`](../src/components/dashboard/ReportActionCallout/ReportActionCallout.tsx) · [`UpcomingTasksCard`](../src/components/dashboard/UpcomingTasksCard/UpcomingTasksCard.tsx)
+- [x] [DashboardGreeting](../src/components/dashboard/DashboardGreeting/DashboardGreeting.tsx#L10) · 하위 UI 또는 상태 표현
+  - Props `DashboardGreetingProps` · `copy` · `paused?`
+  - 연결 — / 하위 [`OpeningCountdown`](../src/components/dashboard/OpeningCountdown/OpeningCountdown.tsx) · [`TypewriterText`](../src/components/ui/TypewriterText/TypewriterText.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardHeader`](../src/components/dashboard/DashboardHeader/DashboardHeader.tsx)
+- [x] [DashboardHeader](../src/components/dashboard/DashboardHeader/DashboardHeader.tsx#L17) · 제목과 안내 · `data-testid=dashboard-header`
+  - Props `DashboardHeaderProps` · `store` · `name` · `days` · `undecided`
+  - 연결 [`store-greeting`](../src/lib/store-greeting.ts) / 하위 [`DashboardGreeting`](../src/components/dashboard/DashboardGreeting/DashboardGreeting.tsx) · [`DashboardHeaderActions`](../src/components/dashboard/DashboardHeaderActions/DashboardHeaderActions.tsx) · [`DashboardHeaderDetails`](../src/components/dashboard/DashboardHeaderDetails/DashboardHeaderDetails.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardView`](../src/components/dashboard/DashboardView.tsx)
+- [x] [DashboardHeaderActions](../src/components/dashboard/DashboardHeaderActions/DashboardHeaderActions.tsx#L7) · 제목과 안내 · `상권 분석 보기` · `점검 리포트` · `data-nx=go` · `data-nx=askchat`
+  - Props `DashboardHeaderActionsProps` · `undecided`
+  - 연결 — / 하위 [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardHeader`](../src/components/dashboard/DashboardHeader/DashboardHeader.tsx)
+- [x] [DashboardHeaderDetails](../src/components/dashboard/DashboardHeaderDetails/DashboardHeaderDetails.tsx#L5) · 제목과 안내
+  - Props `DashboardHeaderDetailsProps` · `store` · `undecided` · `dateLabel`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardHeader`](../src/components/dashboard/DashboardHeader/DashboardHeader.tsx)
+- [x] [DashboardHeaderSkeleton](../src/components/dashboard/DashboardHeaderSkeleton/DashboardHeaderSkeleton.tsx#L3) · 로딩 자리 표시 · `대시보드 헤더를 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/dashboard`, `/`, 공통 레이아웃, `/dashboard` 로딩, `/` 로딩 / 상위 [`DashboardSkeleton`](../src/components/dashboard/DashboardSkeleton/DashboardSkeleton.tsx) · [`DashboardView`](../src/components/dashboard/DashboardView.tsx)
+- [x] [DashboardMetrics](../src/components/dashboard/DashboardMetrics/DashboardMetrics.tsx#L11) · 하위 UI 또는 상태 표현 · `결정할 사항` · `체크리스트`
+  - Props `DashboardMetricsProps` · `undecided` · `decisions` · `tasks` · `unread`
+  - 연결 — / 하위 [`MetricCard`](../src/components/common/MetricCard/MetricCard.tsx) · [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
+- [x] [DashboardPage](../src/components/dashboard/DashboardPage/DashboardPage.tsx#L8) · 페이지 데이터 연결
+  - Props —
+  - 연결 [`dashboard-population`](../src/data/dashboard-population.ts) · [`useDashboard`](../src/hooks/useDashboard.ts) · [`useFoundy`](../src/hooks/useFoundy.ts) / 하위 [`DashboardView`](../src/components/dashboard/DashboardView.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`page`](../src/app/dashboard/page.tsx)
+- [x] [DashboardSectionDivider](../src/components/dashboard/DashboardSectionDivider/DashboardSectionDivider.tsx#L6) · 하위 UI 또는 상태 표현
+  - Props `DashboardSectionDividerProps` · `orientation?` · `className?`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/`, 공통 레이아웃, `/dashboard` 로딩, `/` 로딩 / 상위 [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx) · [`DashboardBentoSkeleton`](../src/components/dashboard/DashboardBentoSkeleton/DashboardBentoSkeleton.tsx) · [`OpeningScheduleCard`](../src/components/dashboard/OpeningScheduleCard/OpeningScheduleCard.tsx)
+- [x] [DashboardSectionHeader](../src/components/dashboard/DashboardSectionHeader/DashboardSectionHeader.tsx#L9) · 제목과 안내
+  - Props `DashboardSectionHeaderProps` · `title` · `description?` · `action?`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`PopulationSnapshotCard`](../src/components/dashboard/PopulationSnapshotCard/PopulationSnapshotCard.tsx) · [`PreparationProgressCard`](../src/components/dashboard/PreparationProgressCard/PreparationProgressCard.tsx) · [`PriorityDecisionCard`](../src/components/dashboard/PriorityDecisionCard/PriorityDecisionCard.tsx) · [`UpcomingTasksCard`](../src/components/dashboard/UpcomingTasksCard/UpcomingTasksCard.tsx)
+- [x] [DashboardSkeleton](../src/components/dashboard/DashboardSkeleton/DashboardSkeleton.tsx#L4) · 로딩 자리 표시 · `대시보드를 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`DashboardBentoSkeleton`](../src/components/dashboard/DashboardBentoSkeleton/DashboardBentoSkeleton.tsx) · [`DashboardHeaderSkeleton`](../src/components/dashboard/DashboardHeaderSkeleton/DashboardHeaderSkeleton.tsx)
+  - 참조 `/dashboard`, `/`, 공통 레이아웃, `/dashboard` 로딩, `/` 로딩 / 상위 [`loading`](../src/app/dashboard/loading.tsx) · [`DashboardView`](../src/components/dashboard/DashboardView.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx)
+- [x] [DashboardTaskRow](../src/components/dashboard/DashboardTaskRow/DashboardTaskRow.tsx#L9) · 목록 또는 항목 표시
+  - Props `DashboardTaskRowProps` · `task` · `asOf?`
+  - 연결 — / 하위 [`Input`](../src/components/ui/Input/Input.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`UpcomingTasksCard`](../src/components/dashboard/UpcomingTasksCard/UpcomingTasksCard.tsx)
+- [x] [DashboardView](../src/components/dashboard/DashboardView.tsx#L17) · 화면과 하위 영역 조합
+  - Props `DashboardViewProps` · `population?` · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx) · [`DashboardHeader`](../src/components/dashboard/DashboardHeader/DashboardHeader.tsx) · [`DashboardHeaderSkeleton`](../src/components/dashboard/DashboardHeaderSkeleton/DashboardHeaderSkeleton.tsx) · [`DashboardSkeleton`](../src/components/dashboard/DashboardSkeleton/DashboardSkeleton.tsx) · [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardPage`](../src/components/dashboard/DashboardPage/DashboardPage.tsx)
+- [x] [DecisionItem](../src/components/dashboard/DecisionItem/DecisionItem.tsx#L7) · 목록 또는 항목 표시 · `추천:` · `카드 열기` · `data-nx=go`
+  - Props `DecisionItemProps` · `card`
+  - 연결 — / 하위 [`VerdictBadge`](../src/components/report/VerdictBadge/VerdictBadge.tsx) · [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 [`DecisionList`](../src/components/dashboard/DecisionList/DecisionList.tsx)
+- [x] [DecisionList](../src/components/dashboard/DecisionList/DecisionList.tsx#L10) · 목록 또는 항목 표시 · `결정할 것` · `전체 리포트 →` · `data-nx=go`
+  - Props `DecisionListProps` · `cards` · `undecided`
+  - 연결 — / 하위 [`DecisionItem`](../src/components/dashboard/DecisionItem/DecisionItem.tsx) · [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
+- [x] [GreetingPlaybackButton](../src/components/dashboard/GreetingPlaybackButton/GreetingPlaybackButton.tsx#L6) · 사용자 동작 · `<button>` · `<svg>`
+  - Props `GreetingPlaybackButtonProps` · `paused` · `onPauseChange`↗
+  - 연결 — / 하위 —
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
+- [x] [OpeningCountdown](../src/components/dashboard/OpeningCountdown/OpeningCountdown.tsx#L6) · 하위 UI 또는 상태 표현
+  - Props `OpeningCountdownProps` · `dayLabel` · `label`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardGreeting`](../src/components/dashboard/DashboardGreeting/DashboardGreeting.tsx)
+- [x] [OpeningScheduleCard](../src/components/dashboard/OpeningScheduleCard/OpeningScheduleCard.tsx#L12) · 목록 또는 항목 표시 · `개업 일정`
+  - Props `OpeningScheduleCardProps` · `opening` · `days` · `className?`
+  - 연결 [`opening-week`](../src/lib/dashboard/opening-week.ts) / 하위 [`DashboardCard`](../src/components/dashboard/DashboardCard/DashboardCard.tsx) · [`DashboardSectionDivider`](../src/components/dashboard/DashboardSectionDivider/DashboardSectionDivider.tsx) · [`OpeningWeekCalendar`](../src/components/dashboard/OpeningWeekCalendar/OpeningWeekCalendar.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx)
+- [x] [OpeningWeekCalendar](../src/components/dashboard/OpeningWeekCalendar/OpeningWeekCalendar.tsx#L10) · 하위 UI 또는 상태 표현 · `개업 주간 미니 캘린더` · `부터`
+  - Props `OpeningWeekCalendarProps` · `opening` · `className?`
+  - 연결 [`opening-week`](../src/lib/dashboard/opening-week.ts) / 하위 [`OpeningWeekCalendarDay`](../src/components/dashboard/OpeningWeekCalendarDay/OpeningWeekCalendarDay.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`OpeningScheduleCard`](../src/components/dashboard/OpeningScheduleCard/OpeningScheduleCard.tsx)
+- [x] [OpeningWeekCalendarDay](../src/components/dashboard/OpeningWeekCalendarDay/OpeningWeekCalendarDay.tsx#L7) · 하위 UI 또는 상태 표현 · `일` · `개업일`
+  - Props `OpeningWeekCalendarDayProps` · `day`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`OpeningWeekCalendar`](../src/components/dashboard/OpeningWeekCalendar/OpeningWeekCalendar.tsx)
+- [x] [PopulationChartTooltip](../src/components/dashboard/PopulationChartTooltip/PopulationChartTooltip.tsx#L10) · 상태·기준 표시 · `시` · `일부 공개값 합계`
+  - Props `PopulationChartTooltipProps` · `id` · `point` · `leftPercent` · `barHeight`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/`, `/sites` / 상위 [`HourlyPopulationChart`](../src/components/charts/HourlyPopulationChart/HourlyPopulationChart.tsx) · [`PopulationPreviewChart`](../src/components/dashboard/PopulationPreviewChart/PopulationPreviewChart.tsx)
+- [x] [PopulationPreviewChart](../src/components/dashboard/PopulationPreviewChart/PopulationPreviewChart.tsx#L13) · 수치와 그래프 표시 · `시간대별 공개 생활인구` · `00시` · `<button>`
+  - Props `PopulationPreviewChartProps` · `points` · `selectedHour` · `onSelectHour`↗
+  - 연결 — / 하위 [`PopulationChartTooltip`](../src/components/dashboard/PopulationChartTooltip/PopulationChartTooltip.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`PopulationSnapshotCard`](../src/components/dashboard/PopulationSnapshotCard/PopulationSnapshotCard.tsx)
+- [x] [PopulationSnapshotCard](../src/components/dashboard/PopulationSnapshotCard/PopulationSnapshotCard.tsx#L15) · 목록 또는 항목 표시 · `시간대별 생활인구` · `사람이 모이는 시간`
+  - Props `PopulationSnapshotCardProps` · `data?` · `className?`
+  - 연결 — / 하위 [`DashboardCard`](../src/components/dashboard/DashboardCard/DashboardCard.tsx) · [`DashboardCardLink`](../src/components/dashboard/DashboardCardLink/DashboardCardLink.tsx) · [`DashboardSectionHeader`](../src/components/dashboard/DashboardSectionHeader/DashboardSectionHeader.tsx) · [`PopulationPreviewChart`](../src/components/dashboard/PopulationPreviewChart/PopulationPreviewChart.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx)
+- [x] [PreparationProgressCard](../src/components/dashboard/PreparationProgressCard/PreparationProgressCard.tsx#L14) · 수치와 그래프 표시 · `체크리스트 완료율` · `전체 보기`
+  - Props `PreparationProgressCardProps` · `count` · `stages?` · `className?`
+  - 연결 — / 하위 [`DashboardCard`](../src/components/dashboard/DashboardCard/DashboardCard.tsx) · [`DashboardCardLink`](../src/components/dashboard/DashboardCardLink/DashboardCardLink.tsx) · [`DashboardSectionHeader`](../src/components/dashboard/DashboardSectionHeader/DashboardSectionHeader.tsx) · [`PreparationRing`](../src/components/dashboard/PreparationRing/PreparationRing.tsx) · [`PreparationStages`](../src/components/dashboard/PreparationStages/PreparationStages.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx)
+- [x] [PreparationRing](../src/components/dashboard/PreparationRing/PreparationRing.tsx#L16) · 수치와 그래프 표시 · `전체` · `개 기준.` · `<svg>`
+  - Props `PreparationRingProps` · `done` · `total` · `stages?`
+  - 연결 [`usePreparationRingMotion`](../src/hooks/usePreparationRingMotion.ts) · [`preparation-chart`](../src/lib/dashboard/preparation-chart.ts) / 하위 [`PreparationRingArc`](../src/components/dashboard/PreparationRingArc/PreparationRingArc.tsx) · [`PreparationRingTransition`](../src/components/dashboard/PreparationRingTransition/PreparationRingTransition.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`PreparationProgressCard`](../src/components/dashboard/PreparationProgressCard/PreparationProgressCard.tsx)
+- [x] [PreparationRingArc](../src/components/dashboard/PreparationRingArc/PreparationRingArc.tsx#L14) · 수치와 그래프 표시
+  - Props `PreparationRingArcProps` · `length` · `offset?` · `color` · `opacity?` · `roundCaps?`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`PreparationRing`](../src/components/dashboard/PreparationRing/PreparationRing.tsx) · [`PreparationRingTransition`](../src/components/dashboard/PreparationRingTransition/PreparationRingTransition.tsx)
+- [x] [PreparationRingTransition](../src/components/dashboard/PreparationRingTransition/PreparationRingTransition.tsx#L11) · 수치와 그래프 표시
+  - Props `PreparationRingTransitionProps` · `offset` · `length` · `from` · `to`
+  - 연결 — / 하위 [`PreparationRingArc`](../src/components/dashboard/PreparationRingArc/PreparationRingArc.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`PreparationRing`](../src/components/dashboard/PreparationRing/PreparationRing.tsx)
+- [x] [PreparationStages](../src/components/dashboard/PreparationStages/PreparationStages.tsx#L10) · 하위 UI 또는 상태 표현 · `단계별 체크리스트 완료 현황` · `개`
+  - Props `PreparationStagesProps` · `stages` · `total?`
+  - 연결 [`preparation-chart`](../src/lib/dashboard/preparation-chart.ts) / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`PreparationProgressCard`](../src/components/dashboard/PreparationProgressCard/PreparationProgressCard.tsx)
+- [x] [PriorityDecisionCard](../src/components/dashboard/PriorityDecisionCard/PriorityDecisionCard.tsx#L19) · 목록 또는 항목 표시 · `먼저 결정할 일` · `건`
+  - Props `PriorityDecisionCardProps` · `cards` · `undecided` · `counts?` · `sourceLabel?` · `className?`
+  - 연결 — / 하위 [`DashboardCard`](../src/components/dashboard/DashboardCard/DashboardCard.tsx) · [`DashboardCardLink`](../src/components/dashboard/DashboardCardLink/DashboardCardLink.tsx) · [`DashboardSectionHeader`](../src/components/dashboard/DashboardSectionHeader/DashboardSectionHeader.tsx) · [`PriorityDecisionContent`](../src/components/dashboard/PriorityDecisionContent/PriorityDecisionContent.tsx) · [`ReportStatusStrip`](../src/components/dashboard/ReportStatusStrip/ReportStatusStrip.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx)
+- [x] [PriorityDecisionContent](../src/components/dashboard/PriorityDecisionContent/PriorityDecisionContent.tsx#L8) · 하위 UI 또는 상태 표현 · `선택지 확인`
+  - Props `PriorityDecisionContentProps` · `card`
+  - 연결 — / 하위 [`DashboardCardLink`](../src/components/dashboard/DashboardCardLink/DashboardCardLink.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`PriorityDecisionCard`](../src/components/dashboard/PriorityDecisionCard/PriorityDecisionCard.tsx)
+- [x] [ReportActionCallout](../src/components/dashboard/ReportActionCallout/ReportActionCallout.tsx#L8) · 하위 UI 또는 상태 표현 · `리포트에서 이어서 할 일` · `내용 확인`
+  - Props `ReportActionCalloutProps` · `action`
+  - 연결 — / 하위 [`DashboardCardLink`](../src/components/dashboard/DashboardCardLink/DashboardCardLink.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`UpcomingTasksCard`](../src/components/dashboard/UpcomingTasksCard/UpcomingTasksCard.tsx)
+- [x] [ReportStatusStrip](../src/components/dashboard/ReportStatusStrip/ReportStatusStrip.tsx#L15) · 하위 UI 또는 상태 표현 · `아직 점검 결과가 없어요.`
+  - Props `ReportStatusStripProps` · `counts` · `sourceLabel?`
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/` / 상위 [`PriorityDecisionCard`](../src/components/dashboard/PriorityDecisionCard/PriorityDecisionCard.tsx)
+- [x] [TaskItem](../src/components/dashboard/TaskItem/TaskItem.tsx#L6) · 목록 또는 항목 표시
+  - Props `TaskItemProps` · `task`
+  - 연결 — / 하위 [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 [`TaskList`](../src/components/dashboard/TaskList/TaskList.tsx)
+- [x] [TaskList](../src/components/dashboard/TaskList/TaskList.tsx#L11) · 목록 또는 항목 표시 · `내가 직접 할 일` · `체크리스트 →` · `data-nx=go`
+  - Props `TaskListProps` · `actions` · `tasks`
+  - 연결 — / 하위 [`ActionItem`](../src/components/dashboard/ActionItem/ActionItem.tsx) · [`TaskItem`](../src/components/dashboard/TaskItem/TaskItem.tsx) · [`Element`](../src/components/view/Element/Element.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
+- [x] [UpcomingTasksCard](../src/components/dashboard/UpcomingTasksCard/UpcomingTasksCard.tsx#L15) · 목록 또는 항목 표시 · `다음 할 일` · `체크리스트 보기`
+  - Props `UpcomingTasksCardProps` · `tasks` · `actions` · `asOf?` · `className?`
+  - 연결 — / 하위 [`DashboardCard`](../src/components/dashboard/DashboardCard/DashboardCard.tsx) · [`DashboardCardLink`](../src/components/dashboard/DashboardCardLink/DashboardCardLink.tsx) · [`DashboardSectionHeader`](../src/components/dashboard/DashboardSectionHeader/DashboardSectionHeader.tsx) · [`DashboardTaskRow`](../src/components/dashboard/DashboardTaskRow/DashboardTaskRow.tsx) · [`ReportActionCallout`](../src/components/dashboard/ReportActionCallout/ReportActionCallout.tsx)
+  - 참조 `/dashboard`, `/` / 상위 [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx)
+
+### docs
+
+- [x] [DocRow](../src/components/docs/DocRow/DocRow.tsx#L15) · 목록 또는 항목 표시 · `서류명` · `발급처` · `<button>` · `<svg>`
+  - Props `DocRowProps` · `document` · `compact?` · `expanded?` · `onExpandedChange?`↗
+  - 연결 — / 하위 [`DocSiteLinks`](../src/components/docs/DocSiteLinks/DocSiteLinks.tsx) · [`DocumentStatusSelect`](../src/components/docs/DocumentStatusSelect/DocumentStatusSelect.tsx)
+  - 참조 `/docs` / 상위 [`DocTaskCard`](../src/components/docs/DocTaskCard/DocTaskCard.tsx)
+- [x] [DocSiteLinks](../src/components/docs/DocSiteLinks/DocSiteLinks.tsx#L7) · 하위 UI 또는 상태 표현 · `공식 사이트` · `(새 창)` · `<a>` · `<svg>`
+  - Props `DocSiteLinksProps` · `sites`
+  - 연결 — / 하위 —
+  - 참조 `/docs` / 상위 [`DocRow`](../src/components/docs/DocRow/DocRow.tsx)
+- [x] [DocTaskCard](../src/components/docs/DocTaskCard/DocTaskCard.tsx#L15) · 목록 또는 항목 표시 · `예정` · `필요 서류`
+  - Props `DocTaskCardProps` · `row` · `expandedDocumentId?` · `onExpandedDocumentChange?`↗
+  - 연결 — / 하위 [`DocRow`](../src/components/docs/DocRow/DocRow.tsx)
+  - 참조 `/docs` / 상위 [`DocsDirectory`](../src/components/docs/DocsDirectory/DocsDirectory.tsx)
+- [x] [DocsDirectory](../src/components/docs/DocsDirectory/DocsDirectory.tsx#L12) · 하위 UI 또는 상태 표현 · `항목별 발급 안내` · `발급처 링크는 공식 사이트 첫 화면으로 열려요. 서류별 안내를 따라 직접 발급·제출하세요.`
+  - Props `DocsDirectoryProps` · `rows`
+  - 연결 — / 하위 [`ChecklistTaskFilter`](../src/components/checklist/ChecklistTaskFilter/ChecklistTaskFilter.tsx) · [`DocTaskCard`](../src/components/docs/DocTaskCard/DocTaskCard.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx)
+  - 참조 `/docs` / 상위 [`DocsView`](../src/components/docs/DocsView/DocsView.tsx)
+- [x] [DocsHeader](../src/components/docs/DocsHeader/DocsHeader.tsx#L4) · 제목과 안내 · `서류함` · `체크리스트 보기`
+  - Props —
+  - 연결 — / 하위 [`PageHeader`](../src/components/common/PageHeader/PageHeader.tsx)
+  - 참조 `/docs`, 공통 레이아웃, `/docs` 로딩, `/` 로딩 / 상위 [`loading`](../src/app/docs/loading.tsx) · [`DocsView`](../src/components/docs/DocsView/DocsView.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx)
+- [x] [DocsPage](../src/components/docs/DocsPage/DocsPage.tsx#L7) · 페이지 데이터 연결
+  - Props —
+  - 연결 [`useDocs`](../src/hooks/useDocs.ts) · [`useFoundy`](../src/hooks/useFoundy.ts) / 하위 [`DocsView`](../src/components/docs/DocsView/DocsView.tsx)
+  - 참조 `/docs` / 상위 [`page`](../src/app/docs/page.tsx)
+- [x] [DocsSkeleton](../src/components/docs/DocsSkeleton/DocsSkeleton.tsx#L3) · 로딩 자리 표시 · `서류함을 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/docs`, 공통 레이아웃, `/docs` 로딩, `/` 로딩 / 상위 [`loading`](../src/app/docs/loading.tsx) · [`DocsView`](../src/components/docs/DocsView/DocsView.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx)
+- [x] [DocsSummary](../src/components/docs/DocsSummary/DocsSummary.tsx#L8) · 하위 UI 또는 상태 표현 · `개` · `전체`
+  - Props `DocsSummaryProps` · `summaryBasis?` · `total` · `finished` · `remaining`
+  - 연결 — / 하위 —
+  - 참조 `/docs` / 상위 [`DocsView`](../src/components/docs/DocsView/DocsView.tsx)
+- [x] [DocsView](../src/components/docs/DocsView/DocsView.tsx#L13) · 화면과 하위 영역 조합
+  - Props `DocsViewProps` · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`DocsDirectory`](../src/components/docs/DocsDirectory/DocsDirectory.tsx) · [`DocsHeader`](../src/components/docs/DocsHeader/DocsHeader.tsx) · [`DocsSkeleton`](../src/components/docs/DocsSkeleton/DocsSkeleton.tsx) · [`DocsSummary`](../src/components/docs/DocsSummary/DocsSummary.tsx) · [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+  - 참조 `/docs` / 상위 [`DocsPage`](../src/components/docs/DocsPage/DocsPage.tsx)
+- [x] [DocumentStatusSelect](../src/components/docs/DocumentStatusSelect/DocumentStatusSelect.tsx#L18) · 입력과 검증 상태 · `준비 상태` · `<select>`
+  - Props `DocumentStatusSelectProps` · `id` · `name` · `status`
+  - 연결 — / 하위 —
+  - 참조 `/docs` / 상위 [`DocRow`](../src/components/docs/DocRow/DocRow.tsx)
+
+### feedback
+
+- [x] [Modal](../src/components/feedback/Modal/Modal.tsx#L38) · 팝업과 열림 상태 · `닫기` · `창 닫기` · `<dialog>` · `<button>`
+  - Props `ModalProps` · `title` · `children` · `actions?` · `onClose`↗ · `variant?` · `getReturnFocusTarget?`↗
+  - 연결 [`dialog-styles`](../src/components/feedback/Modal/dialog-styles.ts) / 하위 —
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantsPage`](../src/components/grants/GrantsPage/GrantsPage.tsx) · [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx)
+- [x] [Toast](../src/components/feedback/Toast/Toast.tsx#L9) · 하위 UI 또는 상태 표현 · `<svg>`
+  - Props `ToastProps` · `message` · `notificationId?`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx)
+
+### foot-traffic
+
+- [x] [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx#L39) · 하위 UI 또는 상태 표현 · `data-testid=traffic-map`
+  - Props `FootTrafficMapProps` · `appKey?` · `dataSource?` · `dataset?` · `loading?` · `error?` · `onRetry?`↗ · `center` · `onCenterChange`↗ · `radius` · `onRadiusChange`↗ · `shops` · `selectedShopId` · `onSelectShop`↗ · `address?` · `settingsOpen` · `onSettingsOpenChange`↗ · `hour` · `lastHour` · `onHourChange`↗
+  - 연결 [`useFootTrafficData`](../src/hooks/useFootTrafficData.ts) · [`categories`](../src/lib/foot-traffic/categories.ts) / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx) · [`MapControls`](../src/components/foot-traffic/MapControls/MapControls.tsx) · [`MapDataStatus`](../src/components/foot-traffic/MapDataStatus/MapDataStatus.tsx) · [`PopulationLegend`](../src/components/foot-traffic/PopulationLegend/PopulationLegend.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [FootTrafficMapSkeleton](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx#L8) · 로딩 자리 표시 · `상권 지도를 불러오는 중`
+  - Props `FootTrafficMapSkeletonProps` · `canvasOnly?`
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/sites`, 공통 레이아웃, `/` 로딩, `/sites` 로딩 / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`SitesSkeleton`](../src/components/sites/SitesSkeleton/SitesSkeleton.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [MapAvailability](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx#L9) · 하위 UI 또는 상태 표현 · `지도를 불러오지 못했어요` · `다시 불러오기` · `<svg>` · `<button>`
+  - Props `MapAvailabilityProps` · `state`
+  - 연결 — / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx)
+  - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx)
+- [x] [MapCanvas](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx#L35) · 하위 UI 또는 상태 표현 · `분석 중심 위치`
+  - Props `MapCanvasProps` · `appKey` · `center` · `radius` · `level` · `lines` · `cells` · `cuts` · `label` · `hour` · `shops` · `selectedShopId` · `address?` · `onSelectShop`↗ · `onCenterChange`↗ · `onLevelChange`↗ · `onRegionChange`↗ · `onAddressStatusChange`↗
+  - 연결 [`useFootTrafficLocation`](../src/hooks/useFootTrafficLocation.ts) · [`useFootTrafficResize`](../src/hooks/useFootTrafficResize.ts) · [`levels`](../src/lib/foot-traffic/levels.ts) / 하위 [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`MapZoomControls`](../src/components/foot-traffic/MapZoomControls/MapZoomControls.tsx) · [`PopulationTooltip`](../src/components/foot-traffic/PopulationTooltip/PopulationTooltip.tsx) · [`RoadPopulationLayer`](../src/components/foot-traffic/RoadPopulationLayer/RoadPopulationLayer.tsx) · [`ShopMapMarkers`](../src/components/foot-traffic/ShopMapMarkers/ShopMapMarkers.tsx)
+  - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx)
+- [x] [MapControls](../src/components/foot-traffic/MapControls/MapControls.tsx#L20) · 사용자 동작 · `생활인구 지도 설정` · `생활인구 분석` · `<button>` · `<svg>`
+  - Props `MapControlsProps` · `open` · `onOpenChange`↗ · `category` · `sub` · `hour` · `lastHour` · `radius` · `shown` · `region` · `onCategoryChange`↗ · `onSubChange`↗ · `onHourChange`↗ · `onRadiusChange`↗ · `onToggle`↗
+  - 연결 — / 하위 [`PopulationCategory`](../src/components/foot-traffic/PopulationCategory/PopulationCategory.tsx) · [`PopulationCategoryTabs`](../src/components/foot-traffic/PopulationCategoryTabs/PopulationCategoryTabs.tsx) · [`PopulationRadius`](../src/components/foot-traffic/PopulationRadius/PopulationRadius.tsx) · [`PopulationTime`](../src/components/foot-traffic/PopulationTime/PopulationTime.tsx)
+  - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx)
+- [x] [MapDataStatus](../src/components/foot-traffic/MapDataStatus/MapDataStatus.tsx#L3) · 하위 UI 또는 상태 표현 · `다시 시도` · `<button>`
+  - Props `MapDataStatusProps` · `loading` · `error` · `addressStatus` · `retry`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx)
+- [x] [MapZoomControls](../src/components/foot-traffic/MapZoomControls/MapZoomControls.tsx#L3) · 사용자 동작 · `지도 확대와 축소` · `지도 확대` · `<button>`
+  - Props `MapZoomControlsProps` · `level` · `onChange`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx)
+- [x] [PopulationCategory](../src/components/foot-traffic/PopulationCategory/PopulationCategory.tsx#L9) · 하위 UI 또는 상태 표현 · `생활인구 세부 분류` · `성별·연령은 내국인 생활인구 기준이에요.` · `<button>`
+  - Props `PopulationCategoryProps` · `category` · `sub` · `onSubChange`↗
+  - 연결 [`categories`](../src/lib/foot-traffic/categories.ts) / 하위 —
+  - 참조 `/sites` / 상위 [`MapControls`](../src/components/foot-traffic/MapControls/MapControls.tsx)
+- [x] [PopulationCategoryTabs](../src/components/foot-traffic/PopulationCategoryTabs/PopulationCategoryTabs.tsx#L8) · 필터 또는 보기 전환 · `생활인구 분류` · `<button>`
+  - Props `PopulationCategoryTabsProps` · `category` · `onChange`↗
+  - 연결 [`categories`](../src/lib/foot-traffic/categories.ts) / 하위 —
+  - 참조 `/sites` / 상위 [`MapControls`](../src/components/foot-traffic/MapControls/MapControls.tsx)
+- [x] [PopulationLegend](../src/components/foot-traffic/PopulationLegend/PopulationLegend.tsx#L20) · 상태·기준 표시 · `생활인구 합계를 불러오는 중` · `생활인구 범례와 데이터 기준`
+  - Props `PopulationLegendProps` · `category` · `label` · `hour` · `date` · `radius` · `cuts` · `summary` · `quality` · `loading` · `hasPublicValues` · `settingsOpen`
+  - 연결 [`format`](../src/lib/foot-traffic/format.ts) · [`levels`](../src/lib/foot-traffic/levels.ts) / 하위 —
+  - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx)
+- [x] [PopulationRadius](../src/components/foot-traffic/PopulationRadius/PopulationRadius.tsx#L6) · 하위 UI 또는 상태 표현 · `분석 반경 설정` · `분석 반경` · `<input>` · `<button>`
+  - Props `PopulationRadiusProps` · `radius` · `onChange`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`MapControls`](../src/components/foot-traffic/MapControls/MapControls.tsx)
+- [x] [PopulationTime](../src/components/foot-traffic/PopulationTime/PopulationTime.tsx#L9) · 하위 UI 또는 상태 표현 · `분석 시간 설정` · `분석 시간` · `<button>` · `<input>`
+  - Props `PopulationTimeProps` · `hour` · `lastHour` · `onChange`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`MapControls`](../src/components/foot-traffic/MapControls/MapControls.tsx)
+- [x] [PopulationTooltip](../src/components/foot-traffic/PopulationTooltip/PopulationTooltip.tsx#L5) · 상태·기준 표시 · `· 250m 격자` · `공개값 있는 시간`
+  - Props `PopulationTooltipProps` · `value` · `level` · `label` · `hour`
+  - 연결 [`format`](../src/lib/foot-traffic/format.ts) · [`levels`](../src/lib/foot-traffic/levels.ts) / 하위 —
+  - 참조 `/sites` / 상위 [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx)
+- [x] [RoadPopulationLayer](../src/components/foot-traffic/RoadPopulationLayer/RoadPopulationLayer.tsx#L13) · 하위 UI 또는 상태 표현
+  - Props `RoadPopulationLayerProps` · `lines` · `cuts` · `level` · `activeCell` · `onHover`↗ · `onHitTestChange?`↗
+  - 연결 [`useRoadPopulationOverlay`](../src/hooks/useRoadPopulationOverlay.ts) / 하위 —
+  - 참조 `/sites` / 상위 [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx)
+- [x] [ShopMapMarkers](../src/components/foot-traffic/ShopMapMarkers/ShopMapMarkers.tsx#L7) · 하위 UI 또는 상태 표현 · `<button>`
+  - Props `ShopMapMarkersProps` · `shops` · `selectedId` · `onSelect`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx)
+
+### grants
+
+- [x] [GrantBadge](../src/components/grants/GrantBadge/GrantBadge.tsx#L7) · 상태·기준 표시
+  - Props `GrantBadgeProps` · `label` · `prefix?` · `tone?`
+  - 연결 — / 하위 —
+  - 참조 `/grants`, 공통 레이아웃, `/grants` 로딩, `/` 로딩 / 상위 [`GrantConditionQuote`](../src/components/grants/GrantConditionQuote/GrantConditionQuote.tsx) · [`GrantDeadline`](../src/components/grants/GrantDeadline/GrantDeadline.tsx) · [`GrantEligibility`](../src/components/grants/GrantEligibility/GrantEligibility.tsx) · [`GrantNextDeadline`](../src/components/grants/GrantNextDeadline/GrantNextDeadline.tsx)
+- [x] [GrantCard](../src/components/grants/GrantCard/GrantCard.tsx#L15) · 목록 또는 항목 표시
+  - Props `GrantCardProps` · `grant` · `label` · `tone` · `deadline`
+  - 연결 [`format-grant`](../src/lib/grants/format-grant.ts) / 하위 [`GrantCardActions`](../src/components/grants/GrantCardActions/GrantCardActions.tsx) · [`GrantEligibility`](../src/components/grants/GrantEligibility/GrantEligibility.tsx) · [`GrantPoster`](../src/components/grants/GrantPoster/GrantPoster.tsx) · [`GrantSummary`](../src/components/grants/GrantSummary/GrantSummary.tsx)
+  - 참조 `/grants` / 상위 [`GrantResults`](../src/components/grants/GrantResults/GrantResults.tsx)
+- [x] [GrantCardActions](../src/components/grants/GrantCardActions/GrantCardActions.tsx#L6) · 목록 또는 항목 표시 · `공고 상세` · `<button>` · `<svg>` · `data-nx=gdetail`
+  - Props `GrantCardActionsProps` · `id` · `title?`
+  - 연결 — / 하위 —
+  - 참조 `/grants` / 상위 [`GrantCard`](../src/components/grants/GrantCard/GrantCard.tsx) · [`GrantDeadlineRow`](../src/components/grants/GrantDeadlineRow/GrantDeadlineRow.tsx) · [`GrantListRow`](../src/components/grants/GrantListRow/GrantListRow.tsx)
+- [x] [GrantConditionQuote](../src/components/grants/GrantConditionQuote/GrantConditionQuote.tsx#L8) · 하위 UI 또는 상태 표현
+  - Props `GrantConditionQuoteProps` · `condition`
+  - 연결 — / 하위 [`GrantBadge`](../src/components/grants/GrantBadge/GrantBadge.tsx)
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantConditions`](../src/components/grants/GrantConditions/GrantConditions.tsx)
+- [x] [GrantConditions](../src/components/grants/GrantConditions/GrantConditions.tsx#L8) · 하위 UI 또는 상태 표현
+  - Props `GrantConditionsProps` · `checks`
+  - 연결 — / 하위 [`GrantConditionQuote`](../src/components/grants/GrantConditionQuote/GrantConditionQuote.tsx)
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantDetails`](../src/components/grants/GrantDetails/GrantDetails.tsx)
+- [x] [GrantDeadline](../src/components/grants/GrantDeadline/GrantDeadline.tsx#L9) · 하위 UI 또는 상태 표현
+  - Props `GrantDeadlineProps` · `date` · `label?` · `applicationPeriod?`
+  - 연결 — / 하위 [`GrantBadge`](../src/components/grants/GrantBadge/GrantBadge.tsx)
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantDetailSummary`](../src/components/grants/GrantDetailSummary/GrantDetailSummary.tsx) · [`GrantSummary`](../src/components/grants/GrantSummary/GrantSummary.tsx)
+- [x] [GrantDeadlineRow](../src/components/grants/GrantDeadlineRow/GrantDeadlineRow.tsx#L13) · 목록 또는 항목 표시 · `일` · `지원 규모`
+  - Props `GrantDeadlineRowProps` · `grant` · `label` · `tone` · `deadline`
+  - 연결 [`format-grant`](../src/lib/grants/format-grant.ts) / 하위 [`GrantCardActions`](../src/components/grants/GrantCardActions/GrantCardActions.tsx) · [`GrantEligibility`](../src/components/grants/GrantEligibility/GrantEligibility.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 [`GrantMonthCard`](../src/components/grants/GrantMonthCard/GrantMonthCard.tsx)
+- [x] [GrantDetailSummary](../src/components/grants/GrantDetailSummary/GrantDetailSummary.tsx#L12) · 하위 UI 또는 상태 표현 · `신청 안내`
+  - Props `GrantDetailSummaryProps` · `grant` · `deadline?` · `result`
+  - 연결 [`format-grant`](../src/lib/grants/format-grant.ts) / 하위 [`GrantDeadline`](../src/components/grants/GrantDeadline/GrantDeadline.tsx) · [`GrantEligibility`](../src/components/grants/GrantEligibility/GrantEligibility.tsx)
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantDetails`](../src/components/grants/GrantDetails/GrantDetails.tsx)
+- [x] [GrantDetails](../src/components/grants/GrantDetails/GrantDetails.tsx#L12) · 하위 UI 또는 상태 표현 · `조건별 판정과 공고문 인용` · `공고 원문 보기` · `<a>`
+  - Props `GrantDetailsProps` · `grant` · `deadline` · `result`
+  - 연결 — / 하위 [`GrantConditions`](../src/components/grants/GrantConditions/GrantConditions.tsx) · [`GrantDetailSummary`](../src/components/grants/GrantDetailSummary/GrantDetailSummary.tsx) · [`GrantPoster`](../src/components/grants/GrantPoster/GrantPoster.tsx)
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantsPage`](../src/components/grants/GrantsPage/GrantsPage.tsx) · [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx)
+- [x] [GrantEligibility](../src/components/grants/GrantEligibility/GrantEligibility.tsx#L10) · 하위 UI 또는 상태 표현
+  - Props `GrantEligibilityProps` · `label` · `tone` · `organization?` · `deadline?`
+  - 연결 — / 하위 [`GrantBadge`](../src/components/grants/GrantBadge/GrantBadge.tsx)
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantCard`](../src/components/grants/GrantCard/GrantCard.tsx) · [`GrantDeadlineRow`](../src/components/grants/GrantDeadlineRow/GrantDeadlineRow.tsx) · [`GrantDetailSummary`](../src/components/grants/GrantDetailSummary/GrantDetailSummary.tsx) · [`GrantListRow`](../src/components/grants/GrantListRow/GrantListRow.tsx)
+- [x] [GrantFilterTabs](../src/components/grants/GrantFilterTabs/GrantFilterTabs.tsx#L12) · 필터 또는 보기 전환 · `<button>` · `data-nx=gf`
+  - Props `GrantFilterTabsProps` · `options` · `filter` · `selected` · `style?`
+  - 연결 — / 하위 —
+  - 참조 `/grants` / 상위 [`GrantFiltersBar`](../src/components/grants/GrantFiltersBar/GrantFiltersBar.tsx)
+- [x] [GrantFiltersBar](../src/components/grants/GrantFiltersBar/GrantFiltersBar.tsx#L11) · 필터 또는 보기 전환
+  - Props `GrantFiltersBarProps` · `filters` · `categories` · `children?`
+  - 연결 — / 하위 [`GrantFilterTabs`](../src/components/grants/GrantFilterTabs/GrantFilterTabs.tsx)
+  - 참조 `/grants` / 상위 [`GrantsView`](../src/components/grants/GrantsView.tsx)
+- [x] [GrantListRow](../src/components/grants/GrantListRow/GrantListRow.tsx#L13) · 목록 또는 항목 표시 · `지원 규모` · `마감`
+  - Props `GrantListRowProps` · `grant` · `label` · `tone` · `deadline`
+  - 연결 [`format-grant`](../src/lib/grants/format-grant.ts) / 하위 [`GrantCardActions`](../src/components/grants/GrantCardActions/GrantCardActions.tsx) · [`GrantEligibility`](../src/components/grants/GrantEligibility/GrantEligibility.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
+- [x] [GrantMonthCard](../src/components/grants/GrantMonthCard/GrantMonthCard.tsx#L8) · 목록 또는 항목 표시 · `년` · `월`
+  - Props `GrantMonthCardProps` · `group`
+  - 연결 — / 하위 [`GrantDeadlineRow`](../src/components/grants/GrantDeadlineRow/GrantDeadlineRow.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
+- [x] [GrantNextDeadline](../src/components/grants/GrantNextDeadline/GrantNextDeadline.tsx#L7) · 하위 UI 또는 상태 표현 · `가장 가까운 마감` · `<button>` · `data-nx=gdetail`
+  - Props `GrantNextDeadlineProps` · `item`
+  - 연결 [`format-grant`](../src/lib/grants/format-grant.ts) / 하위 [`GrantBadge`](../src/components/grants/GrantBadge/GrantBadge.tsx)
+  - 참조 `/grants`, 공통 레이아웃, `/grants` 로딩, `/` 로딩 / 상위 [`GrantsHeader`](../src/components/grants/GrantsHeader/GrantsHeader.tsx)
+- [x] [GrantPoster](../src/components/grants/GrantPoster/GrantPoster.tsx#L13) · 하위 UI 또는 상태 표현 · `지원 규모`
+  - Props `GrantPosterProps` · `grant` · `variant?` · `big?`
+  - 연결 [`poster-motif`](../src/components/grants/GrantPoster/poster-motif.ts) · [`format-grant`](../src/lib/grants/format-grant.ts) / 하위 [`GrantPosterArtwork`](../src/components/grants/GrantPosterArtwork/GrantPosterArtwork.tsx)
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantCard`](../src/components/grants/GrantCard/GrantCard.tsx) · [`GrantDetails`](../src/components/grants/GrantDetails/GrantDetails.tsx)
+- [x] [GrantPosterArtwork](../src/components/grants/GrantPosterArtwork/GrantPosterArtwork.tsx#L8) · 하위 UI 또는 상태 표현
+  - Props `GrantPosterArtworkProps` · `motif?`
+  - 연결 — / 하위 —
+  - 참조 `/grants`, 공통 레이아웃 / 상위 [`GrantPoster`](../src/components/grants/GrantPoster/GrantPoster.tsx)
+- [x] [GrantRefreshControl](../src/components/grants/GrantRefreshControl/GrantRefreshControl.tsx#L6) · 사용자 동작 · `<button>`
+  - Props `GrantRefreshControlProps` · `refreshing` · `onRefresh`↗
+  - 연결 — / 하위 —
+  - 참조 `/grants` / 상위 [`GrantsView`](../src/components/grants/GrantsView.tsx)
+- [x] [GrantResults](../src/components/grants/GrantResults/GrantResults.tsx#L18) · 하위 UI 또는 상태 표현 · `지원사업 공고`
+  - Props `GrantResultsProps` · `grants` · `status?`
+  - 연결 — / 하위 [`GrantCard`](../src/components/grants/GrantCard/GrantCard.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx)
+  - 참조 `/grants` / 상위 [`GrantsView`](../src/components/grants/GrantsView.tsx)
+- [x] [GrantStatusFilter](../src/components/grants/GrantStatusFilter/GrantStatusFilter.tsx#L14) · 필터 또는 보기 전환 · `신청 자격별 공고` · `전체` · `<button>` · `data-nx=gf`
+  - Props `GrantStatusFilterProps` · `selected` · `counts?`
+  - 연결 — / 하위 —
+  - 참조 `/grants` / 상위 [`GrantsView`](../src/components/grants/GrantsView.tsx)
+- [x] [GrantSummary](../src/components/grants/GrantSummary/GrantSummary.tsx#L8) · 하위 UI 또는 상태 표현 · `지원 규모` · `대상`
+  - Props `GrantSummaryProps` · `grant`
+  - 연결 — / 하위 [`GrantDeadline`](../src/components/grants/GrantDeadline/GrantDeadline.tsx)
+  - 참조 `/grants` / 상위 [`GrantCard`](../src/components/grants/GrantCard/GrantCard.tsx)
+- [x] [GrantsHeader](../src/components/grants/GrantsHeader/GrantsHeader.tsx#L11) · 제목과 안내 · `정책·지원사업`
+  - Props `GrantsHeaderProps` · `sourceLabel?` · `nextDeadline?`
+  - 연결 [`format-grant`](../src/lib/grants/format-grant.ts) / 하위 [`PageHeader`](../src/components/common/PageHeader/PageHeader.tsx) · [`GrantNextDeadline`](../src/components/grants/GrantNextDeadline/GrantNextDeadline.tsx)
+  - 참조 `/grants`, 공통 레이아웃, `/grants` 로딩, `/` 로딩 / 상위 [`GrantsSkeleton`](../src/components/grants/GrantsSkeleton/GrantsSkeleton.tsx) · [`GrantsView`](../src/components/grants/GrantsView.tsx)
+- [x] [GrantsPage](../src/components/grants/GrantsPage/GrantsPage.tsx#L10) · 페이지 데이터 연결
+  - Props —
+  - 연결 [`useGrants`](../src/hooks/useGrants.ts) · [`format-grant`](../src/lib/grants/format-grant.ts) / 하위 [`Modal`](../src/components/feedback/Modal/Modal.tsx) · [`GrantDetails`](../src/components/grants/GrantDetails/GrantDetails.tsx) · [`GrantsView`](../src/components/grants/GrantsView.tsx)
+  - 참조 `/grants` / 상위 [`page`](../src/app/grants/page.tsx)
+- [x] [GrantsSkeleton](../src/components/grants/GrantsSkeleton/GrantsSkeleton.tsx#L4) · 로딩 자리 표시 · `지원사업을 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`GrantsHeader`](../src/components/grants/GrantsHeader/GrantsHeader.tsx) · [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/grants`, 공통 레이아웃, `/grants` 로딩, `/` 로딩 / 상위 [`loading`](../src/app/grants/loading.tsx) · [`GrantsView`](../src/components/grants/GrantsView.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx)
+- [x] [GrantsView](../src/components/grants/GrantsView.tsx#L21) · 화면과 하위 영역 조합 · `지원사업 공고` · `건`
+  - Props `GrantsViewProps` · `onRefresh?`↗ · `refreshing?` · `refreshError?` · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`GrantFiltersBar`](../src/components/grants/GrantFiltersBar/GrantFiltersBar.tsx) · [`GrantRefreshControl`](../src/components/grants/GrantRefreshControl/GrantRefreshControl.tsx) · [`GrantResults`](../src/components/grants/GrantResults/GrantResults.tsx) · [`GrantStatusFilter`](../src/components/grants/GrantStatusFilter/GrantStatusFilter.tsx) · [`GrantsHeader`](../src/components/grants/GrantsHeader/GrantsHeader.tsx) · [`GrantsSkeleton`](../src/components/grants/GrantsSkeleton/GrantsSkeleton.tsx) · [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+  - 참조 `/grants` / 상위 [`GrantsPage`](../src/components/grants/GrantsPage/GrantsPage.tsx)
+
+### layout
+
+- [x] [AppShell](../src/components/layout/AppShell/AppShell.tsx#L8) · 하위 UI 또는 상태 표현 · `본문으로 바로가기` · `<a>`
+  - Props `AppShellProps` · `navigation` · `children` · `viewport?`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃, `/` 로딩 / 상위 [`ApplicationLoading`](../src/components/layout/ApplicationLoading/ApplicationLoading.tsx) · [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [ApplicationDialog](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx#L14) · 팝업과 열림 상태
+  - Props `ApplicationDialogProps` · `content`
+  - 연결 — / 하위 [`OpeningDateDialog`](../src/components/checklist/OpeningDateDialog/OpeningDateDialog.tsx) · [`GrantDetails`](../src/components/grants/GrantDetails/GrantDetails.tsx) · [`StoreResetDialog`](../src/components/mypage/StoreResetDialog/StoreResetDialog.tsx) · [`EvidenceDialog`](../src/components/report/EvidenceDialog/EvidenceDialog.tsx) · [`OptionConfirmDialog`](../src/components/report/OptionConfirmDialog/OptionConfirmDialog.tsx) · [`ReportChoiceDialog`](../src/components/report/ReportChoiceDialog/ReportChoiceDialog.tsx) · [`ReportResultDialog`](../src/components/report/ReportResultDialog/ReportResultDialog.tsx) · [`LocationPickDialog`](../src/components/sites/LocationPickDialog/LocationPickDialog.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx)
+- [x] [ApplicationFeedback](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx#L41) · 하위 UI 또는 상태 표현 · `안내를 불러오는 중` · `상세 안내를 불러오는 중`
+  - Props `ApplicationFeedbackProps` · `onCloseModal`↗ · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`Modal`](../src/components/feedback/Modal/Modal.tsx) · [`Toast`](../src/components/feedback/Toast/Toast.tsx) · [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx) · [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`ReportDialogActions`](../src/components/report/ReportDialogActions/ReportDialogActions.tsx) · [`EventBoundary`](../src/components/view/EventBoundary/EventBoundary.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ConnectedApplicationFeedback`](../src/components/layout/ConnectedApplicationFeedback/ConnectedApplicationFeedback.tsx)
+- [x] [ApplicationLoading](../src/components/layout/ApplicationLoading/ApplicationLoading.tsx#L13) · 하위 UI 또는 상태 표현
+  - Props `ApplicationLoadingProps` · `withinShell?`
+  - 연결 [`routes`](../src/lib/routes.ts) / 하위 [`AppShell`](../src/components/layout/AppShell/AppShell.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`NavbarSkeleton`](../src/components/navigation/NavbarSkeleton/NavbarSkeleton.tsx)
+  - 참조 공통 레이아웃, `/` 로딩 / 상위 [`loading`](../src/app/loading.tsx) · [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [ApplicationNavigation](../src/components/layout/ApplicationNavigation/ApplicationNavigation.tsx#L12) · 하위 UI 또는 상태 표현
+  - Props `ApplicationNavigationProps` · `data?` · `loading?` · `error?` · `onRetry?`↗ · `onNavigate`↗ · `onOpenNotification`↗ · `onLogout`↗
+  - 연결 — / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`Navbar`](../src/components/navigation/Navbar/Navbar.tsx) · [`NavbarSkeleton`](../src/components/navigation/NavbarSkeleton/NavbarSkeleton.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ConnectedApplicationNavigation`](../src/components/layout/ConnectedApplicationNavigation/ConnectedApplicationNavigation.tsx)
+- [x] [ConnectedApplicationFeedback](../src/components/layout/ConnectedApplicationFeedback/ConnectedApplicationFeedback.tsx#L5) · 하위 UI 또는 상태 표현
+  - Props —
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) / 하위 [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx)
+  - 참조 공통 레이아웃 / 상위 [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [ConnectedApplicationNavigation](../src/components/layout/ConnectedApplicationNavigation/ConnectedApplicationNavigation.tsx#L5) · 하위 UI 또는 상태 표현
+  - Props —
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) / 하위 [`ApplicationNavigation`](../src/components/layout/ApplicationNavigation/ApplicationNavigation.tsx)
+  - 참조 공통 레이아웃 / 상위 [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [FoundyApplication](../src/components/layout/FoundyApplication/FoundyApplication.tsx#L15) · 하위 UI 또는 상태 표현
+  - Props `FoundyApplicationProps` · `children`
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) / 하위 [`ConnectedChatWidget`](../src/components/chat/ConnectedChatWidget/ConnectedChatWidget.tsx) · [`AppShell`](../src/components/layout/AppShell/AppShell.tsx) · [`ApplicationLoading`](../src/components/layout/ApplicationLoading/ApplicationLoading.tsx) · [`ConnectedApplicationFeedback`](../src/components/layout/ConnectedApplicationFeedback/ConnectedApplicationFeedback.tsx) · [`ConnectedApplicationNavigation`](../src/components/layout/ConnectedApplicationNavigation/ConnectedApplicationNavigation.tsx) · [`DataError`](../src/components/loading/DataError/DataError.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`LoginView`](../src/components/login/LoginView.tsx)
+  - 참조 공통 레이아웃 / 상위 [`layout`](../src/app/layout.tsx)
+
+### loading
+
+- [x] [ComponentBoundary](../src/components/loading/ComponentBoundary/ComponentBoundary.tsx#L14) · 화면 경계
+  - Props `component` · `fallback?` · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx)
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
+- [x] [DataBoundary](../src/components/loading/DataBoundary/DataBoundary.tsx#L15) · 화면 경계
+  - Props `children`↗ · `fallback` · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`DataContent`](../src/components/loading/DataContent/DataContent.tsx) · [`DataError`](../src/components/loading/DataError/DataError.tsx) · [`DataErrorBoundary`](../src/components/loading/DataErrorBoundary/DataErrorBoundary.tsx)
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/mypage`, `/`, `/register`, `/report`, `/sites`, 공통 레이아웃 / 상위 [`ChatPanel`](../src/components/chat/ChatPanel/ChatPanel.tsx) · [`ChecklistView`](../src/components/checklist/ChecklistView.tsx) · [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx) · [`DashboardView`](../src/components/dashboard/DashboardView.tsx) · [`DocsView`](../src/components/docs/DocsView/DocsView.tsx) · [`GrantsView`](../src/components/grants/GrantsView.tsx) · [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx) · [`ApplicationNavigation`](../src/components/layout/ApplicationNavigation/ApplicationNavigation.tsx) · [`ComponentBoundary`](../src/components/loading/ComponentBoundary/ComponentBoundary.tsx) · [`MypageView`](../src/components/mypage/MypageView.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx) · [`ReportView`](../src/components/report/ReportView.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`SitesView`](../src/components/sites/SitesView.tsx)
+- [x] [DataContent](../src/components/loading/DataContent/DataContent.tsx#L11) · 하위 UI 또는 상태 표현
+  - Props `data` · `children`↗
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/mypage`, `/`, `/register`, `/report`, `/sites`, 공통 레이아웃 / 상위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx)
+- [x] [DataError](../src/components/loading/DataError/DataError.tsx#L6) · 하위 UI 또는 상태 표현 · `다시 시도` · `<button>`
+  - Props `DataErrorProps` · `message?` · `onRetry?`↗
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/mypage`, `/`, `/register`, `/report`, `/sites`, 공통 레이아웃 / 상위 [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx) · [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`DataErrorBoundary`](../src/components/loading/DataErrorBoundary/DataErrorBoundary.tsx)
+- [x] [Boundary](../src/components/loading/DataErrorBoundary/DataErrorBoundary.tsx#L12) (파일 내부) · 화면 경계
+  - Props `children` · `resetKey` · `onRetry?`↗
+  - 연결 — / 하위 [`DataError`](../src/components/loading/DataError/DataError.tsx)
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/mypage`, `/`, `/register`, `/report`, `/sites`, 공통 레이아웃 / 상위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx)
+- [x] [DataErrorBoundary](../src/components/loading/DataErrorBoundary/DataErrorBoundary.tsx#L36) · 화면 경계 · `Boundary`
+  - Props `DataErrorBoundaryProps` · `children` · `resetKey` · `onRetry?`↗
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/mypage`, `/`, `/register`, `/report`, `/sites`, 공통 레이아웃 / 상위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx)
+- [x] [PageSkeleton](../src/components/loading/PageSkeleton/PageSkeleton.tsx#L33) · 로딩 자리 표시
+  - Props `PageSkeletonProps` · `page`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃, `/` 로딩 / 상위 [`ApplicationLoading`](../src/components/layout/ApplicationLoading/ApplicationLoading.tsx) · [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [SectionSkeleton](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx#L13) · 로딩 자리 표시
+  - Props `SectionSkeletonProps` · `variant?` · `rows?` · `label?` · `className?` · `appearance?`
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/mypage`, `/`, `/report`, `/sites`, 공통 레이아웃, `/` 로딩 / 상위 [`ChatConversation`](../src/components/chat/ChatConversation/ChatConversation.tsx) · [`ChatPanel`](../src/components/chat/ChatPanel/ChatPanel.tsx) · [`ChatPanelContent`](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx) · [`ChecklistView`](../src/components/checklist/ChecklistView.tsx) · [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx) · [`DocsDirectory`](../src/components/docs/DocsDirectory/DocsDirectory.tsx) · [`GrantResults`](../src/components/grants/GrantResults/GrantResults.tsx) · [`GrantsView`](../src/components/grants/GrantsView.tsx) · [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx) · [`ComponentBoundary`](../src/components/loading/ComponentBoundary/ComponentBoundary.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`MypageView`](../src/components/mypage/MypageView.tsx) · [`ReportItems`](../src/components/report/ReportItems/ReportItems.tsx) · [`ReportView`](../src/components/report/ReportView.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [Skeleton](../src/components/loading/Skeleton/Skeleton.tsx#L5) · 로딩 자리 표시
+  - Props `SkeletonProps` · `className?`
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/login`, `/mypage`, `/`, `/register`, `/report`, `/sites`, 공통 레이아웃, `/checklist` 로딩, `/dashboard` 로딩, `/docs` 로딩, `/grants` 로딩, `/` 로딩, `/login` 로딩, `/mypage` 로딩, `/register` 로딩, `/report` 로딩, `/sites` 로딩 / 상위 [`ChecklistSkeleton`](../src/components/checklist/ChecklistSkeleton/ChecklistSkeleton.tsx) · [`DashboardBentoSkeleton`](../src/components/dashboard/DashboardBentoSkeleton/DashboardBentoSkeleton.tsx) · [`DashboardHeaderSkeleton`](../src/components/dashboard/DashboardHeaderSkeleton/DashboardHeaderSkeleton.tsx) · [`DocsSkeleton`](../src/components/docs/DocsSkeleton/DocsSkeleton.tsx) · [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`GrantsSkeleton`](../src/components/grants/GrantsSkeleton/GrantsSkeleton.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`LoginSkeleton`](../src/components/login/LoginSkeleton/LoginSkeleton.tsx) · [`ProfileSkeleton`](../src/components/mypage/ProfileSkeleton/ProfileSkeleton.tsx) · [`NavbarSkeleton`](../src/components/navigation/NavbarSkeleton/NavbarSkeleton.tsx) · [`NotificationPopover`](../src/components/navigation/NotificationPopover/NotificationPopover.tsx) · [`RegistrationSkeleton`](../src/components/onboarding/RegistrationSkeleton/RegistrationSkeleton.tsx) · [`ReportSkeleton`](../src/components/report/ReportSkeleton/ReportSkeleton.tsx) · [`SitesSkeleton`](../src/components/sites/SitesSkeleton/SitesSkeleton.tsx)
+
+### login
+
+- [x] [LoginArtwork](../src/components/login/LoginArtwork/LoginArtwork.tsx#L3) · 하위 UI 또는 상태 표현 · `data-testid=login-artwork`
+  - Props —
+  - 연결 — / 하위 —
+  - 참조 `/login`, 공통 레이아웃 / 상위 [`LoginLayout`](../src/components/login/LoginLayout/LoginLayout.tsx)
+- [x] [LoginBrand](../src/components/login/LoginBrand/LoginBrand.tsx#L1) · 제목과 안내
+  - Props —
+  - 연결 — / 하위 —
+  - 참조 `/login`, 공통 레이아웃, `/` 로딩, `/login` 로딩 / 상위 [`LoginLayout`](../src/components/login/LoginLayout/LoginLayout.tsx) · [`LoginSkeleton`](../src/components/login/LoginSkeleton/LoginSkeleton.tsx)
+- [x] [LoginField](../src/components/login/LoginField/LoginField.tsx#L11) · 입력과 검증 상태 · `<input>`
+  - Props `LoginFieldProps` (312개 속성)
+  - 연결 — / 하위 —
+  - 참조 `/login`, 공통 레이아웃 / 상위 [`LoginForm`](../src/components/login/LoginForm/LoginForm.tsx) · [`PasswordField`](../src/components/login/PasswordField/PasswordField.tsx)
+- [x] [LoginForm](../src/components/login/LoginForm/LoginForm.tsx#L15) · 입력과 검증 상태 · `이름` · `아이디` · `<form>` · `<button>`
+  - Props `LoginFormProps` · `mode?` · `onSwitch?`↗
+  - 연결 [`useAuthForm`](../src/hooks/useAuthForm.ts) / 하위 [`LoginField`](../src/components/login/LoginField/LoginField.tsx) · [`LoginSubmitButton`](../src/components/login/LoginSubmitButton/LoginSubmitButton.tsx) · [`PasswordField`](../src/components/login/PasswordField/PasswordField.tsx)
+  - 참조 `/login`, 공통 레이아웃 / 상위 [`LoginLayout`](../src/components/login/LoginLayout/LoginLayout.tsx)
+- [x] [LoginHeading](../src/components/login/LoginHeading/LoginHeading.tsx#L13) · 제목과 안내
+  - Props `LoginHeadingProps` · `signingUp?`
+  - 연결 — / 하위 [`TypewriterText`](../src/components/ui/TypewriterText/TypewriterText.tsx)
+  - 참조 `/login`, 공통 레이아웃 / 상위 [`LoginLayout`](../src/components/login/LoginLayout/LoginLayout.tsx)
+- [x] [LoginLayout](../src/components/login/LoginLayout/LoginLayout.tsx#L15) · 하위 UI 또는 상태 표현 · `data-testid=login-layout`
+  - Props `LoginLayoutProps` · `onSignIn?`↗ · `onSignUp?`↗
+  - 연결 — / 하위 [`LoginArtwork`](../src/components/login/LoginArtwork/LoginArtwork.tsx) · [`LoginBrand`](../src/components/login/LoginBrand/LoginBrand.tsx) · [`LoginForm`](../src/components/login/LoginForm/LoginForm.tsx) · [`LoginHeading`](../src/components/login/LoginHeading/LoginHeading.tsx)
+  - 참조 `/login`, 공통 레이아웃 / 상위 [`LoginView`](../src/components/login/LoginView.tsx)
+- [x] [LoginSkeleton](../src/components/login/LoginSkeleton/LoginSkeleton.tsx#L4) · 로딩 자리 표시 · `로그인 화면을 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx) · [`LoginBrand`](../src/components/login/LoginBrand/LoginBrand.tsx)
+  - 참조 `/login`, 공통 레이아웃, `/` 로딩, `/login` 로딩 / 상위 [`loading`](../src/app/login/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`LoginView`](../src/components/login/LoginView.tsx)
+- [x] [LoginSubmitButton](../src/components/login/LoginSubmitButton/LoginSubmitButton.tsx#L7) · 사용자 동작 · `<button>` · `<svg>`
+  - Props `LoginSubmitButtonProps` · `pending?` · `label?` · `pendingLabel?`
+  - 연결 — / 하위 —
+  - 참조 `/login`, 공통 레이아웃 / 상위 [`LoginForm`](../src/components/login/LoginForm/LoginForm.tsx)
+- [x] [LoginView](../src/components/login/LoginView.tsx#L15) · 화면과 하위 영역 조합
+  - Props `LoginViewProps` · `onEvent?`↗ · `onSignIn?`↗ · `onSignUp?`↗
+  - 연결 — / 하위 [`LoginLayout`](../src/components/login/LoginLayout/LoginLayout.tsx) · [`LoginSkeleton`](../src/components/login/LoginSkeleton/LoginSkeleton.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+  - 참조 `/login`, 공통 레이아웃 / 상위 [`page`](../src/app/login/page.tsx) · [`FoundyApplication`](../src/components/layout/FoundyApplication/FoundyApplication.tsx)
+- [x] [PasswordField](../src/components/login/PasswordField/PasswordField.tsx#L8) · 입력과 검증 상태 · `<button>` · `<svg>`
+  - Props `PasswordFieldProps` (310개 속성)
+  - 연결 — / 하위 [`LoginField`](../src/components/login/LoginField/LoginField.tsx)
+  - 참조 `/login`, 공통 레이아웃 / 상위 [`LoginForm`](../src/components/login/LoginForm/LoginForm.tsx)
+
+### mypage
+
+- [x] [AccountCard](../src/components/mypage/AccountCard/AccountCard.tsx#L11) · 목록 또는 항목 표시 · `내 계정` · `로그아웃` · `<button>` · `data-nx=logout`
+  - Props `AccountCardProps` · `edit?` · `profile` · `providerLabel`
+  - 연결 [`profile-styles`](../src/components/mypage/profile-styles.ts) / 하위 [`ProfileField`](../src/components/mypage/ProfileField/ProfileField.tsx)
+  - 참조 `/mypage` / 상위 [`MypageView`](../src/components/mypage/MypageView.tsx)
+- [x] [BusinessConditionsCard](../src/components/mypage/BusinessConditionsCard/BusinessConditionsCard.tsx#L10) · 목록 또는 항목 표시 · `영업 조건`
+  - Props `BusinessConditionsCardProps` · `draft` · `edit?` · `answers?`
+  - 연결 [`profile-styles`](../src/components/mypage/profile-styles.ts) · [`format`](../src/lib/format.ts) · [`editable-fields`](../src/lib/profile/editable-fields.ts) / 하위 [`ProfileBooleanField`](../src/components/mypage/ProfileBooleanField/ProfileBooleanField.tsx) · [`ProfileField`](../src/components/mypage/ProfileField/ProfileField.tsx)
+  - 참조 `/mypage` / 상위 [`MypageView`](../src/components/mypage/MypageView.tsx)
+- [x] [DataManagementCard](../src/components/mypage/DataManagementCard/DataManagementCard.tsx#L7) · 목록 또는 항목 표시 · `데이터 관리` · `가게 정보 초기화` · `<button>`
+  - Props `DataManagementCardProps` · `canReset?`
+  - 연결 [`profile-styles`](../src/components/mypage/profile-styles.ts) / 하위 —
+  - 참조 `/mypage` / 상위 [`MypageView`](../src/components/mypage/MypageView.tsx)
+- [x] [MypagePage](../src/components/mypage/MypagePage/MypagePage.tsx#L13) · 페이지 데이터 연결
+  - Props —
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) · [`useProfile`](../src/hooks/useProfile.ts) · [`editable-fields`](../src/lib/profile/editable-fields.ts) · [`save-server-profile`](../src/lib/profile/save-server-profile.ts) / 하위 [`MypageView`](../src/components/mypage/MypageView.tsx) · [`OnboardingPage`](../src/components/onboarding/OnboardingPage/OnboardingPage.tsx)
+  - 참조 `/mypage` / 상위 [`page`](../src/app/mypage/page.tsx)
+- [x] [MypageView](../src/components/mypage/MypageView.tsx#L19) · 화면과 하위 영역 조합 · `가게 정보` · `영업 조건`
+  - Props `MypageViewProps` · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗ · `setup?`
+  - 연결 [`profile-styles`](../src/components/mypage/profile-styles.ts) / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`AccountCard`](../src/components/mypage/AccountCard/AccountCard.tsx) · [`BusinessConditionsCard`](../src/components/mypage/BusinessConditionsCard/BusinessConditionsCard.tsx) · [`DataManagementCard`](../src/components/mypage/DataManagementCard/DataManagementCard.tsx) · [`ProfileHeader`](../src/components/mypage/ProfileHeader/ProfileHeader.tsx) · [`ProfileSetupNotice`](../src/components/mypage/ProfileSetupNotice/ProfileSetupNotice.tsx) · [`ProfileSkeleton`](../src/components/mypage/ProfileSkeleton/ProfileSkeleton.tsx) · [`StoreDetailsCard`](../src/components/mypage/StoreDetailsCard/StoreDetailsCard.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+  - 참조 `/mypage` / 상위 [`MypagePage`](../src/components/mypage/MypagePage/MypagePage.tsx)
+- [x] [ProfileBooleanField](../src/components/mypage/ProfileBooleanField/ProfileBooleanField.tsx#L10) · 입력과 검증 상태 · `<button>`
+  - Props `ProfileBooleanFieldProps` · `field` · `value` · `onChange?`↗
+  - 연결 [`editable-fields`](../src/lib/profile/editable-fields.ts) / 하위 —
+  - 참조 `/mypage` / 상위 [`BusinessConditionsCard`](../src/components/mypage/BusinessConditionsCard/BusinessConditionsCard.tsx)
+- [x] [ProfileField](../src/components/mypage/ProfileField/ProfileField.tsx#L13) · 입력과 검증 상태 · `<button>` · `<svg>` · `data-nx=mpedit`
+  - Props `ProfileFieldProps` · `field` · `value` · `edit?`
+  - 연결 [`editable-fields`](../src/lib/profile/editable-fields.ts) / 하위 [`ProfileFieldEditor`](../src/components/mypage/ProfileFieldEditor/ProfileFieldEditor.tsx)
+  - 참조 `/mypage` / 상위 [`AccountCard`](../src/components/mypage/AccountCard/AccountCard.tsx) · [`BusinessConditionsCard`](../src/components/mypage/BusinessConditionsCard/BusinessConditionsCard.tsx) · [`StoreDetailsCard`](../src/components/mypage/StoreDetailsCard/StoreDetailsCard.tsx)
+- [x] [ProfileFieldEditor](../src/components/mypage/ProfileFieldEditor/ProfileFieldEditor.tsx#L10) · 입력과 검증 상태 · `선택하세요` · `원` · `<form>` · `<select>` · `<input>` · `<button>` · `<svg>` · `data-nx=mpcancel`
+  - Props `ProfileFieldEditorProps` · `edit`
+  - 연결 [`editable-fields`](../src/lib/profile/editable-fields.ts) / 하위 [`DatePickerField`](../src/components/ui/DatePickerField/DatePickerField.tsx)
+  - 참조 `/mypage` / 상위 [`ProfileField`](../src/components/mypage/ProfileField/ProfileField.tsx)
+- [x] [ProfileHeader](../src/components/mypage/ProfileHeader/ProfileHeader.tsx#L3) · 제목과 안내 · `마이페이지`
+  - Props —
+  - 연결 — / 하위 [`PageHeader`](../src/components/common/PageHeader/PageHeader.tsx)
+  - 참조 `/mypage`, 공통 레이아웃, `/` 로딩, `/mypage` 로딩 / 상위 [`loading`](../src/app/mypage/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`MypageView`](../src/components/mypage/MypageView.tsx)
+- [x] [ProfileSetupNotice](../src/components/mypage/ProfileSetupNotice/ProfileSetupNotice.tsx#L1) · 하위 UI 또는 상태 표현 · `가게 정보를 먼저 등록해 주세요` · `가게 정보와 영업 조건을 입력하고 첫 점검을 마치면 홈, 점검 리포트, 체크리스트를 이용할 수 있어요.`
+  - Props —
+  - 연결 — / 하위 —
+  - 참조 `/mypage` / 상위 [`MypageView`](../src/components/mypage/MypageView.tsx)
+- [x] [FieldRow](../src/components/mypage/ProfileSkeleton/ProfileSkeleton.tsx#L4) (파일 내부) · 입력과 검증 상태
+  - Props —
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/mypage`, 공통 레이아웃, `/` 로딩, `/mypage` 로딩 / 상위 [`loading`](../src/app/mypage/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`MypageView`](../src/components/mypage/MypageView.tsx)
+- [x] [ProfileSkeleton](../src/components/mypage/ProfileSkeleton/ProfileSkeleton.tsx#L16) · 로딩 자리 표시 · `마이페이지를 불러오는 중` · `FieldRow`
+  - Props —
+  - 연결 [`profile-styles`](../src/components/mypage/profile-styles.ts) / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/mypage`, 공통 레이아웃, `/` 로딩, `/mypage` 로딩 / 상위 [`loading`](../src/app/mypage/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`MypageView`](../src/components/mypage/MypageView.tsx)
+- [x] [StoreDetailsCard](../src/components/mypage/StoreDetailsCard/StoreDetailsCard.tsx#L7) · 목록 또는 항목 표시 · `가게 정보`
+  - Props `StoreDetailsCardProps` · `draft` · `edit?`
+  - 연결 [`profile-styles`](../src/components/mypage/profile-styles.ts) / 하위 [`ProfileField`](../src/components/mypage/ProfileField/ProfileField.tsx)
+  - 참조 `/mypage` / 상위 [`MypageView`](../src/components/mypage/MypageView.tsx)
+- [x] [StoreResetDialog](../src/components/mypage/StoreResetDialog/StoreResetDialog.tsx#L3) · 팝업과 열림 상태 · `이 계정의 가게 정보, 점검 결과, 체크리스트 진행 상태를 지우고 자리 선택부터 다시 시작해요.` · `지운 정보는 되돌릴 수 없어요.` · `<button>` · `data-nx=mpwipego`
+  - Props —
+  - 연결 [`dialog-styles`](../src/components/feedback/Modal/dialog-styles.ts) / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx)
+
+### navigation
+
+- [x] [AccountActions](../src/components/navigation/AccountActions/AccountActions.tsx#L13) · 하위 UI 또는 상태 표현
+  - Props `AccountActionsProps` · `storeName` · `notifications` · `notificationFetch?` · `onOpenNotification`↗ · `onOpenStore`↗ · `onLogout`↗
+  - 연결 — / 하위 [`LogoutButton`](../src/components/navigation/LogoutButton/LogoutButton.tsx) · [`NotificationMenu`](../src/components/navigation/NotificationMenu/NotificationMenu.tsx) · [`StoreIdentity`](../src/components/navigation/StoreIdentity/StoreIdentity.tsx)
+  - 참조 공통 레이아웃 / 상위 [`Navbar`](../src/components/navigation/Navbar/Navbar.tsx)
+- [x] [Logo](../src/components/navigation/Logo/Logo.tsx#L4) · 하위 UI 또는 상태 표현 · `Foundy 홈` · `<button>`
+  - Props `LogoProps` · `onHome`↗
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`Navbar`](../src/components/navigation/Navbar/Navbar.tsx)
+- [x] [LogoutButton](../src/components/navigation/LogoutButton/LogoutButton.tsx#L4) · 사용자 동작 · `로그아웃` · `<button>` · `<svg>` · `data-nx=logout`
+  - Props `LogoutButtonProps` · `onLogout`↗
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`AccountActions`](../src/components/navigation/AccountActions/AccountActions.tsx)
+- [x] [NavDropdown](../src/components/navigation/NavDropdown/NavDropdown.tsx#L15) · 하위 UI 또는 상태 표현
+  - Props `NavDropdownProps` · `label` · `destinations` · `currentPage` · `onNavigate`↗
+  - 연결 — / 하위 [`NavDropdownItem`](../src/components/navigation/NavDropdownItem/NavDropdownItem.tsx) · [`NavDropdownTrigger`](../src/components/navigation/NavDropdownTrigger/NavDropdownTrigger.tsx)
+  - 참조 공통 레이아웃 / 상위 [`NavLinks`](../src/components/navigation/NavLinks/NavLinks.tsx)
+- [x] [NavDropdownIcon](../src/components/navigation/NavDropdownIcon/NavDropdownIcon.tsx#L13) · 하위 UI 또는 상태 표현
+  - Props `NavDropdownIconProps` · `destinationId`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`NavDropdownItem`](../src/components/navigation/NavDropdownItem/NavDropdownItem.tsx)
+- [x] [NavDropdownItem](../src/components/navigation/NavDropdownItem/NavDropdownItem.tsx#L10) · 목록 또는 항목 표시 · `<button>` · `<svg>`
+  - Props `NavDropdownItemProps` · `destination` · `active` · `onNavigate`↗
+  - 연결 — / 하위 [`NavDropdownIcon`](../src/components/navigation/NavDropdownIcon/NavDropdownIcon.tsx)
+  - 참조 공통 레이아웃 / 상위 [`NavDropdown`](../src/components/navigation/NavDropdown/NavDropdown.tsx)
+- [x] [NavDropdownTrigger](../src/components/navigation/NavDropdownTrigger/NavDropdownTrigger.tsx#L14) · 하위 UI 또는 상태 표현 · `<button>` · `<svg>`
+  - Props `NavDropdownTriggerProps` · `label` · `active` · `open` · `panelId` · `buttonRef` · `onToggle`↗ · `onKeyDown`↗
+  - 연결 [`navigation`](../src/lib/styles/navigation.ts) / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`NavDropdown`](../src/components/navigation/NavDropdown/NavDropdown.tsx)
+- [x] [NavItem](../src/components/navigation/NavItem/NavItem.tsx#L9) · 목록 또는 항목 표시 · `<button>`
+  - Props `NavItemProps` · `destination` · `active` · `onNavigate`↗
+  - 연결 [`navigation`](../src/lib/styles/navigation.ts) / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`NavLinks`](../src/components/navigation/NavLinks/NavLinks.tsx)
+- [x] [NavLinks](../src/components/navigation/NavLinks/NavLinks.tsx#L12) · 하위 UI 또는 상태 표현 · `주 메뉴` · `<nav>`
+  - Props `NavLinksProps` · `currentPage` · `onNavigate`↗ · `className?` · `destinations?`
+  - 연결 [`navigation`](../src/data/navigation.ts) / 하위 [`NavDropdown`](../src/components/navigation/NavDropdown/NavDropdown.tsx) · [`NavItem`](../src/components/navigation/NavItem/NavItem.tsx)
+  - 참조 공통 레이아웃 / 상위 [`Navbar`](../src/components/navigation/Navbar/Navbar.tsx)
+- [x] [Navbar](../src/components/navigation/Navbar/Navbar.tsx#L10) · 하위 UI 또는 상태 표현
+  - Props `NavbarProps` · `onNavigate`↗ · `onOpenNotification`↗ · `onLogout`↗ · `currentPage` · `storeName` · `notifications` · `notificationFetch?` · `destinations?` · `onboarded?`
+  - 연결 — / 하위 [`AccountActions`](../src/components/navigation/AccountActions/AccountActions.tsx) · [`Logo`](../src/components/navigation/Logo/Logo.tsx) · [`NavLinks`](../src/components/navigation/NavLinks/NavLinks.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ApplicationNavigation`](../src/components/layout/ApplicationNavigation/ApplicationNavigation.tsx)
+- [x] [NavbarSkeleton](../src/components/navigation/NavbarSkeleton/NavbarSkeleton.tsx#L3) · 로딩 자리 표시 · `메뉴를 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 공통 레이아웃, `/` 로딩 / 상위 [`ApplicationLoading`](../src/components/layout/ApplicationLoading/ApplicationLoading.tsx) · [`ApplicationNavigation`](../src/components/layout/ApplicationNavigation/ApplicationNavigation.tsx)
+- [x] [NotificationButton](../src/components/navigation/NotificationButton/NotificationButton.tsx#L12) · 사용자 동작 · `<button>` · `<svg>`
+  - Props `NotificationButtonProps` · `unread` · `countKnown?` · `open` · `panelId` · `buttonRef` · `onToggle`↗ · `onKeyDown`↗
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`NotificationMenu`](../src/components/navigation/NotificationMenu/NotificationMenu.tsx)
+- [x] [NotificationCategoryBadge](../src/components/navigation/NotificationCategoryBadge/NotificationCategoryBadge.tsx#L5) · 상태·기준 표시
+  - Props `NotificationCategoryBadgeProps` · `category`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`NotificationItem`](../src/components/navigation/NotificationItem/NotificationItem.tsx)
+- [x] [NotificationItem](../src/components/navigation/NotificationItem/NotificationItem.tsx#L7) · 목록 또는 항목 표시 · `<button>`
+  - Props `NotificationItemProps` · `notification` · `onOpen`↗
+  - 연결 — / 하위 [`NotificationCategoryBadge`](../src/components/navigation/NotificationCategoryBadge/NotificationCategoryBadge.tsx)
+  - 참조 공통 레이아웃 / 상위 [`NotificationPopover`](../src/components/navigation/NotificationPopover/NotificationPopover.tsx)
+- [x] [NotificationMenu](../src/components/navigation/NotificationMenu/NotificationMenu.tsx#L12) · 하위 UI 또는 상태 표현
+  - Props `NotificationMenuProps` · `notifications` · `notificationFetch?` · `onOpen`↗
+  - 연결 [`useNotificationPreview`](../src/hooks/useNotificationPreview.ts) / 하위 [`NotificationButton`](../src/components/navigation/NotificationButton/NotificationButton.tsx) · [`NotificationPopover`](../src/components/navigation/NotificationPopover/NotificationPopover.tsx)
+  - 참조 공통 레이아웃 / 상위 [`AccountActions`](../src/components/navigation/AccountActions/AccountActions.tsx)
+- [x] [NotificationPopover](../src/components/navigation/NotificationPopover/NotificationPopover.tsx#L15) · 팝업과 열림 상태 · `알림 요약` · `다시 시도` · `<button>`
+  - Props `NotificationPopoverProps` · `id` · `panelRef` · `notifications` · `notificationFetch?` · `position` · `onOpen`↗ · `onMouseEnter`↗ · `onMouseLeave`↗
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx) · [`NotificationItem`](../src/components/navigation/NotificationItem/NotificationItem.tsx)
+  - 참조 공통 레이아웃 / 상위 [`NotificationMenu`](../src/components/navigation/NotificationMenu/NotificationMenu.tsx)
+- [x] [StoreIdentity](../src/components/navigation/StoreIdentity/StoreIdentity.tsx#L5) · 하위 UI 또는 상태 표현 · `<button>` · `<svg>`
+  - Props `StoreIdentityProps` · `name` · `onOpen`↗
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`AccountActions`](../src/components/navigation/AccountActions/AccountActions.tsx)
+
+### onboarding
+
+- [x] [AnalysisStep](../src/components/onboarding/AnalysisStep/AnalysisStep.tsx#L12) · 하위 UI 또는 상태 표현 · `첫 점검이` · `단계 처리` · `<button>` · `data-nx=finish`
+  - Props `AnalysisStepProps` · `storeName` · `steps` · `completed` · `finished?` · `notes?`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`AnalysisStatusItem`](../src/components/common/AnalysisStatusItem/AnalysisStatusItem.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [BusinessQuestion](../src/components/onboarding/BusinessQuestion/BusinessQuestion.tsx#L8) · 하위 UI 또는 상태 표현 · `<button>` · `data-nx=yn`
+  - Props `BusinessQuestionProps` · `field` · `title` · `description` · `value`
+  - 연결 — / 하위 —
+  - 참조 `/mypage`, `/register` / 상위 [`BusinessQuestionsStep`](../src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx)
+- [x] [BusinessQuestionsStep](../src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx#L12) · 하위 UI 또는 상태 표현 · `어떤 조건으로 운영하시나요?` · `영업 조건에 맞춰 신고 절차와 준비 항목을 안내해 드려요.` · `<button>` · `data-nx=wizback` · `data-nx=analyze`
+  - Props `BusinessQuestionsStepProps` · `store` · `answers?` · `analysisFailed?`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`BusinessQuestion`](../src/components/onboarding/BusinessQuestion/BusinessQuestion.tsx) · [`Input`](../src/components/ui/Input/Input.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [DemoScenarioBanner](../src/components/onboarding/DemoScenarioBanner/DemoScenarioBanner.tsx#L3) · 하위 UI 또는 상태 표현 · `가게 정보 입력 없이 둘러보기` · `모노커피로 시작` · `<button>` · `data-nx=demo`
+  - Props —
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 —
+  - 참조 `/mypage`, `/register` / 상위 [`StoreInformationStep`](../src/components/onboarding/StoreInformationStep/StoreInformationStep.tsx)
+- [x] [OnboardingHeader](../src/components/onboarding/OnboardingHeader/OnboardingHeader.tsx#L8) · 제목과 안내
+  - Props `OnboardingHeaderProps` · `returning` · `userName`
+  - 연결 — / 하위 [`PageHeader`](../src/components/common/PageHeader/PageHeader.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [OnboardingPage](../src/components/onboarding/OnboardingPage/OnboardingPage.tsx#L11) · 페이지 데이터 연결
+  - Props `OnboardingPageProps` · `embedded?`
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) · [`useOnboarding`](../src/hooks/useOnboarding.ts) / 하위 [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`page`](../src/app/register/page.tsx) · [`MypagePage`](../src/components/mypage/MypagePage/MypagePage.tsx)
+- [x] [OnboardingFlow](../src/components/onboarding/OnboardingView.tsx#L18) (파일 내부) · 하위 UI 또는 상태 표현
+  - Props `model` · `embedded`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`AnalysisStep`](../src/components/onboarding/AnalysisStep/AnalysisStep.tsx) · [`BusinessQuestionsStep`](../src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx) · [`OnboardingHeader`](../src/components/onboarding/OnboardingHeader/OnboardingHeader.tsx) · [`RegistrationSkeleton`](../src/components/onboarding/RegistrationSkeleton/RegistrationSkeleton.tsx) · [`StoreInformationStep`](../src/components/onboarding/StoreInformationStep/StoreInformationStep.tsx) · [`WizardProgress`](../src/components/onboarding/WizardProgress/WizardProgress.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`OnboardingPage`](../src/components/onboarding/OnboardingPage/OnboardingPage.tsx)
+- [x] [OnboardingView](../src/components/onboarding/OnboardingView.tsx#L48) · 화면과 하위 영역 조합 · `OnboardingFlow`
+  - Props `OnboardingViewProps` · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗ · `embedded?`
+  - 연결 — / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`RegistrationSkeleton`](../src/components/onboarding/RegistrationSkeleton/RegistrationSkeleton.tsx) · [`EventBoundary`](../src/components/view/EventBoundary/EventBoundary.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`OnboardingPage`](../src/components/onboarding/OnboardingPage/OnboardingPage.tsx)
+- [x] [FieldPlaceholder](../src/components/onboarding/RegistrationSkeleton/RegistrationSkeleton.tsx#L4) (파일 내부) · 로딩 자리 표시
+  - Props `address?` · `hint?`
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/mypage`, `/register`, 공통 레이아웃, `/` 로딩, `/register` 로딩 / 상위 [`loading`](../src/app/register/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [StoreInformationPlaceholder](../src/components/onboarding/RegistrationSkeleton/RegistrationSkeleton.tsx#L17) (파일 내부) · 로딩 자리 표시 · `FieldPlaceholder`
+  - Props `demo`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/mypage`, `/register`, 공통 레이아웃, `/` 로딩, `/register` 로딩 / 상위 [`loading`](../src/app/register/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [BusinessQuestionsPlaceholder](../src/components/onboarding/RegistrationSkeleton/RegistrationSkeleton.tsx#L37) (파일 내부) · 로딩 자리 표시 · `FieldPlaceholder`
+  - Props —
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/mypage`, `/register`, 공통 레이아웃, `/` 로딩, `/register` 로딩 / 상위 [`loading`](../src/app/register/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [AnalysisPlaceholder](../src/components/onboarding/RegistrationSkeleton/RegistrationSkeleton.tsx#L62) (파일 내부) · 로딩 자리 표시
+  - Props `rows`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/mypage`, `/register`, 공통 레이아웃, `/` 로딩, `/register` 로딩 / 상위 [`loading`](../src/app/register/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [RegistrationSkeleton](../src/components/onboarding/RegistrationSkeleton/RegistrationSkeleton.tsx#L90) · 로딩 자리 표시 · `가게 등록 정보를 불러오는 중` · `StoreInformationPlaceholder` · `BusinessQuestionsPlaceholder` · `AnalysisPlaceholder`
+  - Props `RegistrationSkeletonProps` · `currentStep?` · `analysisCount?` · `embedded?`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/mypage`, `/register`, 공통 레이아웃, `/` 로딩, `/register` 로딩 / 상위 [`loading`](../src/app/register/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [StoreAddressFields](../src/components/onboarding/StoreAddressFields/StoreAddressFields.tsx#L11) · 입력과 검증 상태 · `가게 주소` · `이 주소로 점검과 상권 분석을 진행해요.` · `<input>`
+  - Props `StoreAddressFieldsProps` · `store`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`AddressSearchButton`](../src/components/ui/AddressSearchButton/AddressSearchButton.tsx) · [`Input`](../src/components/ui/Input/Input.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`StoreInformationForm`](../src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx)
+- [x] [StoreIdentityFields](../src/components/onboarding/StoreIdentityFields/StoreIdentityFields.tsx#L8) · 입력과 검증 상태 · `가게 이름` · `업종` · `<svg>`
+  - Props `StoreIdentityFieldsProps` · `store`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`Input`](../src/components/ui/Input/Input.tsx) · [`Select`](../src/components/ui/Select/Select.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`StoreInformationForm`](../src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx)
+- [x] [StoreInformationForm](../src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx#L9) · 입력과 검증 상태 · `다음 · 영업 조건` · `<form>` · `<button>`
+  - Props `StoreInformationFormProps` · `store` · `saving?`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`StoreAddressFields`](../src/components/onboarding/StoreAddressFields/StoreAddressFields.tsx) · [`StoreIdentityFields`](../src/components/onboarding/StoreIdentityFields/StoreIdentityFields.tsx) · [`StoreScheduleFields`](../src/components/onboarding/StoreScheduleFields/StoreScheduleFields.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`StoreInformationStep`](../src/components/onboarding/StoreInformationStep/StoreInformationStep.tsx)
+- [x] [StoreInformationStep](../src/components/onboarding/StoreInformationStep/StoreInformationStep.tsx#L8) · 하위 UI 또는 상태 표현 · `어떤 가게를 준비하고 있나요?`
+  - Props `StoreInformationStepProps` · `store` · `saving?` · `showDemo?`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`DemoScenarioBanner`](../src/components/onboarding/DemoScenarioBanner/DemoScenarioBanner.tsx) · [`StoreInformationForm`](../src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [StoreScheduleFields](../src/components/onboarding/StoreScheduleFields/StoreScheduleFields.tsx#L8) · 입력과 검증 상태 · `개업 예정일` · `출생 연도`
+  - Props `StoreScheduleFieldsProps` · `store`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`DatePickerField`](../src/components/ui/DatePickerField/DatePickerField.tsx) · [`Input`](../src/components/ui/Input/Input.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`StoreInformationForm`](../src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx)
+- [x] [WizardProgress](../src/components/onboarding/WizardProgress/WizardProgress.tsx#L8) · 수치와 그래프 표시 · `가게 등록 진행 단계` · `<nav>`
+  - Props `WizardProgressProps` · `step`
+  - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`WizardStep`](../src/components/onboarding/WizardStep/WizardStep.tsx)
+  - 참조 `/mypage`, `/register` / 상위 [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
+- [x] [WizardStep](../src/components/onboarding/WizardStep/WizardStep.tsx#L8) · 하위 UI 또는 상태 표현 · `완료` · `<svg>`
+  - Props `WizardStepProps` · `number` · `label` · `current` · `complete`
+  - 연결 — / 하위 —
+  - 참조 `/mypage`, `/register` / 상위 [`WizardProgress`](../src/components/onboarding/WizardProgress/WizardProgress.tsx)
+
+### report
+
+- [x] [EvidenceDialog](../src/components/report/EvidenceDialog/EvidenceDialog.tsx#L9) · 팝업과 열림 상태 · `참고 자료` · `이 항목에 공개된 참고 자료가 아직 없어요.`
+  - Props `EvidenceDialogProps` · `items` · `date?`
+  - 연결 — / 하위 [`EvidenceItem`](../src/components/report/EvidenceItem/EvidenceItem.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx)
+- [x] [EvidenceItem](../src/components/report/EvidenceItem/EvidenceItem.tsx#L8) · 목록 또는 항목 표시 · `자료 기준일` · `공식 사이트 확인` · `<a>` · `<svg>`
+  - Props `EvidenceItemProps` · `item` · `date?`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`EvidenceDialog`](../src/components/report/EvidenceDialog/EvidenceDialog.tsx)
+- [x] [LockedReport](../src/components/report/LockedReport/LockedReport.tsx#L1) · 하위 UI 또는 상태 표현 · `자리를 정하면 시작돼요` · `건물 용도와 위반건축물 여부를 점검하려면 주소가 필요해요. 상권 분석에서 후보 상권을 비교한 뒤 ‘여기로 정하기’를…` · `<button>` · `data-nx=go`
+  - Props —
+  - 연결 — / 하위 —
+  - 참조 `/report` / 상위 [`ReportView`](../src/components/report/ReportView.tsx)
+- [x] [NextStepItem](../src/components/report/NextStepItem/NextStepItem.tsx#L8) · 목록 또는 항목 표시 · `새로 생김` · `<button>` · `<svg>`
+  - Props `NextStepItemProps` · `step`
+  - 연결 [`navigation`](../src/data/navigation.ts) · [`next-step-trigger`](../src/lib/report/next-step-trigger.ts) / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ReportNextSteps`](../src/components/report/ReportNextSteps/ReportNextSteps.tsx)
+- [x] [OptionCard](../src/components/report/OptionCard/OptionCard.tsx#L10) · 목록 또는 항목 표시 · `추천` · `<button>` · `<svg>` · `data-nx=opt`
+  - Props `OptionCardProps` · `cardId` · `option` · `recommended`
+  - 연결 [`option-meta`](../src/lib/report/option-meta.ts) / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ReportChoiceDialog`](../src/components/report/ReportChoiceDialog/ReportChoiceDialog.tsx)
+- [x] [OptionConfirmDialog](../src/components/report/OptionConfirmDialog/OptionConfirmDialog.tsx#L12) · 팝업과 열림 상태 · `추천` · `추천하는 이유`
+  - Props `OptionConfirmDialogProps` · `cardId` · `optionId` · `label` · `summary` · `changes` · `recommended` · `reason?` · `meta`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx)
+- [x] [ReportCard](../src/components/report/ReportCard/ReportCard.tsx#L13) · 목록 또는 항목 표시
+  - Props `ReportCardProps` · `model` · `expanded?` · `onExpandedChange?`↗
+  - 연결 — / 하위 [`ReportCardActions`](../src/components/report/ReportCardActions/ReportCardActions.tsx) · [`ReportCardSummary`](../src/components/report/ReportCardSummary/ReportCardSummary.tsx) · [`ReportOptions`](../src/components/report/ReportOptions/ReportOptions.tsx) · [`ReportRationale`](../src/components/report/ReportRationale/ReportRationale.tsx)
+  - 참조 `/report` / 상위 [`ReportItems`](../src/components/report/ReportItems/ReportItems.tsx)
+- [x] [ReportCardActions](../src/components/report/ReportCardActions/ReportCardActions.tsx#L5) · 목록 또는 항목 표시 · `판정 근거 자세히` · `이 항목 질문하기` · `<button>` · `<svg>` · `data-nx=evid` · `data-nx=focuschat`
+  - Props `ReportCardActionsProps` · `cardId`
+  - 연결 — / 하위 —
+  - 참조 `/report` / 상위 [`ReportCard`](../src/components/report/ReportCard/ReportCard.tsx)
+- [x] [ReportCardSummary](../src/components/report/ReportCardSummary/ReportCardSummary.tsx#L11) · 목록 또는 항목 표시 · `결정함` · `<svg>`
+  - Props `ReportCardSummaryProps` · `card` · `state` · `verdict` · `followUpPending`
+  - 연결 — / 하위 [`VerdictBadge`](../src/components/report/VerdictBadge/VerdictBadge.tsx)
+  - 참조 `/report` / 상위 [`ReportCard`](../src/components/report/ReportCard/ReportCard.tsx)
+- [x] [ReportChoiceDialog](../src/components/report/ReportChoiceDialog/ReportChoiceDialog.tsx#L8) · 팝업과 열림 상태 · `선택지`
+  - Props `ReportChoiceDialogProps` · `card`
+  - 연결 — / 하위 [`OptionCard`](../src/components/report/OptionCard/OptionCard.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx)
+- [x] [ReportChoiceSummary](../src/components/report/ReportChoiceSummary/ReportChoiceSummary.tsx#L6) · 하위 UI 또는 상태 표현 · `완료한 작업` · `<button>` · `<svg>` · `data-nx=optionresult`
+  - Props `ReportChoiceSummaryProps` · `cardId` · `completedTask`
+  - 연결 — / 하위 —
+  - 참조 `/report` / 상위 [`ReportOptions`](../src/components/report/ReportOptions/ReportOptions.tsx)
+- [x] [ReportDialogActions](../src/components/report/ReportDialogActions/ReportDialogActions.tsx#L12) · 팝업과 열림 상태 · `다시 선택` · `선택지 적용` · `<button>` · `<svg>` · `data-nx=options` · `data-nx=confirm` · `data-nx=actreset` · `data-nx=actdone`
+  - Props `ReportDialogActionsProps` · `content`
+  - 연결 [`dialog-styles`](../src/components/feedback/Modal/dialog-styles.ts) / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx)
+- [x] [ReportFilters](../src/components/report/ReportFilters/ReportFilters.tsx#L7) · 필터 또는 보기 전환 · `점검 단계 필터` · `<button>` · `data-nx=rfilter`
+  - Props `ReportFiltersProps` · `selected`
+  - 연결 — / 하위 —
+  - 참조 `/report` / 상위 [`ReportView`](../src/components/report/ReportView.tsx)
+- [x] [ReportFollowUp](../src/components/report/ReportFollowUp/ReportFollowUp.tsx#L5) · 하위 UI 또는 상태 표현 · `분` · `담당 기관 ·` · `<svg>` · `<button>` · `data-nx=go`
+  - Props `ReportFollowUpProps` · `model`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ReportResultDialog`](../src/components/report/ReportResultDialog/ReportResultDialog.tsx)
+- [x] [ReportHeader](../src/components/report/ReportHeader/ReportHeader.tsx#L5) · 제목과 안내 · `점검 리포트`
+  - Props `ReportHeaderProps` · `locked`
+  - 연결 — / 하위 [`PageHeader`](../src/components/common/PageHeader/PageHeader.tsx)
+  - 참조 `/report` / 상위 [`ReportView`](../src/components/report/ReportView.tsx)
+- [x] [ReportItems](../src/components/report/ReportItems/ReportItems.tsx#L31) · 목록 또는 항목 표시 · `해당 단계의 결과가 없어요.` · `건`
+  - Props `ReportItemsProps` · `cards`
+  - 연결 — / 하위 [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`ReportCard`](../src/components/report/ReportCard/ReportCard.tsx)
+  - 참조 `/report` / 상위 [`ReportView`](../src/components/report/ReportView.tsx)
+- [x] [ReportNextSteps](../src/components/report/ReportNextSteps/ReportNextSteps.tsx#L6) · 하위 UI 또는 상태 표현 · `예정된 후속 작업이 없어요.` · `체크리스트 열기` · `<button>` · `data-nx=cnav`
+  - Props `ReportNextStepsProps` · `model`
+  - 연결 — / 하위 [`NextStepItem`](../src/components/report/NextStepItem/NextStepItem.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ReportResultDialog`](../src/components/report/ReportResultDialog/ReportResultDialog.tsx)
+- [x] [ReportOptions](../src/components/report/ReportOptions/ReportOptions.tsx#L12) · 하위 UI 또는 상태 표현
+  - Props `ReportOptionsProps` · `card` · `state` · `actionTitle?` · `nextStep?`
+  - 연결 — / 하위 [`ReportChoiceSummary`](../src/components/report/ReportChoiceSummary/ReportChoiceSummary.tsx) · [`ReportStepButton`](../src/components/report/ReportStepButton/ReportStepButton.tsx)
+  - 참조 `/report` / 상위 [`ReportCard`](../src/components/report/ReportCard/ReportCard.tsx)
+- [x] [ReportPage](../src/components/report/ReportPage/ReportPage.tsx#L7) · 페이지 데이터 연결
+  - Props —
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) · [`useReport`](../src/hooks/useReport.ts) / 하위 [`ReportView`](../src/components/report/ReportView.tsx)
+  - 참조 `/report` / 상위 [`page`](../src/app/report/page.tsx)
+- [x] [ReportRationale](../src/components/report/ReportRationale/ReportRationale.tsx#L5) · 하위 UI 또는 상태 표현 · `점검 이유`
+  - Props `ReportRationaleProps` · `reason`
+  - 연결 — / 하위 —
+  - 참조 `/report` / 상위 [`ReportCard`](../src/components/report/ReportCard/ReportCard.tsx)
+- [x] [ReportResultDialog](../src/components/report/ReportResultDialog/ReportResultDialog.tsx#L10) · 팝업과 열림 상태 · `이전 판정` · `현재 판정`
+  - Props `ReportResultDialogProps` · `model`
+  - 연결 — / 하위 [`ReportFollowUp`](../src/components/report/ReportFollowUp/ReportFollowUp.tsx) · [`ReportNextSteps`](../src/components/report/ReportNextSteps/ReportNextSteps.tsx) · [`VerdictBadge`](../src/components/report/VerdictBadge/VerdictBadge.tsx)
+  - 참조 공통 레이아웃 / 상위 [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx)
+- [x] [ReportSkeleton](../src/components/report/ReportSkeleton/ReportSkeleton.tsx#L3) · 로딩 자리 표시 · `점검 리포트를 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/report`, 공통 레이아웃, `/` 로딩, `/report` 로딩 / 상위 [`loading`](../src/app/report/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`ReportView`](../src/components/report/ReportView.tsx)
+- [x] [ReportStepButton](../src/components/report/ReportStepButton/ReportStepButton.tsx#L10) · 사용자 동작 · `<button>` · `<svg>`
+  - Props `ReportStepButtonProps` · `cardId` · `task` · `kind`
+  - 연결 [`next-step-trigger`](../src/lib/report/next-step-trigger.ts) / 하위 —
+  - 참조 `/report` / 상위 [`ReportOptions`](../src/components/report/ReportOptions/ReportOptions.tsx)
+- [x] [ReportSummary](../src/components/report/ReportSummary/ReportSummary.tsx#L16) · 하위 UI 또는 상태 표현 · `전체 점검 항목` · `건` · `<button>` · `data-nx=go`
+  - Props `ReportSummaryProps` · `counts` · `firstByVerdict`
+  - 연결 [`report`](../src/data/report.ts) / 하위 —
+  - 참조 `/report` / 상위 [`ReportView`](../src/components/report/ReportView.tsx)
+- [x] [ReportView](../src/components/report/ReportView.tsx#L17) · 화면과 하위 영역 조합 · `점검 요약` · `항목별 점검`
+  - Props `ReportViewProps` · `onEvent?`↗ · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 — / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`LockedReport`](../src/components/report/LockedReport/LockedReport.tsx) · [`ReportFilters`](../src/components/report/ReportFilters/ReportFilters.tsx) · [`ReportHeader`](../src/components/report/ReportHeader/ReportHeader.tsx) · [`ReportItems`](../src/components/report/ReportItems/ReportItems.tsx) · [`ReportSkeleton`](../src/components/report/ReportSkeleton/ReportSkeleton.tsx) · [`ReportSummary`](../src/components/report/ReportSummary/ReportSummary.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+  - 참조 `/report` / 상위 [`ReportPage`](../src/components/report/ReportPage/ReportPage.tsx)
+- [x] [VerdictBadge](../src/components/report/VerdictBadge/VerdictBadge.tsx#L13) · 상태·기준 표시
+  - Props `VerdictBadgeProps` · `verdict` · `label?`
+  - 연결 [`report`](../src/data/report.ts) / 하위 —
+  - 참조 `/report`, 공통 레이아웃 / 상위 [`DecisionItem`](../src/components/dashboard/DecisionItem/DecisionItem.tsx) · [`ReportCardSummary`](../src/components/report/ReportCardSummary/ReportCardSummary.tsx) · [`ReportResultDialog`](../src/components/report/ReportResultDialog/ReportResultDialog.tsx)
+
+### sites
+
+- [x] [CompetitionCard](../src/components/sites/CompetitionCard/CompetitionCard.tsx#L8) · 목록 또는 항목 표시 · `거리와 점포 특성` · `거리별 누적 점포 수`
+  - Props `CompetitionCardProps` · `analysis`
+  - 연결 — / 하위 [`DonutChart`](../src/components/charts/DonutChart/DonutChart.tsx) · [`HorizontalBarChart`](../src/components/charts/HorizontalBarChart/HorizontalBarChart.tsx) · [`MarketMetric`](../src/components/sites/MarketMetric/MarketMetric.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [FieldChecklistCard](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx#L13) · 입력과 검증 상태 · `현장에서 확인할 것` · `창업 점검 리포트 보기 →` · `<button>`
+  - Props `FieldChecklistCardProps` · `onOpenReport?`↗
+  - 연결 — / 하위 [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [LocationPickDialog](../src/components/sites/LocationPickDialog/LocationPickDialog.tsx#L5) · 팝업과 열림 상태 · `이 상권에서 알아본 자리의 주소를 입력하면 점검 리포트가 시작돼요.` · `후보 주소` · `<form>` · `<input>` · `<button>`
+  - Props `LocationPickDialogProps` · `areaId`
+  - 연결 [`dialog-styles`](../src/components/feedback/Modal/dialog-styles.ts) / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ApplicationDialog`](../src/components/layout/ApplicationDialog/ApplicationDialog.tsx)
+- [x] [MarketAnalysisPanel](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx#L25) · 화면과 하위 영역 조합 · `data-testid=market-panel`
+  - Props `MarketAnalysisPanelProps` · `open` · `onClose`↗ · `center` · `radius` · `category` · `onCategoryChange`↗ · `summary` · `population` · `shops` · `planning`
+  - 연결 — / 하위 [`MarketCategoryFilter`](../src/components/sites/MarketCategoryFilter/MarketCategoryFilter.tsx) · [`MarketPanelHeader`](../src/components/sites/MarketPanelHeader/MarketPanelHeader.tsx) · [`MarketPanelTabs`](../src/components/sites/MarketPanelTabs/MarketPanelTabs.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [MarketBar](../src/components/sites/MarketBar/MarketBar.tsx#L5) · 수치와 그래프 표시 · `곳`
+  - Props `MarketBarProps` · `label` · `value` · `percent`
+  - 연결 — / 하위 —
+  - 참조 페이지 연결 없음 · 보관/미사용 후보 / 상위 —
+- [x] [MarketCategoryFilter](../src/components/sites/MarketCategoryFilter/MarketCategoryFilter.tsx#L12) · 필터 또는 보기 전환 · `점포 업종` · `<button>`
+  - Props `MarketCategoryFilterProps` · `value` · `onChange`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx)
+- [x] [MarketEmptyState](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx#L1) · 하위 UI 또는 상태 표현 · `선택한 조건에 표시할 점포가 없어요` · `성수역 주변으로 지도 중심을 옮기거나 반경과 업종을 바꿔 보세요.`
+  - Props —
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx)
+- [x] [MarketMetric](../src/components/sites/MarketMetric/MarketMetric.tsx#L8) · 하위 UI 또는 상태 표현
+  - Props `MarketMetricProps` · `label` · `children` · `unavailable?`
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx)
+- [x] [MarketPanelCard](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx#L8) · 화면과 하위 영역 조합
+  - Props `MarketPanelCardProps` · `title` · `description?` · `children`
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`FieldChecklistCard`](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) · [`PopulationBreakdownCard`](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx) · [`PopulationHourlyCard`](../src/components/sites/PopulationHourlyCard/PopulationHourlyCard.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`PricePositionCard`](../src/components/sites/PricePositionCard/PricePositionCard.tsx) · [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
+- [x] [MarketPanelHeader](../src/components/sites/MarketPanelHeader/MarketPanelHeader.tsx#L8) · 화면과 하위 영역 조합 · `상권 정보` · `반경` · `<button>` · `<svg>`
+  - Props `MarketPanelHeaderProps` · `center` · `radius` · `onClose`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx)
+- [x] [MarketPanelTabs](../src/components/sites/MarketPanelTabs/MarketPanelTabs.tsx#L13) · 필터 또는 보기 전환 · `상권 정보 보기` · `<nav>` · `<button>`
+  - Props `MarketPanelTabsProps` · `value` · `onChange`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx)
+- [x] [MarketSummaryCard](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx#L8) · 목록 또는 항목 표시 · `반경 안 점포 구성` · `표시된 점포`
+  - Props `MarketSummaryCardProps` · `analysis`
+  - 연결 — / 하위 [`DonutChart`](../src/components/charts/DonutChart/DonutChart.tsx) · [`HorizontalBarChart`](../src/components/charts/HorizontalBarChart/HorizontalBarChart.tsx) · [`MarketEmptyState`](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [NearbyShopsCard](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx#L12) · 목록 또는 항목 표시
+  - Props `NearbyShopsCardProps` · `shops` · `selectedShop?` · `onSelect`↗
+  - 연결 — / 하위 [`MarketEmptyState`](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx) · [`SelectedShop`](../src/components/sites/SelectedShop/SelectedShop.tsx) · [`ShopListItem`](../src/components/sites/ShopListItem/ShopListItem.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [PopulationBreakdownCard](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx#L16) · 목록 또는 항목 표시 · `공개값 구성비` · `연령별 공개값`
+  - Props `PopulationBreakdownCardProps` · `title` · `description` · `rows` · `chart`
+  - 연결 [`format`](../src/lib/foot-traffic/format.ts) / 하위 [`DonutChart`](../src/components/charts/DonutChart/DonutChart.tsx) · [`HorizontalBarChart`](../src/components/charts/HorizontalBarChart/HorizontalBarChart.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
+  - 참조 `/sites` / 상위 [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx)
+- [x] [PopulationDataNote](../src/components/sites/PopulationDataNote/PopulationDataNote.tsx#L5) · 하위 UI 또는 상태 표현 · `출처와 집계 기준` · `서울특별시·KT의 기존 250m 생활인구 자료를 사용해요. 격자 중심이 선택 반경에 들어오는 공개값을 합산하며, 도…` · `<svg>`
+  - Props `PopulationDataNoteProps` · `date`
+  - 연결 [`format`](../src/lib/foot-traffic/format.ts) / 하위 —
+  - 참조 `/sites` / 상위 [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx)
+- [x] [PopulationHourlyCard](../src/components/sites/PopulationHourlyCard/PopulationHourlyCard.tsx#L14) · 목록 또는 항목 표시 · `시간대별 생활인구` · `지도·구성 분석 시간` · `<select>`
+  - Props `PopulationHourlyCardProps` · `points` · `hour` · `onHourChange`↗
+  - 연결 — / 하위 [`HourlyPopulationChart`](../src/components/charts/HourlyPopulationChart/HourlyPopulationChart.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
+  - 참조 `/sites` / 상위 [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx)
+- [x] [PopulationReport](../src/components/sites/PopulationReport/PopulationReport.tsx#L23) · 하위 UI 또는 상태 표현 · `그래프 다시 시도` · `생활인구 구성` · `<button>` · `data-testid=population-report`
+  - Props `PopulationReportProps` · `data?` · `loading?` · `error?` · `retry?`↗ · `hour` · `onHourChange`↗
+  - 연결 — / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx) · [`PopulationBreakdownCard`](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx) · [`PopulationDataNote`](../src/components/sites/PopulationDataNote/PopulationDataNote.tsx) · [`PopulationHourlyCard`](../src/components/sites/PopulationHourlyCard/PopulationHourlyCard.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [PopulationSummaryCard](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx#L17) · 목록 또는 항목 표시 · `반경 안 생활인구` · `생활인구 요약을 불러오는 중`
+  - Props `PopulationSummaryCardProps` · `data?` · `loading?` · `error?` · `onRetry?`↗
+  - 연결 [`format`](../src/lib/foot-traffic/format.ts) / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
+  - 참조 `/sites` / 상위 [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [PriceComparison](../src/components/sites/PriceComparison/PriceComparison.tsx#L10) · 하위 UI 또는 상태 표현 · `비교 가격 범위`
+  - Props `PriceComparisonProps` · `range` · `position` · `price` · `format`↗
+  - 연결 — / 하위 [`RangeChart`](../src/components/charts/RangeChart/RangeChart.tsx)
+  - 참조 `/sites` / 상위 [`PricePositionCard`](../src/components/sites/PricePositionCard/PricePositionCard.tsx)
+- [x] [PricePositionCard](../src/components/sites/PricePositionCard/PricePositionCard.tsx#L14) · 목록 또는 항목 표시 · `아메리카노 가격 비교` · `내 아메리카노 가격 (원)` · `<input>`
+  - Props `PricePositionCardProps` · `price` · `range` · `position` · `format?`↗ · `onPriceChange?`↗
+  - 연결 [`format`](../src/lib/format.ts) / 하위 [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx) · [`PriceComparison`](../src/components/sites/PriceComparison/PriceComparison.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [SelectedShop](../src/components/sites/SelectedShop/SelectedShop.tsx#L5) · 입력과 검증 상태 · `선택한 점포` · `중심에서`
+  - Props `SelectedShopProps` · `shop?`
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx)
+- [x] [ShopListItem](../src/components/sites/ShopListItem/ShopListItem.tsx#L8) · 목록 또는 항목 표시 · `<button>`
+  - Props `ShopListItemProps` · `shop` · `selected` · `onSelect`↗
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx)
+- [x] [SitesPage](../src/components/sites/SitesPage/SitesPage.tsx#L7) · 페이지 데이터 연결
+  - Props —
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) · [`useSites`](../src/hooks/useSites.ts) · [`static-data-source`](../src/lib/foot-traffic/static-data-source.ts) / 하위 [`SitesView`](../src/components/sites/SitesView.tsx)
+  - 참조 `/sites` / 상위 [`page`](../src/app/sites/page.tsx)
+- [x] [SitesSkeleton](../src/components/sites/SitesSkeleton/SitesSkeleton.tsx#L4) · 로딩 자리 표시 · `상권 분석을 불러오는 중`
+  - Props —
+  - 연결 — / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
+  - 참조 `/sites`, 공통 레이아웃, `/` 로딩, `/sites` 로딩 / 상위 [`loading`](../src/app/sites/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`SitesView`](../src/components/sites/SitesView.tsx)
+- [x] [SitesView](../src/components/sites/SitesView.tsx#L11) · 화면과 하위 영역 조합
+  - Props `SitesViewProps` · `data?` · `loading?` · `error?` · `onRetry?`↗ · `appKey?` · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onPriceChange?`↗ · `onOpenReport?`↗
+  - 연결 — / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SitesSkeleton`](../src/components/sites/SitesSkeleton/SitesSkeleton.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+  - 참조 `/sites` / 상위 [`SitesPage`](../src/components/sites/SitesPage/SitesPage.tsx)
+- [x] [SitesWorkspace](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx#L33) · 화면과 하위 영역 조합 · `상권 분석 지도` · `상권 분석` · `<button>` · `data-testid=market-workspace`
+  - Props `SitesWorkspaceProps` · `data` · `appKey?` · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onPriceChange?`↗ · `onOpenReport?`↗
+  - 연결 [`usePopulationInsights`](../src/hooks/usePopulationInsights.ts) · [`analyze-market`](../src/lib/market/analyze-market.ts) / 하위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`FieldChecklistCard`](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx) · [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`PricePositionCard`](../src/components/sites/PricePositionCard/PricePositionCard.tsx) · [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
+  - 참조 `/sites` / 상위 [`SitesView`](../src/components/sites/SitesView.tsx)
+- [x] [StrategyCard](../src/components/sites/StrategyCard/StrategyCard.tsx#L4) · 목록 또는 항목 표시 · `지도를 읽는 방법`
+  - Props —
+  - 연결 — / 하위 [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx) · [`StrategyRow`](../src/components/sites/StrategyRow/StrategyRow.tsx)
+  - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+- [x] [StrategyRow](../src/components/sites/StrategyRow/StrategyRow.tsx#L5) · 목록 또는 항목 표시
+  - Props `StrategyRowProps` · `text` · `source`
+  - 연결 — / 하위 —
+  - 참조 `/sites` / 상위 [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
+
+### ui
+
+- [x] [AddressSearchButton](../src/components/ui/AddressSearchButton/AddressSearchButton.tsx#L10) · 사용자 동작 · `주소 검색` · `주소 검색 닫기` · `<button>` · `<svg>` · `<dialog>`
+  - Props `AddressSearchButtonProps` · `onSelect`↗
+  - 연결 [`kakao-postcode`](../src/lib/kakao-postcode.ts) / 하위 —
+  - 참조 `/mypage`, `/register` / 상위 [`StoreAddressFields`](../src/components/onboarding/StoreAddressFields/StoreAddressFields.tsx)
+- [x] [Calendar](../src/components/ui/Calendar/Calendar.tsx#L37) · 하위 UI 또는 상태 표현
+  - Props `CalendarProps` (78개 속성)
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/mypage`, `/register`, 공통 레이아웃 / 상위 [`CalendarMonthCard`](../src/components/checklist/CalendarMonthCard/CalendarMonthCard.tsx) · [`DatePickerField`](../src/components/ui/DatePickerField/DatePickerField.tsx)
+- [x] [DatePickerField](../src/components/ui/DatePickerField/DatePickerField.tsx#L17) · 입력과 검증 상태 · `<input>` · `<button>` · `<svg>`
+  - Props `DatePickerFieldProps` · `id` · `label` · `value` · `required?` · `name?` · `onValueChange?`↗
+  - 연결 [`useCalendarPosition`](../src/components/ui/DatePickerField/useCalendarPosition.ts) · [`date`](../src/lib/date.ts) / 하위 [`Calendar`](../src/components/ui/Calendar/Calendar.tsx)
+  - 참조 `/mypage`, `/register`, 공통 레이아웃 / 상위 [`OpeningDateDialog`](../src/components/checklist/OpeningDateDialog/OpeningDateDialog.tsx) · [`ProfileFieldEditor`](../src/components/mypage/ProfileFieldEditor/ProfileFieldEditor.tsx) · [`StoreScheduleFields`](../src/components/onboarding/StoreScheduleFields/StoreScheduleFields.tsx)
+- [x] [Input](../src/components/ui/Input/Input.tsx#L7) · 하위 UI 또는 상태 표현 · `<input>`
+  - Props `InputProps` (표준 HTML 속성)
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/dashboard`, `/mypage`, `/`, `/register`, 공통 레이아웃 / 상위 [`CalendarEventRow`](../src/components/checklist/CalendarEventRow/CalendarEventRow.tsx) · [`TaskRow`](../src/components/checklist/TaskRow/TaskRow.tsx) · [`DashboardTaskRow`](../src/components/dashboard/DashboardTaskRow/DashboardTaskRow.tsx) · [`BusinessQuestionsStep`](../src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx) · [`StoreAddressFields`](../src/components/onboarding/StoreAddressFields/StoreAddressFields.tsx) · [`StoreIdentityFields`](../src/components/onboarding/StoreIdentityFields/StoreIdentityFields.tsx) · [`StoreScheduleFields`](../src/components/onboarding/StoreScheduleFields/StoreScheduleFields.tsx) · [`Element`](../src/components/view/Element/Element.tsx)
+- [x] [Select](../src/components/ui/Select/Select.tsx#L6) · 입력과 검증 상태 · `<select>`
+  - Props `SelectProps` (표준 HTML 속성)
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/mypage`, `/`, `/register`, 공통 레이아웃 / 상위 [`StoreIdentityFields`](../src/components/onboarding/StoreIdentityFields/StoreIdentityFields.tsx) · [`Element`](../src/components/view/Element/Element.tsx)
+- [x] [ShiningText](../src/components/ui/ShiningText/ShiningText.tsx#L7) · 하위 UI 또는 상태 표현
+  - Props `ShiningTextProps` · `text` · `className?`
+  - 연결 — / 하위 —
+  - 참조 공통 레이아웃 / 상위 [`ChatProcessing`](../src/components/chat/ChatProcessing/ChatProcessing.tsx)
+- [x] [Textarea](../src/components/ui/Textarea/Textarea.tsx#L6) · 하위 UI 또는 상태 표현 · `<textarea>`
+  - Props `TextareaProps` (표준 HTML 속성)
+  - 연결 — / 하위 —
+  - 참조 `/dashboard`, `/`, 공통 레이아웃 / 상위 [`Element`](../src/components/view/Element/Element.tsx)
+- [x] [TypewriterText](../src/components/ui/TypewriterText/TypewriterText.tsx#L16) · 하위 UI 또는 상태 표현
+  - Props `TypewriterTextProps` · `texts` · `paused?` · `typingMs?` · `deletingMs?` · `holdMs?` · `className?` · `cursorClassName?` · `accessibleText?`
+  - 연결 [`useTypewriterLoop`](../src/hooks/useTypewriterLoop.ts) / 하위 —
+  - 참조 `/dashboard`, `/login`, `/`, 공통 레이아웃 / 상위 [`DashboardGreeting`](../src/components/dashboard/DashboardGreeting/DashboardGreeting.tsx) · [`LoginHeading`](../src/components/login/LoginHeading/LoginHeading.tsx)
+
+### view
+
+- [x] [Element](../src/components/view/Element/Element.tsx#L14) · 하위 UI 또는 상태 표현
+  - Props `ElementProps<T>`
+  - 연결 [`recipes`](../src/lib/styles/recipes.ts) / 하위 [`Input`](../src/components/ui/Input/Input.tsx) · [`Select`](../src/components/ui/Select/Select.tsx) · [`Textarea`](../src/components/ui/Textarea/Textarea.tsx)
+  - 참조 `/dashboard`, `/`, 공통 레이아웃 / 상위 [`CallPreparation`](../src/components/chat/CallPreparation/CallPreparation.tsx) · [`MetricCard`](../src/components/common/MetricCard/MetricCard.tsx) · [`ActionItem`](../src/components/dashboard/ActionItem/ActionItem.tsx) · [`DashboardHeaderActions`](../src/components/dashboard/DashboardHeaderActions/DashboardHeaderActions.tsx) · [`DashboardMetrics`](../src/components/dashboard/DashboardMetrics/DashboardMetrics.tsx) · [`DecisionItem`](../src/components/dashboard/DecisionItem/DecisionItem.tsx) · [`DecisionList`](../src/components/dashboard/DecisionList/DecisionList.tsx) · [`TaskItem`](../src/components/dashboard/TaskItem/TaskItem.tsx) · [`TaskList`](../src/components/dashboard/TaskList/TaskList.tsx)
+- [x] [EventBoundary](../src/components/view/EventBoundary/EventBoundary.tsx#L11) · 화면 경계
+  - Props `EventBoundaryProps` · `children` · `onEvent?`↗
+  - 연결 — / 하위 —
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/login`, `/mypage`, `/`, `/register`, `/report`, 공통 레이아웃 / 상위 [`ChatWidget`](../src/components/chat/ChatWidget/ChatWidget.tsx) · [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx) · [`FeatureView`](../src/components/view/FeatureView/FeatureView.tsx)
+- [x] [FeatureView](../src/components/view/FeatureView/FeatureView.tsx#L12) · 화면과 하위 영역 조합
+  - Props `FeatureViewProps` · `page` · `children` · `onEvent?`↗
+  - 연결 — / 하위 [`EventBoundary`](../src/components/view/EventBoundary/EventBoundary.tsx)
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/login`, `/mypage`, `/`, `/register`, `/report`, 공통 레이아웃 / 상위 [`ChecklistView`](../src/components/checklist/ChecklistView.tsx) · [`DashboardView`](../src/components/dashboard/DashboardView.tsx) · [`DocsView`](../src/components/docs/DocsView/DocsView.tsx) · [`GrantsView`](../src/components/grants/GrantsView.tsx) · [`LoginView`](../src/components/login/LoginView.tsx) · [`MypageView`](../src/components/mypage/MypageView.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx) · [`ReportView`](../src/components/report/ReportView.tsx)

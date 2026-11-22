@@ -12,13 +12,17 @@ function resolveLocal(request, parent = path.join(root, 'entry.ts')) {
     ? path.join(root, 'src', request.slice(2))
     : path.resolve(path.dirname(parent), request);
   for (const candidate of [target, `${target}.ts`, `${target}.tsx`, `${target}.js`, path.join(target, 'index.ts'), path.join(target, 'index.tsx')]) {
-    if (existsSync(candidate) && /\.[cm]?[jt]sx?$/.test(candidate)) return candidate;
+    if (existsSync(candidate) && /(?:\.[cm]?[jt]sx?|\.module\.css)$/.test(candidate)) return candidate;
   }
   throw new Error(`Cannot resolve ${request} from ${parent}`);
 }
 
 function source(file) {
   const text = readFileSync(file, 'utf8');
+  if (file.endsWith('.module.css')) {
+    const classes = Array.from(text.matchAll(/\.([a-zA-Z_][\w-]*)/g), ([, name]) => [name, name]);
+    return 'module.exports = ' + JSON.stringify(Object.fromEntries(classes)) + ';';
+  }
   return /\.tsx?$/.test(file)
     ? ts.transpileModule(text, {
         compilerOptions: {

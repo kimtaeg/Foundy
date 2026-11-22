@@ -89,6 +89,21 @@ def test_real_fire_small_ground_floor_is_not_forced(real):
     assert out["FOOD-REPORT-001"].status == APPLIES
 
 
+def test_real_cafe_report_cites_the_article_that_names_its_business_type(real):
+    from agent.judge import judge_law_card
+
+    rag, llm = real
+    store = StoreInput(store_id="t", name="테스트카페", address="서울 성동구", address_detail="1층",
+                       opening_date=date(2027, 3, 2), area_sqm=40,
+                       answers={"sells_alcohol": False, "uses_terrace": False, "has_employees": True})
+    spec = next(c for c in PACK["checks"] if c["id"] == "permit_docs")
+    law = rag.articles_for(spec["id"], store)
+    assert law is not None and law.ok
+    item = judge_law_card(llm, store, "휴게음식점", law, spec, "r-verify")
+    assert item.verdict == "low"
+    assert any(e.law_name == "식품위생법 시행령" and e.article == "제25조" for e in item.evidence)
+
+
 def test_merge_drops_invented_missing_inputs():
     ai = RuleJudgment(rule_id="R", status="needs_check", reason="확인", missing_inputs=["kitchen_status", "area_sqm"])
     assert _merge(_outcome(), ai, ARTS).missing_inputs == ["area_sqm"]

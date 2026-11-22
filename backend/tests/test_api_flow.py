@@ -88,6 +88,7 @@ def test_1_demo_dashboard(demo, client):
 
     dash = demo("GET", "/dashboard").json()
     assert [p["item_id"] for p in dash["pending_decisions"]] == ["r-01", "r-02"]
+    assert dash["pending_decisions"][0]["stage"] == "계약 전"
     assert dash["checklist_progress"] == {"done": 2, "total": 9}
     assert dash["alerts"]["unread"] == 2
     assert 1 <= len(dash["next_steps"]) <= 5
@@ -95,6 +96,7 @@ def test_1_demo_dashboard(demo, client):
     report = demo("GET", "/report")
     assert report.status_code == 200
     validate("report", report.json())
+    assert report.json()["next_steps"] == dash["next_steps"]
     first = report.json()["groups"][0]["items"][0]
     assert first["item_id"] == "r-01" and first["verdict"] == "high"  # 위험한 것부터
     operating = demo("GET", "/report", params={"stage": "운영 중"}).json()
@@ -109,6 +111,141 @@ def test_1_demo_dashboard(demo, client):
     assert (docs["summary"]["total"], docs["summary"]["finished"], docs["summary"]["remaining"]) == (8, 0, 8)
     assert dash["documents_progress"] == {"finished": 0, "total": 8}
     assert all(d["links"] for g in docs["groups"] for d in g["documents"] if d["source_type"] == "template")  # 법령 규칙 서류는 링크 없이 받는 곳만 안내
+    tasks = checklist_items(demo)
+    assert {row["item_id"] for row in dash["checklist_tasks"]} == set(tasks)
+    for group in docs["groups"]:
+        task = tasks[group["item_id"]]
+        assert group["task"] == task["task"] and group["category"] == task["category"]
+        assert sorted(d["name"] for d in group["documents"]) == task["document_names"]
+
+
+def test_grant_refresh_reuses_only_unchanged_successful_judgments(demo, monkeypatch):
+    from agent.grants import Condition, GrantExtraction
+    from agent.llm import LLMError
+    from agent.ports import ToolResult
+    from api import grants
+
+    source, title, excerpt = "K-Startup", "창업 지원", "만 39세 이하 창업자"
+    notice = {"grant_id": "k-1", "title": title, "source": source, "text": excerpt, "deadline": "2099-01-12"}
+    source_available, model_available, calls = True, True, []
+
+    class Tools:
+        use_mock = False
+
+        def grants(self, _store):
+            data = {"grants": [notice.copy()]} if source_available else None
+            return ToolResult(ok=source_available, source=source, data=data, error=None if data else "조회 실패")
+
+        def close(self):
+            pass
+
+    class Model:
+        def parse(self, **kwargs):
+            calls.append(kwargs["user"])
+            if not model_available:
+                raise LLMError("temporary")
+            return GrantExtraction(conditions=[
+                Condition(kind="age_max", text="최대 연령", quote=excerpt, number=39),
+            ])
+
+    monkeypatch.setattr(grants, "make_dependencies", lambda _cost: (Tools(), Model()))
+
+    def refresh():
+        response = demo("POST", "/grants/refresh")
+        assert response.status_code == 200
+        return response.json()
+
+    empty = demo("GET", "/grants")
+    assert empty.status_code == 200
+    assert empty.json()["status"] == "empty" and empty.json()["items"] == []
+    first = refresh()
+    assert first["items"][0]["title"] == title
+    assert "judgment_key" not in str(first)
+    assert demo("GET", "/grants").json() == first
+    assert refresh() == first
+    assert len(calls) == 1
+
+    source_available = False
+    assert refresh() == {**first, "error": "조회 실패"}
+    assert demo("GET", "/grants").json() == first
+    assert len(calls) == 1
+    source_available = True
+
+    notice["text"] += " · 상세 안내 수정"
+    model_available = False
+    assert refresh()["items"][0]["result"] == "unknown"
+    assert len(calls) == 2
+    model_available = True
+    retried = refresh()
+    assert retried["items"][0]["checks"][0]["evidence"]["text"] == excerpt
+    assert refresh() == retried
+    assert len(calls) == 3
+
+
+def test_chat_session_stream_history_and_ownership(demo, client, created_users, monkeypatch):
+    from services import chat
+
+    def fake_turn(model, **inputs):
+        assert model is not None
+        assert inputs["question"] == "개업일이 언제인가요?"
+        yield "delta", "개업 예정일은 "
+        yield "done", {"content": "개업 예정일은 2027년 3월 2일입니다.", "actions": [], "citations": []}
+
+    monkeypatch.setattr(chat, "make_llm", lambda cost: object())
+    monkeypatch.setattr(chat, "run_turn", fake_turn)
+    base = "/api/chat/sessions"
+    store = {"store_id": demo.store_id}
+    headers = demo.headers
+
+    assert client.get(base, headers=headers, params={**store, "include_messages": True}).json() == {
+        "items": [], "messages": [],
+    }
+    response = client.post(base, headers=headers, json=store)
+    assert response.status_code == 201
+    session = response.json()
+    assert session["store_id"] == demo.store_id
+    assert client.get(base, headers=headers, params=store).json() == {"items": [session]}
+    session_path = f"{base}/{session['session_id']}"
+    messages_path = f"{session_path}/messages"
+
+    other = client.post("/api/demo")
+    assert other.status_code == 201
+    other_body = other.json()
+    created_users.append(other_body["user"]["user_id"])
+    other_headers = {"Authorization": f"Bearer {other_body['access_token']}"}
+    assert client.post(base, headers=other_headers, json=store).status_code == 403
+    assert client.get(base, headers=other_headers, params=store).status_code == 403
+    assert client.get(messages_path, headers=other_headers).status_code == 404
+    assert client.post(messages_path, headers=other_headers, json={"content": "안녕하세요"}).status_code == 404
+    assert client.delete(session_path, headers=other_headers).status_code == 404
+
+    invalid = client.post(messages_path, headers=headers, json={"content": ""})
+    assert invalid.status_code == 400 and invalid.json()["error"]["code"] == "INVALID_INPUT"
+    stream = client.post(messages_path, headers=headers, json={"content": "개업일이 언제인가요?"})
+    assert stream.status_code == 200 and stream.headers["Content-Type"].startswith("text/event-stream")
+    assert "event: delta" in stream.text and "event: done" in stream.text
+    assert "개업 예정일은 2027년 3월 2일입니다." in stream.text
+
+    def failed_turn(*args, **kwargs):
+        raise RuntimeError("test provider error")
+
+    monkeypatch.setattr(chat, "run_turn", failed_turn)
+    failed = client.post(messages_path, headers=headers, json={"content": "다시 물어볼게요"})
+    assert failed.status_code == 200
+    assert "event: error" in failed.text and chat.FAILED in failed.text
+    assert "test provider error" not in failed.text
+    history = client.get(messages_path, headers=headers)
+    assert history.status_code == 200
+    messages = history.json()["items"]
+    assert [(message["role"], message["content"]) for message in messages] == [
+        ("user", "개업일이 언제인가요?"), ("assistant", "개업 예정일은 2027년 3월 2일입니다."),
+        ("user", "다시 물어볼게요"), ("assistant", chat.FAILED),
+    ]
+    summary = client.get(base, headers=headers, params={**store, "include_messages": True}).json()
+    assert summary["messages"] == messages and summary["items"][0]["title"] == "개업일이 언제인가요?"
+    assert client.delete(session_path, headers=headers).status_code == 204
+    assert client.get(messages_path, headers=headers).json()["error"]["code"] == "CHAT_SESSION_NOT_FOUND"
+    assert client.get(base, headers=headers, params=store).json() == {"items": []}
 
 
 def test_2_choose_drop_alcohol(demo):
@@ -125,8 +262,13 @@ def test_2_choose_drop_alcohol(demo):
 
 
 def test_3_choose_adds_and_switch_removes_extra_task(demo):
+    decision = next(alert for alert in demo("GET", "/alerts").json()["items"]
+                    if alert["type"] == "decision" and alert["cta"]["item_id"] == "r-01")
     body = demo("POST", "/report/items/r-01/choose", json={"option_id": "o-2"}).json()
     assert body["added_checklist"] == ["x-1"]
+    assert body["alerts_update"] == {"removed_ids": [decision["alert_id"]], "added": None}
+    report = demo("GET", "/report").json()
+    assert body["report_update"] == {key: report[key] for key in ("summary", "groups", "next_steps")}
     items = checklist_items(demo)
     assert items["x-1"]["source"] == "report" and items["x-1"]["report_item_ids"] == ["r-01"]
     assert items["x-1"]["documents"] == []  # 문의 항목에는 규칙에 등록된 서류가 없다.
@@ -154,11 +296,15 @@ def test_4_auto_check_needs_all_linked_cards(demo):
     assert r1["auto_checked"] == [] and r1["next_steps"]
     r2 = demo("POST", "/report/items/r-03/action", json={"status": "done", "reply": "구청 답변 받음"}).json()
     assert r2["auto_checked"] == ["c-01"]
+    report = demo("GET", "/report").json()
+    assert r2["report_update"] == {key: report[key] for key in ("summary", "groups", "next_steps")}
+    assert r2["alerts_update"]["added"] in demo("GET", "/alerts").json()["items"]
     c01 = checklist_items(demo)["c-01"]
     assert c01["done"] and c01["auto_checked"]
     assert "r-03" in alert_keys(demo, "next")
 
-    demo("POST", "/report/items/r-03/action", json={"status": "pending"})
+    reverted = demo("POST", "/report/items/r-03/action", json={"status": "pending"}).json()
+    assert reverted["alerts_update"] == {"removed_ids": [r2["alerts_update"]["added"]["alert_id"]], "added": None}
     c01 = checklist_items(demo)["c-01"]
     assert not c01["done"] and not c01["auto_checked"]
     assert "r-03" not in alert_keys(demo, "next")
@@ -239,3 +385,29 @@ def test_10_unknown_region_returns_contact_fallback(demo):
     assert card["contact"]["phone"] == "110" and not card["contact"]["is_example"]
     assert card["contact"]["tip"]
     assert checklist_items(demo)["c-01"]["contact"]["phone"] == "110"
+
+
+def test_checklist_status_receipt_matches_saved_item(demo):
+    response = demo("PATCH", "/checklist/c-01?detail=status", json={"done": True})
+    assert response.status_code == 200
+    receipt = response.json()
+    assert receipt == {"item_id": "c-01", "done": True, "auto_checked": False,
+                       "review_needed": False, "review_reason": None}
+    item = checklist_items(demo)["c-01"]
+    assert receipt == {key: item[key] for key in receipt}
+    assert demo("PATCH", "/checklist/missing?detail=status", json={"done": False}).status_code == 404
+
+
+def test_document_status_receipt_preserves_full_detail_and_history(demo):
+    listed = demo("GET", "/documents").json()
+    document = next(row for row in listed["requirements"] if row["status"] == "not_started")
+    path = f"/documents/{document['doc_key']}"
+    response = demo("PATCH", path + "?detail=status", json={"status": "obtained"})
+    assert response.status_code == 200
+    receipt = response.json()
+    assert receipt.pop("catalog_changed") is False
+    assert receipt["status"] == "obtained" and "history" not in receipt
+    detail = demo("GET", path).json()
+    assert receipt == {key: detail[key] for key in receipt}
+    assert detail["history"][0]["to"] == "obtained"
+    assert demo("GET", "/documents").json()["summary"]["finished"] == listed["summary"]["finished"] + 1

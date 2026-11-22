@@ -5,6 +5,7 @@
 
 from collections import defaultdict
 from datetime import date
+import os
 from typing import Any
 
 from db.models import Alert, ChecklistItem, ReportItem, Store, User
@@ -139,8 +140,10 @@ def summary(cards: list[ReportItem]) -> dict:
     return counts
 
 
-def report(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistItem], run: Any, stage: str | None) -> dict:
+def report_sections(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistItem],
+                    stage: str | None = None) -> dict:
     links = link_map(pack, cards, items)
+    hidden = {entry["category"] for entry in hidden_categories(pack, effective_store(pack, s, cards))}
     linked_by_card: dict[str, list[str]] = defaultdict(list)
     for item_key, card_keys in links.items():
         for ck in card_keys:
@@ -152,12 +155,19 @@ def report(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistI
         rows = sorted((c for c in cards if c.stage == st), key=_sort_key)
         groups.append({"stage": st, "items": [report_item(pack, c, sorted(linked_by_card[c.item_key]),
                                                           (s.address_codes or {}).get("sigungu_cd")) for c in rows]})
+    return {
+        "summary": summary(cards),
+        "groups": groups,
+        "next_steps": next_steps(cards, items, hidden=hidden),
+    }
+
+
+def report(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistItem], run: Any, stage: str | None) -> dict:
     out = {
         "store_id": str(s.id),
         "run_id": str(run.id) if run else "",
         "generated_at": iso_kst(run.finished_at if run and run.finished_at else s.onboarded_at or s.created_at),
-        "summary": summary(cards),
-        "groups": groups,
+        **report_sections(pack, s, cards, items, stage),
         "disclaimer": REPORT_DISCLAIMER,
     }
     if s.is_demo:
@@ -205,7 +215,8 @@ def checklist_item(pack: dict, item: ChecklistItem, eff: dict, links: dict[str, 
     }
 
 
-def checklist(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistItem], view: str) -> dict:
+def checklist(pack: dict, s: Store, cards: list[ReportItem], items: list[ChecklistItem], view: str,
+              requirements: list | None = None) -> dict:
     eff = effective_store(pack, s, cards)
     hidden = hidden_categories(pack, eff)
     hidden_set = {h["category"] for h in hidden}
@@ -213,12 +224,21 @@ def checklist(pack: dict, s: Store, cards: list[ReportItem], items: list[Checkli
     today = today_kst()
     visible = sorted((i for i in items if i.category not in hidden_set), key=lambda i: (i.due_date, i.item_key))
     rows = [(i, checklist_item(pack, i, eff, links, today, (s.address_codes or {}).get("sigungu_cd"))) for i in visible]
+    if requirements is not None:
+        document_names = defaultdict(list)
+        for requirement in sorted(requirements, key=lambda row: row.name):
+            for key in requirement.task_keys or []:
+                document_names[key].append(requirement.name)
+        for item, row in rows:
+            row["document_names"] = document_names[item.item_key]
     if view == "category":
         groups = [{"category": c, "items": [r for i, r in rows if i.category == c]} for c in CATEGORIES]
     else:
         groups = [{"group_label": g, "items": [r for i, r in rows if i.group_label == g]} for g in GROUP_LABELS]
     out = {
         "opening_date": s.opening_date.isoformat(),
+        "as_of": today.isoformat(),
+        "has_employees": bool(eff["has_employees"]),
         "progress": {"done": sum(1 for i in visible if i.done), "total": len(visible)},
         "type_counts": {t: sum(1 for i in visible if i.task_type == t) for t in TASK_TYPES},
         "review_needed": sum(1 for i in visible if i.review_needed),
@@ -275,18 +295,27 @@ def dashboard(pack: dict, s: Store, cards: list[ReportItem], items: list[Checkli
     sorted_alerts = sorted(alerts, key=lambda a: a.created_at, reverse=True)
     demo_or_ready = "example" if s.is_demo else "ready"
     return {
-        "store": {"store_id": str(s.id), "name": eff["name"], "business_type": eff["business_type"],
+        "store": {"store_id": str(s.id), "name": eff["name"], "registered_name": s.name,
+                  "business_type": eff["business_type"], "business_type_input": s.business_type_input,
+                  "address": s.address, "address_detail": s.address_detail, "region": s.region,
                   "opening_date": s.opening_date.isoformat(), "d_day": (today - s.opening_date).days},
         "last_run": {"run_id": str(run.id), "finished_at": iso_kst(run.finished_at)} if run else None,
         "report_summary": summary(cards),
-        "pending_decisions": [{"item_id": c.item_key, "title": c.title, "verdict": current_verdict(c),
+        "pending_decisions": [{"item_id": c.item_key, "title": c.title, "stage": c.stage, "verdict": current_verdict(c),
                                "recommended_option": recommended_label(c)} for c in pending],
         "today_todos": todos,
         "next_steps": next_steps(cards, items, hidden=hidden_set),
         "checklist_progress": {"done": sum(1 for i in visible if i.done), "total": len(visible)},
+        "checklist_tasks": [
+            {"item_id": item.item_key, "task": task_title(pack, item.task, eff, item.rule_key),
+             "group_label": item.group_label, "category": item.category,
+             "due_date": item.due_date.isoformat(), "done": item.done}
+            for item in sorted(visible, key=lambda item: (item.due_date, item.item_key))
+        ],
         "documents_progress": documents_progress(pack, items, hidden_set, requirements),
         "alerts": {"unread": sum(1 for a in alerts if not a.read),
                    "latest": [{"title": a.title, "type": a.type, "is_example": a.is_example} for a in sorted_alerts[:3]]},
         "menus": {"report": demo_or_ready, "checklist": demo_or_ready, "documents": demo_or_ready,
-                  "chat": "unavailable", "grants": "ready"},
+                  "chat": "ready" if os.getenv("LLM_PROVIDER", "").strip().lower() == "openai"
+                  and os.getenv("LLM_API_KEY") else "unavailable", "grants": "ready"},
     }

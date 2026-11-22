@@ -1,5 +1,6 @@
 """분석 도구 조립과 실제 조회 → 캐시 → 모의 응답 처리."""
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import hashlib
 import json
@@ -124,18 +125,45 @@ class AnalysisTools:
             self._law_rag = LawRag(embedder=None if self.use_mock else make_embedder())
         return self._law_rag
 
-    def law(self, check_id, store=None):
-        """저장된 법령에서 검색한 조문(RAG)을 우선 쓰고, 저장된 법령이 없으면 예전 방식(지정 조문 조회 → 캐시 → 모의)으로 대체한다."""
-        if get_settings().law_rag_enabled:
-            try:
-                found = self._rag().articles_for(check_id, store)
-            except Exception:
-                found = None
-            if found is not None:
-                return found
+    def _stored_law(self, check_id, store):
+        try:
+            return self._rag().articles_for(check_id, store)
+        except Exception:
+            return None
+
+    def _official_law(self, check_id):
         references = getattr(self.providers, "references", {}).get(check_id)
         return self._query("law", {"check_id": check_id, "references": references},
                            lambda: self.providers.law(check_id), check_id)
+
+    def law(self, check_id, store=None):
+        """저장된 법령 우선. 없으면 지정 조문을 조회한다."""
+        found = self._stored_law(check_id, store) if get_settings().law_rag_enabled else None
+        return found if found is not None else self._official_law(check_id)
+
+    def laws_for(self, check_ids, store):
+        """독립적인 법령 검색을 겹쳐 실행한다. 공식 API 대체 조회는 중복 요청 재사용을 위해 순서대로 한다."""
+        check_ids = list(check_ids)
+        results = {}
+        settings = get_settings()
+        # 분석 작업이 동시에 돌아도 법령 검색이 DB 연결 풀 전체를 쓰지 않도록 한다.
+        workers = min(3, len(check_ids), 6 // settings.analysis_workers)
+        if settings.law_rag_enabled and not self.use_mock and workers > 1:
+            try:
+                self._rag()  # 스레드에서 새 SDK 클라이언트를 동시에 만들지 않도록 먼저 준비한다
+            except Exception:
+                pass
+            else:
+                with ThreadPoolExecutor(max_workers=workers) as executor:
+                    results = dict(zip(check_ids, executor.map(lambda cid: self._stored_law(cid, store), check_ids)))
+        for check_id in check_ids:
+            if results.get(check_id) is not None:
+                continue
+            try:
+                results[check_id] = self._official_law(check_id) if check_id in results else self.law(check_id, store)
+            except Exception as exc:
+                results[check_id] = ToolResult(ok=False, source="국가법령정보", error=str(exc))
+        return results
 
     def close(self):
         if self.providers is not None and hasattr(self.providers, "close"):

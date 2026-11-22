@@ -128,12 +128,30 @@ def test_register_in_mock_mode_saves_without_codes_and_returns_questions(client,
     assert [q["id"] for q in body["questions"]] == ["sells_alcohol", "uses_terrace", "has_employees", "does_delivery", "funds_krw"]
     row = store_row(uid)
     assert row.address_codes is None and row.sells_alcohol is None and row.has_employees is None
-    assert client.get("/api/me", headers=headers).json()["store_id"] == body["store_id"]
+    me = client.get("/api/me", headers=headers).json()
+    assert me["store_id"] == body["store_id"] and me["store_name"] == BODY["name"]
+    assert me["store_opening"] == BODY["opening_date"]
+    assert me["setup"] == body["setup"] == {
+        "status": "missing_answers", "missing_fields": ["sells_alcohol", "uses_terrace", "has_employees"], "run_id": None,
+    }
     store = client.get(f"/api/stores/{body['store_id']}", headers=headers).json()
     assert store["answers"] == {"sells_alcohol": None, "uses_terrace": None, "has_employees": None, "funds_krw": None,
                                "does_delivery": None, "area_sqm": None}
     assert store["business_type"] is None and store["address_detail"] == "1층" and store["owner_birth_year"] == 1997
     assert store["is_demo"] is False and store["opening_date"] == "2027-05-01"
+
+
+@DB
+def test_register_with_fixed_questions_does_not_prepare_llm(client, users, monkeypatch):
+    headers, _ = users()
+
+    def fail_if_called():
+        pytest.fail("가게 기본 정보 저장에는 LLM이 필요하지 않다")
+
+    monkeypatch.setattr(store_register, "question_llm", fail_if_called)
+    res = register(client, headers, fixed_questions=True)
+    assert res.status_code == 201, res.text
+    assert [question["id"] for question in res.json()["questions"]] == ["sells_alcohol", "uses_terrace", "has_employees"]
 
 
 @DB
@@ -311,11 +329,30 @@ def test_new_account_flow_login_register_answer_analyze_report(client, users, mo
     monkeypatch.setattr(manager, "runner", run_analysis)
     headers, _ = users()
     sid = register(client, headers).json()["store_id"]
-    early = client.post(f"/api/stores/{sid}/analyze", headers=headers, json={})
-    assert early.status_code == 400  # 주류 판매 답이 없으면(NULL) 분석을 시작하지 않는다
-    assert client.post(f"/api/stores/{sid}/answers", headers=headers,
-                       json={"answers": {"sells_alcohol": True, "uses_terrace": False, "has_employees": True}}).status_code == 200
-    rid = client.post(f"/api/stores/{sid}/analyze", headers=headers, json={}).json()["run_id"]
+    base = f"/api/stores/{sid}"
+    answer = client.post(base + "/answers", headers=headers, json={"answers": {"sells_alcohol": True}})
+    assert answer.status_code == 200
+    assert answer.json()["setup"]["missing_fields"] == ["uses_terrace", "has_employees"]
+
+    early = client.post(base + "/analyze", headers=headers, json={})
+    assert early.status_code == 422
+    assert early.json()["error"]["code"] == "SETUP_INCOMPLETE"
+    assert early.json()["error"]["missing_fields"] == ["uses_terrace", "has_employees"]
+
+    edit = client.patch(base, headers=headers, json={"name": "설정을 완료할 가게", "answers": {
+        "uses_terrace": False, "has_employees": True,
+    }})
+    assert edit.status_code == 200
+    assert not edit.json()["needs_reanalyze"] and edit.json()["run_id"] is None
+    assert edit.json()["setup"] == {"status": "needs_analysis", "missing_fields": [], "run_id": None}
+    assert client.get("/api/me", headers=headers).json()["setup"] == edit.json()["setup"]
+    with transaction() as session:
+        assert session.scalar(select(Run.id).where(Run.store_id == uuid.UUID(sid))) is None
+
+    # 첫 분석은 전체 점검과 체크리스트를 만들어야 한다.
+    run = client.post(base + "/analyze", headers=headers, json={"scope": ["building"]})
+    assert run.status_code == 202
+    rid = run.json()["run_id"]
     deadline = time.monotonic() + 20  # 원격 DB 왕복이 있어 5초로는 부족할 수 있다
     while time.monotonic() < deadline:
         state = client.get(f"/api/runs/{rid}", headers=headers).json()["status"]
@@ -323,8 +360,32 @@ def test_new_account_flow_login_register_answer_analyze_report(client, users, mo
             break
         time.sleep(0.02)
     assert state == "done"
+    ready = client.get("/api/me", headers=headers).json()
+    assert ready["setup"] == {"status": "ready", "missing_fields": [], "run_id": rid}
+    assert ready["store_name"] == "설정을 완료할 가게"
     report = client.get(f"/api/stores/{sid}/report", headers=headers).json()
     assert sum(len(g["items"]) for g in report["groups"]) >= 4
-    assert client.get(f"/api/stores/{sid}/checklist", headers=headers).json()["progress"]["total"] == 9
+    assert client.get(base + "/checklist", headers=headers).json()["progress"]["total"] == 13
     after = client.post(f"/api/stores/{sid}/answers", headers=headers, json={"answers": {"has_employees": False}})
     assert after.status_code == 400  # 첫 분석 뒤에는 마이페이지에서 수정
+
+
+@DB
+def test_first_analysis_can_resume_or_retry(client, users):
+    headers, _ = users()
+    sid = register(client, headers).json()["store_id"]
+    base = f"/api/stores/{sid}"
+    answers = {"sells_alcohol": False, "uses_terrace": False, "has_employees": False}
+    assert client.post(base + "/answers", headers=headers, json={"answers": answers}).status_code == 200
+    with transaction() as session:
+        run = Run(store_id=uuid.UUID(sid), trigger="user", scope=["building"], status="running", events=[])
+        session.add(run)
+        session.flush()
+        rid = run.id
+
+    current = client.get("/api/me", headers=headers).json()["setup"]
+    assert current == {"status": "analyzing", "missing_fields": [], "run_id": str(rid)}
+    with transaction() as session:
+        session.get(Run, rid).status = "failed"
+    current = client.get("/api/me", headers=headers).json()["setup"]
+    assert current == {"status": "failed", "missing_fields": [], "run_id": str(rid)}

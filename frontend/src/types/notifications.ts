@@ -7,3 +7,9 @@ export interface NotificationSummary {
   destination: string;
   focus: string;
 }
+
+export interface NotificationFetchStatus {
+  loading: boolean;
+  error: string | null;
+  retry: () => Promise<void>;
+}

@@ -1,132 +1,160 @@
 "use client";
-import { createChatApi, type ApiChatMessage } from "@/lib/api/chat";
+
+import { createChatApi } from "@/lib/api/chat";
+import { ApiError } from "@/lib/api/client";
 import type { ApiSession } from "@/lib/api/foundy-api";
-import { runChatTurn } from "@/lib/chat/run-turn";
+import { runChatTurn, type ChatQuestion } from "@/lib/chat/run-turn";
 import { toChatMessage } from "@/lib/chat/server-message";
-import type { ChatMessageModel, ChatProcessing, ChatViewData } from "@/types/chat";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { ChatLaunch, ChatMessageModel, ChatProcessing, ChatViewData } from "@/types/chat";
+import type { ViewEventType } from "@/types/events";
+import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 
-/**
- * 서버 AI 상담. 상담방은 가게마다 가장 최근 것을 이어 쓰고, 없으면 첫 질문 때 만든다.
- * 답은 SSE로 받아 도구 실행 단계(법령 검색 등)와 답변 글자를 차례로 보여 준다.
- */
-export function useServerChat(session: ApiSession | null, open: boolean, storeName: string) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessageModel[]>([]);
-  const [request, setRequest] = useState<ChatProcessing | null>(null);
+interface History {
+  sessionId: string | null;
+  messages: ChatMessageModel[];
+}
+
+async function readHistory(api: ReturnType<typeof createChatApi>, storeId: string): Promise<History> {
+  const { items, messages } = await api.list(storeId, true);
+  const sessionId = items[0]?.session_id;
+  if (!sessionId) return { sessionId: null, messages: [] };
+  const history = messages ?? (await api.messages(sessionId)).items;
+  return { sessionId, messages: history.map((message) => toChatMessage(message)) };
+}
+
+export function useServerChat(
+  { token, storeId }: ApiSession & { storeId: string },
+  open: boolean,
+  storeName: string,
+  launch: ChatLaunch | null,
+) {
+  const api = useMemo(() => createChatApi(token), [token]);
+  const [history, setHistory] = useState<History | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const abort = useRef<AbortController | null>(null);
-  const lastQuestion = useRef("");
-  const token = session?.token ?? null;
-  const storeId = session?.storeId ?? null;
+  const [progress, setProgress] = useState<{ processing: ChatProcessing; partial: string } | null>(null);
+  const [dismissedLaunch, setDismissedLaunch] = useState<number>();
+  const historyRequest = useRef<Promise<History> | null>(null);
+  const turn = useRef<AbortController | null>(null);
+  const consumedLaunch = useRef<number | undefined>(undefined);
+  const retryable = useRef(new Map<ChatProcessing, ChatQuestion>());
+  const focus = dismissedLaunch === launch?.id ? undefined : launch?.focus;
 
-  // 가게가 바뀌면 처음부터 다시 불러온다
   useEffect(() => {
-    setSessionId(null);
-    setMessages([]);
-    setLoaded(false);
-  }, [token, storeId]);
+    if (!open || history || error) return;
+    let active = true;
+    historyRequest.current ??= readHistory(api, storeId);
+    const request = historyRequest.current;
+    void request.then((result) => {
+      if (active) setHistory(result);
+    }, (error: unknown) => {
+      if (historyRequest.current === request) historyRequest.current = null;
+      if (active) {
+        setError(error instanceof ApiError && error.message
+          ? error.message
+          : "상담 기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+      }
+    });
+    return () => { active = false; };
+  }, [api, storeId, open, history, error]);
 
-  // 처음 열 때 가장 최근 상담방의 대화를 불러온다
+  useEffect(() => () => {
+    const current = turn.current;
+    turn.current = null;
+    current?.abort();
+  }, []);
+
+  const send = useCallback((question: ChatQuestion) => {
+    const text = question.text.trim().slice(0, 300);
+    if (!text || !history || turn.current) return false;
+    const controller = new AbortController();
+    turn.current = controller;
+    setDraft("");
+    setBusy(true);
+    setHistory((current) => current && { ...current, messages: [...current.messages, { role: "u", text }] });
+
+    void runChatTurn(api, { sessionId: history.sessionId, storeId, question: { ...question, text }, signal: controller.signal }, {
+      onSession(id) {
+        if (turn.current === controller) setHistory((current) => current && { ...current, sessionId: id });
+      },
+      onProgress(processing, partial) {
+        if (turn.current === controller) setProgress({ processing, partial });
+      },
+      onFinish(message) {
+        if (turn.current !== controller) return;
+        const processing = message.processing;
+        if (processing && (processing.status === "error" || processing.status === "canceled")) {
+          retryable.current.set(processing, { ...question, text });
+        }
+        setProgress(null);
+        setHistory((current) => current && { ...current, messages: [...current.messages, message] });
+      },
+    }).finally(() => {
+      // The server writes history before closing the stream.
+      if (turn.current !== controller) return;
+      turn.current = null;
+      setBusy(false);
+    });
+    return true;
+  }, [api, history, storeId]);
+
   useEffect(() => {
-    if (!open || loaded || !token || !storeId) return;
-    let current = true;
-    const api = createChatApi(token);
-    api
-      .list(storeId)
-      .then(async ({ items }) => {
-        const latest = items[0];
-        if (!latest) return;
-        const body = await api.messages(latest.session_id);
-        if (!current) return;
-        setSessionId(latest.session_id);
-        setMessages(body.items.map((m: ApiChatMessage) => toChatMessage(m)));
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (current) setLoaded(true);
-      });
-    return () => {
-      current = false;
-    };
-  }, [open, loaded, token, storeId]);
+    if (!open || busy || !launch?.question || consumedLaunch.current === launch.id) return;
+    if (send({ text: launch.question, focus })) consumedLaunch.current = launch.id;
+  }, [open, busy, launch, focus, send]);
 
-  const send = useCallback(
-    async (question: string) => {
-      const text = question.trim();
-      if (!text || busy || !token || !storeId) return;
-      lastQuestion.current = text;
-      const controller = new AbortController();
-      abort.current = controller;
-      setBusy(true);
-      setMessages((list) => [...list, { role: "u", text }]);
-      // 진행 중인 답변(마지막 a 메시지의 처리 상태가 processing)은 새 글자나 최종 답으로 바꾼다
-      const withoutPartial = (list: ChatMessageModel[]) =>
-        list.at(-1)?.role === "a" && list.at(-1)?.processing?.status === "processing" ? list.slice(0, -1) : list;
-      await runChatTurn(createChatApi(token), { sessionId, storeId, text, signal: controller.signal }, {
-        onSession: setSessionId,
-        onRequest: setRequest,
-        onPartial: (message) => setMessages((list) => (message ? [...withoutPartial(list), message] : withoutPartial(list))),
-        onFinish: (message) => {
-          // 서버는 답을 보낸 뒤 기록을 저장하느라 스트림을 조금 늦게 닫는다. 답이 오면 바로 다음 질문을 받을 수 있게 한다
-          setMessages((list) => [...withoutPartial(list), message]);
-          setBusy(false);
-        },
-      });
-      // 그사이 다음 질문을 시작했으면 그 질문의 상태를 건드리지 않는다
-      if (abort.current === controller) {
-        abort.current = null;
-        setBusy(false);
+  const handleEvent = (type: ViewEventType, event: SyntheticEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    if (type === "input" && target instanceof HTMLTextAreaElement && target.id === "chatIn") {
+      setDraft(target.value);
+      return true;
+    }
+    if (type === "submit" && target instanceof HTMLFormElement && target.id === "nxChat") {
+      event.preventDefault();
+      send({ text: target.querySelector<HTMLTextAreaElement>("#chatIn")?.value ?? "", focus });
+      return true;
+    }
+    if (type !== "click") return false;
+    const button = target.closest<HTMLElement>("[data-nx]");
+    switch (button?.dataset.nx) {
+      case "cask":
+        send({ text: button.dataset.q ?? "", focus });
+        break;
+      case "cstop":
+        turn.current?.abort();
+        break;
+      case "cretry": {
+        const failed = history?.messages[Number(button.dataset.m)]?.processing;
+        const question = failed && retryable.current.get(failed);
+        if (question) send(question);
+        break;
       }
-    },
-    [busy, token, storeId, sessionId],
-  );
+      case "cfocus":
+        setDismissedLaunch(launch?.id);
+        break;
+      default:
+        return false;
+    }
+    return true;
+  };
 
-  /** 상담 화면의 입력·버튼 이벤트. 처리했으면 true */
-  const handleEvent = useCallback(
-    (type: string, event: { target: EventTarget; preventDefault(): void }): boolean => {
-      const target = event.target as HTMLElement;
-      if (type === "submit" && (target as HTMLFormElement).id === "nxChat") {
-        event.preventDefault();
-        const input = target.querySelector<HTMLTextAreaElement>("#chatIn");
-        const value = input?.value ?? "";
-        if (input) input.value = "";
-        void send(value);
-        return true;
-      }
-      if (type !== "click") return false;
-      const button = target.closest?.("[data-nx]") as HTMLElement | null;
-      const action = button?.dataset.nx;
-      if (action === "cask") {
-        void send(button?.dataset.q ?? "");
-        return true;
-      }
-      if (action === "cstop") {
-        abort.current?.abort();
-        return true;
-      }
-      if (action === "cretry") {
-        void send(lastQuestion.current);
-        return true;
-      }
-      return false;
-    },
-    [send],
-  );
-
-  const data: ChatViewData = {
+  const data: ChatViewData | undefined = history ? {
     storeName,
     undecided: false,
-    messages,
+    focus,
+    messages: progress?.partial
+      ? [...history.messages, { role: "a", text: progress.partial, processing: progress.processing }]
+      : history.messages,
+    request: progress && !progress.partial ? progress.processing : null,
     busy,
-    request,
-    draft: "",
+    draft,
     memo: {},
     cards: [],
     contacts: {},
     actionLabels: {},
     callGuides: {},
-  };
-  return { data, loading: open && !loaded, handleEvent };
+  } : undefined;
+  return { data, error, loading: !history && !error, retry: () => setError(null), handleEvent };
 }

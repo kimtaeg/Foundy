@@ -1,3 +1,5 @@
+import { configureMapTestOrigin } from './helpers/map-test-origin.mjs';
+import { signIn } from './helpers/sign-in.mjs';
 import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -19,12 +21,13 @@ await mkdir(output, { recursive: true });
 
 async function openMap(intercept) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul', reducedMotion: 'reduce' });
+  await configureMapTestOrigin(context);
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   page.on('pageerror', error => report.pageErrors.push(error.message.replace(/appkey=[^&\s]+/g, 'appkey=[redacted]')));
   if (intercept) await intercept(page);
   await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded' });
-  await page.locator('[data-nx="demologin"]').click();
+  await signIn(page);
   await page.locator('#nav [data-page="sites"]').click();
   await expect(page.locator('[aria-label="분석 중심 위치"]')).toBeVisible({ timeout: 25000 });
   return { context, page };
@@ -155,12 +158,12 @@ try {
     const legend = page.getByRole('region', { name: '생활인구 범례와 데이터 기준' });
     await expect(legend.getByRole('heading')).toHaveText('생활인구 · 10대');
     await expect(legend.getByRole('status')).toHaveCount(0);
-    await expectRoadColor(page, [255, 241, 193]);
+    await expectRoadColor(page, [255, 235, 172]);
     const tooltip = await hoverPublicRoad(page);
     await expect(tooltip.locator('span').first()).toHaveText('매우 적음');
     await expect(tooltip).toContainText('약 8명');
     await page.screenshot({ path: path.join(output, 'fixture-eight-people.png') });
-    report.checks.push({ name: '8 public people render pale yellow roads and the very-low tooltip in the actual map', passed: true, fixture: true, roadColor: '#FFF1C1' });
+    report.checks.push({ name: '8 public people render pale yellow roads and the very-low tooltip in the actual map', passed: true, fixture: true, roadColor: '#FFEBAC' });
     console.log('PASS 8-person fixture: pale yellow canvas and 매우 적음 tooltip');
     await context.close();
   }

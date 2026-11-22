@@ -1,1 +1,1 @@
-export { TaskMetadata } from "@/components/checklist/TaskMetadata/TaskMetadata";
+export * from "./TaskMetadata";

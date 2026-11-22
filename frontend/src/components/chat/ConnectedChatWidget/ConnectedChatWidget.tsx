@@ -1,32 +1,54 @@
 "use client";
+
 import { ChatWidget } from "@/components/chat/ChatWidget";
+import { useChat } from "@/hooks/useChat";
 import { useFoundy } from "@/hooks/useFoundy";
 import { useServerChat } from "@/hooks/useServerChat";
-import { loadSession } from "@/lib/api/foundy-api";
+import { loadSession, sessionSnapshot, subscribeSession, type ApiSession } from "@/lib/api/foundy-api";
 import type { ViewEventHandler } from "@/types/events";
-import { useMemo } from "react";
+import { useSyncExternalStore } from "react";
 
-const NOTICE =
-  "AI 상담은 서버에 연결된 계정에서 쓸 수 있어요. 지금은 점검 리포트와 체크리스트에서 할 일을 확인해 주세요.";
-
-/** 서버에 연결된 가게면 AI 상담(도구 호출·법령 검색·출처 표시)을 쓰고, 아니면 안내만 보여 준다. */
 export function ConnectedChatWidget() {
-  const { snapshot, onEvent, api } = useFoundy();
+  const { apiActive, snapshot, onEvent } = useFoundy();
+  if (apiActive) return <ApiChatWidget />;
+  if (!snapshot?.onboarded) return null;
+  return <LocalChatWidget open={snapshot.chatOpen} onEvent={onEvent} />;
+}
+
+function LocalChatWidget({ open, onEvent }: { open: boolean; onEvent: ViewEventHandler }) {
+  const data = useChat();
+  return <ChatWidget open={open} onboarded data={data ?? undefined} loading={!data} onEvent={onEvent} />;
+}
+
+const readServerSession = () => null;
+
+function ApiChatWidget() {
+  const { snapshot, onEvent } = useFoundy();
+  useSyncExternalStore(subscribeSession, sessionSnapshot, readServerSession);
+  const session = loadSession();
+  if (!snapshot?.onboarded) return null;
+  if (!session?.storeId) {
+    return <ChatWidget open={snapshot.chatOpen} onboarded error="가게에 연결하지 못했어요. 다시 로그인해 주세요." onEvent={onEvent} />;
+  }
+  return <ServerChatWidget key={`${session.token}:${session.storeId}`} session={{ ...session, storeId: session.storeId }} />;
+}
+
+function ServerChatWidget({ session }: { session: ApiSession & { storeId: string } }) {
+  const { snapshot, chatLaunch, onEvent } = useFoundy();
   const open = snapshot?.chatOpen ?? false;
-  const session = useMemo(() => (api ? (loadSession("demo") ?? loadSession("account")) : null), [api]);
-  const chat = useServerChat(session?.storeId ? session : null, open, api?.S.name ?? "");
-  const handle: ViewEventHandler = (type, event) => {
-    if (session && chat.handleEvent(type, event)) return;
-    onEvent(type, event);
-  };
+  const chat = useServerChat(session, open, snapshot?.storeName || "내 가게", chatLaunch);
+
   return (
     <ChatWidget
       open={open}
-      onboarded={snapshot?.onboarded ?? false}
-      notice={session ? undefined : NOTICE}
-      data={session ? chat.data : undefined}
+      onboarded
+      data={chat.data}
+      error={chat.error}
       loading={chat.loading}
-      onEvent={handle}
+      onRetry={chat.retry}
+      onEvent={(type, event) => {
+        if (!chat.handleEvent(type, event)) onEvent(type, event);
+      }}
     />
   );
 }

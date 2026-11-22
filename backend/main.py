@@ -48,6 +48,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Foundy API", version=health.VERSION, lifespan=lifespan)
 
+errors.install(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().frontend_origins,
@@ -56,8 +57,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-errors.install(app)
 
 for router in (health.router, demo.router, auth.router, me.router, stores.register_router, stores.router,
                checklist.router, documents.router, alerts.router, runs.router, laws.router, laws.store_router, grants.router, chat.router):

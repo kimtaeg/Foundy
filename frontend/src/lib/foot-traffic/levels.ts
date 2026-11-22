@@ -13,7 +13,7 @@ export const POPULATION_SCALE_LABELS: Record<Category, string> = {
 };
 export const POPULATION_LEVELS = [1, 2, 3, 4, 5] as const satisfies readonly CrowdLevel[];
 export const LEVEL_META: Record<CrowdLevel, { label: string; color: string }> = {
-  1: { label: "매우 적음", color: "#FFF4CC" },
+  1: { label: "매우 적음", color: "#FFEDB3" },
   2: { label: "적음", color: "#FFE08A" },
   3: { label: "보통", color: "#FFB547" },
   4: { label: "많음", color: "#F56B32" },

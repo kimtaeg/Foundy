@@ -1,22 +1,26 @@
 import { PageHeader } from "@/components/common/PageHeader";
-import { Element } from "@/components/view/Element";
+import { GrantNextDeadline } from "@/components/grants/GrantNextDeadline";
+import { grantSourceLabel } from "@/lib/grants/format-grant";
+import type { GrantViewItem } from "@/types/grant-view";
 
 export interface GrantsHeaderProps {
-  /** 화면 오른쪽 위 배지. 없으면 예시 공고 표시 */
-  badge?: { label: string; tone: string };
+  sourceLabel?: string;
+  nextDeadline?: GrantViewItem | null;
 }
 
-export function GrantsHeader({ badge = { label: "예시 공고 · 실제 아님", tone: "unknown" } }: GrantsHeaderProps) {
+export function GrantsHeader({ nextDeadline, sourceLabel }: GrantsHeaderProps = {}) {
+  const source = grantSourceLabel(sourceLabel);
   return (
     <PageHeader
       eyebrow="PUBLIC PROGRAMS"
+      notice={nextDeadline && <GrantNextDeadline item={nextDeadline} />}
       title="정책·지원사업"
-      description="모집 중인 공고문의 조건과 내 가게를 대조한 결과예요. 나이·업력·지역은 계산하고, 나머지 조건은 AI가 공고문을 읽고 판단해요."
-      actions={
-        <Element as="span" className={`nx-badge ${badge.tone}`}>
-          {badge.label}
-        </Element>
-      }
+      breadcrumbLabel="지원사업"
+      actionsLayout="inline"
+      actions={source && (
+        <span className="inline-flex items-center rounded-md bg-neutral-100 px-2.5 py-1 text-sm font-medium text-neutral-600">{source}</span>
+      )}
+      description="내 가게의 신청 조건과 공고별 지원 내용, 마감 일정을 확인하세요."
     />
   );
 }

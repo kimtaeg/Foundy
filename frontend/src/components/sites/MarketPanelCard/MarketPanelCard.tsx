@@ -7,14 +7,14 @@ export interface MarketPanelCardProps {
 }
 export function MarketPanelCard({ title, description, children }: MarketPanelCardProps) {
   return (
-    <section className="rounded-2xl p-2">
-      <h3 className="m-0 text-base font-bold leading-snug text-neutral-900">{title}</h3>
+    <section className="min-w-0">
+      <h3 className="m-0 text-lg font-semibold leading-7 tracking-tight text-neutral-900">{title}</h3>
       {description && (
-        <p className="mb-3 mt-1 text-sm leading-relaxed text-neutral-600">
+        <p className="mb-0 mt-1 text-sm leading-relaxed text-neutral-600">
           {description}
         </p>
       )}
-      <div className="mt-3">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }

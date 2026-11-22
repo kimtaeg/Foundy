@@ -1,3 +1,6 @@
+import { configureMapTestOrigin } from './helpers/map-test-origin.mjs';
+import { navigate } from './helpers/navigate.mjs';
+import { signIn } from './helpers/sign-in.mjs';
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -15,6 +18,7 @@ async function check(name, action) {
 }
 async function contextPage(viewport, routes) {
   const context = await browser.newContext({ viewport, locale: 'ko-KR', timezoneId: 'Asia/Seoul', reducedMotion: 'reduce' });
+  await configureMapTestOrigin(context);
   const page = await context.newPage();
   page.setDefaultTimeout(12000);
   page.on('pageerror', (error) => report.pageErrors.push(safe(error.message)));
@@ -23,7 +27,7 @@ async function contextPage(viewport, routes) {
   });
   if (routes) await routes(page);
   await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded' });
-  await page.locator('[data-nx="demologin"]').click();
+  await signIn(page);
   await page.locator('#nav [data-page="sites"]').click();
   await expect(page.getByTestId('market-workspace')).toBeVisible();
   return { context, page };
@@ -176,15 +180,20 @@ try {
         await expect(panel).toContainText('20,818명');
         await expect(panel).toContainText('내국인 성별 구성');
         await expect(panel).toContainText('내국인 연령별 구성');
-        await expect(panel).toContainText('결제 고객이나 순방문자 수가 아니에요');
-        await expect(panel).toContainText('표시된 공개값 안에서 계산한 비중');
+        const populationNotes = panel.locator('details').filter({ hasText: '출처와 집계 기준' });
+        await populationNotes.locator('summary').click();
+        await expect(populationNotes).toContainText('매장 방문·결제 고객 수가 아니에요');
+        await expect(populationNotes).toContainText('일일 순방문자 수로 해석하지 않아요');
+        const publicShares = panel.getByRole('figure', { name: '공개값 구성비' }).filter({ hasText: '장기외국인' });
+        await expect(publicShares).toContainText('공개값 합');
+        await expect(publicShares.locator('li').filter({ hasText: '내국인' })).toContainText('85.4%');
         await chart.scrollIntoViewIfNeeded();
         await page.screenshot({ path: path.join(output, 'market-population-charts.png') });
         await panel.getByRole('combobox', { name: '그래프에서 분석 시간 선택' }).selectOption('avg');
         await expect(legendOf(page)).toContainText('공개시간 평균');
         await panel.getByRole('button', { name: '요약', exact: true }).click();
-        await expect(panel.getByRole('figure', { name: '표본의 업종 비중' })).toContainText('15곳');
-        await expect(panel.getByRole('figure', { name: '표본의 업종 비중' })).toContainText('8곳');
+        await expect(panel.getByRole('figure', { name: '표시된 점포의 업종 비중' })).toContainText('15곳');
+        await expect(panel.getByRole('figure', { name: '표시된 점포의 업종 비중' })).toContainText('8곳');
       });
       await check('zoom controls change the actual map scale and retain roads', async () => {
         await page.getByRole('button', { name: '지도 확대', exact: true }).click();
@@ -283,15 +292,20 @@ try {
         await expect.poll(async () => (await panel.innerText()).match(/\d{2}\.\d{5}, \d{3}\.\d{5}/)?.[0]).not.toBe(before);
       });
       await check('profile zero and empty funds survive save and reload', async () => {
-        await page.locator('#nav [data-page="mypage"]').click();
+        await navigate(page, 'mypage');
+        const edit = page.getByRole('button', { name: '준비 자금 수정', exact: true });
+        const form = page.getByRole('form', { name: '준비 자금 수정', exact: true });
+        const input = form.getByLabel('준비 자금', { exact: true });
         for (const value of ['0', '']) {
-          await page.locator('[data-mp="funds"]').fill(value);
-          await page.locator('[data-mp="funds"]').press('Tab');
-          await page.locator('[data-nx="mpsave"]').click();
+          await edit.click();
+          await input.fill(value);
+          await form.getByRole('button', { name: '저장', exact: true }).click();
           await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('foundy-v5-demo-store')).funds)).toBe(value === '' ? null : 0);
-          await page.keyboard.press('Escape');
+          await expect(page.getByRole('dialog')).toHaveCount(0);
           await page.reload({ waitUntil: 'domcontentloaded' });
-          await expect(page.locator('[data-mp="funds"]')).toHaveValue(value);
+          await edit.click();
+          await expect(input).toHaveValue(value);
+          await form.getByRole('button', { name: '준비 자금 수정 취소', exact: true }).click();
         }
       });
     }

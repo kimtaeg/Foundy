@@ -1,26 +1,18 @@
-import { Element } from "@/components/view/Element";
+import { GrantBadge } from "@/components/grants/GrantBadge";
 
 export interface GrantEligibilityProps {
   label: string;
   tone: string;
-  example?: boolean;
+  organization?: string;
+  deadline?: string;
 }
 
-export function GrantEligibility({
-  label,
-  tone,
-  example = false,
-}: GrantEligibilityProps) {
+export function GrantEligibility({ label, tone, organization, deadline }: GrantEligibilityProps) {
   return (
-    <Element className="nx-badges">
-      <Element as="span" className={`nx-badge ${tone}`}>
-        {label}
-      </Element>
-      {example && (
-        <Element as="span" className="nx-badge unknown">
-          예시
-        </Element>
-      )}
-    </Element>
+    <span className="flex max-w-full flex-wrap items-center gap-1.5">
+      <GrantBadge label={label} tone={tone} />
+      {organization && <GrantBadge prefix="주관 기관" label={organization} />}
+      {deadline && <GrantBadge label={deadline} />}
+    </span>
   );
 }

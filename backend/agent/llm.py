@@ -14,6 +14,7 @@ from typing import Literal, Protocol, TypeVar
 
 from pydantic import BaseModel
 
+from .analysis_cache import accept_response
 from .cost import CostTracker
 
 T = TypeVar("T", bound=BaseModel)
@@ -51,6 +52,10 @@ class OpenAILLM:
                 raise LLMError("환경변수 LLM_API_KEY가 비어 있습니다.")
             client = OpenAI(api_key=api_key, timeout=TIMEOUT_SEC)
         self.client = client
+
+    def analysis_cache_identity(self, tier: Tier) -> tuple:
+        return ("openai", model_for(tier), str(self.client.base_url), self.client.organization,
+                self.client.project, self.client.api_key)
 
     def parse(self, *, step: str, tier: Tier, system: str, user: str, schema: type[T]) -> T:
         model = model_for(tier)
@@ -131,6 +136,10 @@ class GeminiLLM:
             client = genai.Client(api_key=api_key)
         self.client = client
 
+    def analysis_cache_identity(self, tier: Tier) -> tuple:
+        return ("gemini", model_for(tier), os.getenv("GOOGLE_GEMINI_BASE_URL"),
+                os.getenv("LLM_THINKING_LEVEL", "").strip().upper(), os.getenv("LLM_API_KEY"))
+
     def parse(self, *, step: str, tier: Tier, system: str, user: str, schema: type[T]) -> T:
         from google.genai import types
 
@@ -192,6 +201,9 @@ class GuardedLLM:
     def tripped(self) -> bool:
         return self.consecutive >= self.max_failures or (
             self.started is not None and self.clock() - self.started > self.time_budget_sec)
+
+    def accept_response(self, response: BaseModel) -> None:
+        accept_response(self.inner, response)
 
     def parse(self, *, step: str, tier: Tier, system: str, user: str, schema: type[T]) -> T:
         if self.started is None:

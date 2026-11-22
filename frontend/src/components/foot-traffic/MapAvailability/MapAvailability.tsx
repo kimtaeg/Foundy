@@ -1,6 +1,6 @@
 "use client";
 
-import { SectionSkeleton } from "@/components/loading/SectionSkeleton";
+import { FootTrafficMapSkeleton } from "../FootTrafficMapSkeleton";
 
 export interface MapAvailabilityProps {
   state: "loading" | "missing-key" | "error";
@@ -8,11 +8,7 @@ export interface MapAvailabilityProps {
 
 export function MapAvailability({ state }: MapAvailabilityProps) {
   if (state === "loading") {
-    return (
-      <div className="absolute inset-0 bg-neutral-50">
-        <SectionSkeleton variant="map" label="상권 지도를 불러오는 중" className="h-full w-full rounded-none" />
-      </div>
-    );
+    return <FootTrafficMapSkeleton canvasOnly />;
   }
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 p-6" role="status">

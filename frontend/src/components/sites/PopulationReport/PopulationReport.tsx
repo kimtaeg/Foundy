@@ -22,10 +22,10 @@ export interface PopulationReportProps {
 
 export function PopulationReport({ data, loading = false, error = "", retry, hour, onHourChange }: PopulationReportProps) {
   return (
-    <div className="space-y-3" data-testid="population-report">
+    <div className="divide-x-0 divide-y divide-solid divide-neutral-200 [&>*]:py-6 [&>:first-child]:pt-0 [&>:last-child]:pb-0 [&>:last-child]:pt-2" data-testid="population-report">
       <PopulationSummaryCard data={data} loading={loading} error={error} onRetry={retry} />
       {error ? (
-        <div role="alert" className="rounded-xl border border-solid border-neutral-200 bg-white p-4 text-sm leading-relaxed text-neutral-600">
+        <div role="alert" className="text-sm leading-relaxed text-neutral-600">
           <p className="m-0">{error}</p>
           {retry && <button type="button" onClick={retry} className="mt-3 min-h-10 rounded-lg border-0 bg-foundy-primary px-4 font-medium text-white">그래프 다시 시도</button>}
         </div>
@@ -35,10 +35,10 @@ export function PopulationReport({ data, loading = false, error = "", retry, hou
           loading={loading}
           onRetry={retry}
           fallback={
-            <div className="space-y-3">
+            <div className="divide-x-0 divide-y divide-solid divide-neutral-200 [&>*]:py-6 [&>:first-child]:pt-0 [&>:last-child]:pb-0">
               {["시간대별 생활인구", "생활인구 구성", "내국인 성별 구성", "내국인 연령별 구성"].map((title) => (
                 <MarketPanelCard key={title} title={title}>
-                  <SectionSkeleton variant="chart" label={`${title}를 불러오는 중`} />
+                  <SectionSkeleton variant="chart" appearance="plain" label={`${title}를 불러오는 중`} />
                 </MarketPanelCard>
               ))}
             </div>

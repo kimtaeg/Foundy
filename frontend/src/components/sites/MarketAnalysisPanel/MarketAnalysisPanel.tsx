@@ -43,6 +43,7 @@ export function MarketAnalysisPanel({
   return (
     <aside
       data-testid="market-panel"
+      data-open={open}
       id="market-analysis-panel"
       ref={panel}
       tabIndex={-1}
@@ -53,18 +54,24 @@ export function MarketAnalysisPanel({
           onClose();
         }
       }}
-      className={`${open ? "flex" : "hidden"} absolute bottom-20 right-3 top-16 z-30 w-[calc(100%-24px)] max-w-[400px] min-h-0 flex-col overflow-hidden rounded-2xl border border-solid border-neutral-200 bg-white shadow-lg outline-none sm:right-4 sm:w-[360px] lg:top-4 lg:flex lg:w-[400px]`}
+      className="map-disclosure absolute bottom-20 right-3 top-16 z-30 flex w-[calc(100%-24px)] max-w-[400px] min-h-0 flex-col overflow-hidden rounded-2xl border border-solid border-neutral-200 bg-white shadow-[0_8px_28px_rgb(0_0_0/0.09)] outline-none sm:right-4 sm:w-[360px] lg:top-4 lg:w-[400px]"
     >
-      <div className="shrink-0 space-y-4 border-0 border-b border-solid border-neutral-100 p-4">
+      <div className="shrink-0 px-4 pt-4 sm:px-5 sm:pt-5">
         <MarketPanelHeader center={center} radius={radius} onClose={onClose} />
-        {tab !== "population" && <MarketCategoryFilter value={category} onChange={onCategoryChange} />}
         <MarketPanelTabs value={tab} onChange={setTab} />
       </div>
-      <div key={tab} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-neutral-50 p-3">
-        {tab === "summary" && summary}
-        {tab === "population" && population}
-        {tab === "shops" && shops}
-        {tab === "planning" && planning}
+      <div key={tab} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5">
+        {tab !== "population" && (
+          <div className="mb-5">
+            <MarketCategoryFilter value={category} onChange={onCategoryChange} />
+          </div>
+        )}
+        <div className="divide-x-0 divide-y divide-solid divide-neutral-200 [&>*]:py-6 [&>:first-child]:pt-0 [&>:last-child]:pb-0">
+          {tab === "summary" && summary}
+          {tab === "population" && population}
+          {tab === "shops" && shops}
+          {tab === "planning" && planning}
+        </div>
       </div>
     </aside>
   );

@@ -217,8 +217,11 @@ def insert_demo(session: Session, rows: DemoRows) -> dict[str, Any]:
     session.flush()
 
     return {
-        "user": {"user_id": str(user.id), "name": user.name, "provider": user.provider},
+        "user": {"user_id": str(user.id), "name": user.name, "provider": user.provider,
+                 "joined_at": user.joined_at.isoformat()},
         "store_id": str(store.id),
+        "store_name": store.name,
+        "store_opening": store.opening_date.isoformat(),
         "run_id": str(run.id),
     }
 

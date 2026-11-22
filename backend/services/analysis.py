@@ -10,9 +10,10 @@ import threading
 import time
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
+from agent.analysis_cache import AnalysisResponseCache, CachedAnalysisLLM
 from agent.cost import CostTracker
 from agent.loop import run_analysis
 from agent.ports import StoreInput
@@ -21,11 +22,12 @@ from calc.dates import Dates
 from config import get_settings
 from db.models import Alert, ChecklistItem, CostLog, ReportItem, Run, Store
 from db.session import transaction
-from services.cards import current_verdict, decision_alert, is_pending_decision, load_state
+from services.cards import current_verdict, decision_alert, is_pending_decision, load_cards
 from services.documents import sync_requirements
 from services.effective import effective_store
 from services.links import sync_links
 from services.pack import get_pack
+from services.store_setup import missing_fields
 from services.timeutil import iso_kst, now_utc
 
 logger = logging.getLogger(__name__)
@@ -72,12 +74,15 @@ def _fail(row: Run, code: str, message: str) -> None:
     row.events = [*(row.events or []), _event("error", {"code": code, "message": message})]
 
 
-def expire_stale(session, store_id=None) -> int:
-    deadline = now_utc() - timedelta(seconds=get_settings().analysis_timeout_seconds)
+def _locked_active_runs(session, store_id=None) -> list[Run]:
     query = select(Run).where(Run.status.in_(ACTIVE))
     if store_id is not None:
         query = query.where(Run.store_id == store_id)
-    rows = session.scalars(query.with_for_update())
+    return list(session.scalars(query.with_for_update()))
+
+
+def _expire_runs(session, rows: list[Run]) -> int:
+    deadline = now_utc() - timedelta(seconds=get_settings().analysis_timeout_seconds)
     count = 0
     for row in rows:
         if (row.started_at or row.created_at) < deadline:
@@ -85,6 +90,10 @@ def expire_stale(session, store_id=None) -> int:
             count += 1
     session.flush()
     return count
+
+
+def expire_stale(session, store_id=None) -> int:
+    return _expire_runs(session, _locked_active_runs(session, store_id))
 
 
 def run_in_progress() -> ApiError:
@@ -98,8 +107,8 @@ def lock_store(session, store: Store) -> Store:
     """
     store = session.scalar(select(Store).where(Store.id == store.id).with_for_update()
                            .execution_options(populate_existing=True))
-    expire_stale(session, store.id)
-    if session.scalar(select(Run.id).where(Run.store_id == store.id, Run.status.in_(ACTIVE))):
+    active = _locked_active_runs(session, store.id)
+    if _expire_runs(session, active) < len(active):
         raise run_in_progress()
     return store
 
@@ -108,13 +117,15 @@ def _active_conflict(exc: IntegrityError) -> bool:
     return getattr(getattr(exc.orig, "diag", None), "constraint_name", None) == "runs_one_active"
 
 
-def start_run(session, store: Store, manager: "AnalysisManager", scope: list[str]) -> uuid.UUID:
+def start_run(session, store: Store, manager: "AnalysisManager", scope: list[str], *,
+              cards: list[ReportItem] | None = None) -> uuid.UUID:
     """잠근 가게(lock_store)에 run을 만들고, 지금까지의 변경과 함께 한 번에 커밋한 뒤 실행을 맡긴다.
 
     커밋 전에 실패하면 호출한 쪽의 변경도 함께 롤백된다 (변경만 저장되고 분석이 안 도는 상태를 만들지 않는다).
     """
     session.flush()
-    cards, _ = load_state(session, store)
+    if cards is None:
+        cards = load_cards(session, store)
     snapshot = store_input(store, cards)
     if snapshot.answers["sells_alcohol"] is None:
         raise invalid_input("주류 판매 여부를 먼저 답변해 주세요.")
@@ -144,7 +155,14 @@ def start_run(session, store: Store, manager: "AnalysisManager", scope: list[str
 
 
 def create_run(session, store: Store, manager: "AnalysisManager", scope: list[str]):
-    return start_run(session, lock_store(session, store), manager, scope)
+    store = lock_store(session, store)
+    if store.onboarded_at is None:
+        missing = missing_fields(store)
+        if missing:
+            raise ApiError(422, "SETUP_INCOMPLETE", "마이페이지에서 가게 정보와 영업 조건을 먼저 입력해 주세요.",
+                           {"missing_fields": missing})
+        scope = list(CORE_SCOPE)
+    return start_run(session, store, manager, scope)
 
 
 def reanalysis_scope(steps: list[str]) -> list[str]:
@@ -164,10 +182,10 @@ def append_event(run_id: uuid.UUID, event: str, data: dict) -> None:
     if event not in {"step", "item", "error"}:
         raise ValueError("Unsupported analysis event")
     with transaction() as session:
-        row = session.scalar(select(Run).where(Run.id == run_id).with_for_update())
-        if row is None or row.status not in ACTIVE:
+        result = session.execute(update(Run).where(Run.id == run_id, Run.status.in_(ACTIVE))
+                                 .values(events=Run.events.concat([_event(event, data)])))
+        if result.rowcount == 0:
             raise RunStopped()
-        row.events = [*(row.events or []), _event(event, data)]
 
 
 def fail_run(run_id: uuid.UUID, code: str, message: str) -> None:
@@ -216,7 +234,7 @@ def _save_obligations(session, store_id, run_id, outcomes) -> None:
             session.delete(row)
 
 
-def persist_result(run_id, snapshot, result, cost, scope, deadline=None):
+def persist_result(run_id, snapshot, result, cost, scope, deadline=None, item_events=()):
     with transaction() as session:
         initial = session.get(Run, run_id)
         if initial is None:
@@ -260,7 +278,8 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None):
                 for alert in session.scalars(select(Alert).where(Alert.store_id == store.id,
                                                                  Alert.dedupe_key == f"dec-{stale.item_key}")):
                     session.delete(alert)
-        _save_obligations(session, store.id, row.id, getattr(result, "obligations", []))
+        if "law" in scope:
+            _save_obligations(session, store.id, row.id, getattr(result, "obligations", []))
         if "checklist" in scope:
             by_key = {t.item_key: t for t in tasks}
             for item in result.checklist:
@@ -323,8 +342,19 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None):
             raise ValueError("ANALYSIS_TIMEOUT")
         summary = {k: sum(current_verdict(c) == k for c in cards) for k in ("high", "low", "unknown", "ok")}
         row.status, row.finished_at = "done", now_utc()
-        row.events = [*(row.events or []), _event("done", {"run_id": str(row.id), "summary": summary,
+        row.events = [*(row.events or []), *item_events, _event("done", {"run_id": str(row.id), "summary": summary,
                                                         "cost_krw": result.cost_krw})]
+
+
+def read_run_state(session, row: Run) -> dict:
+    if row.status in ACTIVE and (row.started_at or row.created_at) < now_utc() - timedelta(seconds=get_settings().analysis_timeout_seconds):
+        row = session.scalar(select(Run).where(Run.id == row.id).with_for_update()
+                             .execution_options(populate_existing=True))
+        if row.status in ACTIVE:
+            _fail(row, "ANALYSIS_TIMEOUT", "분석 제한 시간을 초과했습니다.")
+    return {"run_id": str(row.id), "trigger": row.trigger, "status": row.status, "scope": row.scope or [],
+            "events": row.events or [], "error": row.error,
+            "started_at": iso_kst(row.started_at), "finished_at": iso_kst(row.finished_at)}
 
 
 def read_run(run_id: uuid.UUID) -> dict:
@@ -332,14 +362,7 @@ def read_run(run_id: uuid.UUID) -> dict:
         row = session.get(Run, run_id)
         if row is None:
             raise ApiError(404, "RUN_NOT_FOUND", "분석 실행을 찾을 수 없습니다.")
-        if row.status in ACTIVE and (row.started_at or row.created_at) < now_utc() - timedelta(seconds=get_settings().analysis_timeout_seconds):
-            row = session.scalar(select(Run).where(Run.id == run_id).with_for_update())
-            if row.status in ACTIVE:
-                _fail(row, "ANALYSIS_TIMEOUT", "분석 제한 시간을 초과했습니다.")
-        return {"run_id": str(row.id), "trigger": row.trigger, "status": row.status,
-                "scope": row.scope or [],
-                "events": row.events or [], "error": row.error,
-                "started_at": iso_kst(row.started_at), "finished_at": iso_kst(row.finished_at)}
+        return read_run_state(session, row)
 
 
 class AnalysisManager:
@@ -350,6 +373,7 @@ class AnalysisManager:
         self.slots = threading.BoundedSemaphore(workers or settings.analysis_workers)
         self.runner = runner or run_analysis
         self.dependencies = dependencies
+        self.response_cache = AnalysisResponseCache()
 
     def reserve(self):
         return self.slots.acquire(blocking=False)
@@ -376,9 +400,18 @@ class AnalysisManager:
             from tools.analysis import make_dependencies
 
             tools, llm = (self.dependencies or make_dependencies)(cost)
-            result = self.runner(snapshot, tools=tools, calc=Dates(), llm=llm, scope=scope,
-                                 emit=lambda event, data: append_event(run_id, event, data))
-            persist_result(run_id, snapshot, result, cost, scope, deadline=deadline)
+            if hasattr(llm, "analysis_cache_identity"):
+                llm = CachedAnalysisLLM(llm, self.response_cache, snapshot.store_id)
+            item_events = []
+
+            def emit(event, data):
+                if event == "item":
+                    item_events.append(_event(event, data))
+                else:
+                    append_event(run_id, event, data)
+
+            result = self.runner(snapshot, tools=tools, calc=Dates(), llm=llm, scope=scope, emit=emit)
+            persist_result(run_id, snapshot, result, cost, scope, deadline=deadline, item_events=item_events)
         except RunStopped:
             pass
         except Exception as exc:

@@ -31,6 +31,14 @@ await loader.loadPop('local');
 assert.equal(fetchCalls,2);
 assert.ok(urls.every(url=>url.startsWith('/data/foot-traffic/')));
 results.push({name:'rejected population fetch evicted and successful fetch cached',status:'passed'});
+const payloads = [{}, { values: { cell: null } }, pop([10])[0]];
+const malformed = loadModule('src/lib/foot-traffic/data-loader.ts', {
+  fetch: async () => ({ ok: true, json: async () => payloads.shift() }),
+});
+await assert.rejects(malformed.loadPop('local'), /데이터 형식/);
+await assert.rejects(malformed.loadPop('local'), /데이터 형식/);
+assert.deepEqual(await malformed.loadPop('local'), pop([10])[0]);
+results.push({name:'malformed successful population response can be retried',status:'passed'});
 const qualityLoader=loadModule('src/lib/foot-traffic/data-loader.ts',{fetch:async()=>({ok:false,status:503})});
 await assert.rejects(qualityLoader.loadQuality());
 results.push({name:'quality HTTP failure propagates',status:'passed'});

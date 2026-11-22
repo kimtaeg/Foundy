@@ -212,6 +212,125 @@ def test_unchanged_law_is_not_reembedded_and_change_is_logged_with_history(test_
     assert [l.change_type for l in sorted(logs, key=lambda l: l.detected_at)] == ["added", "updated", "updated"]
 
 
+class RecordingEmbedder(HashEmbedder):
+    def __init__(self):
+        self.batches = []
+
+    def embed_documents(self, texts):
+        self.batches.append(texts)
+        return super().embed_documents(texts)
+
+
+@needs_db
+def test_law_ingest_batches_new_chunks_and_reuses_matching_vectors_on_amendment(test_law):
+    from db.models import LawArticle, LawEmbedding
+    from db.session import transaction
+    from law_rag.changes import apply_parsed
+    from law_rag.retriever import pinned_chunks
+
+    emb = RecordingEmbedder()
+    first, second, amended = ("가" * MAX_CHUNK, "나" * MAX_CHUNK, "다" * MAX_CHUNK)
+    law = make_law(test_law, "100", [("첫 조문", f"{first}\n{second}"), ("둘째 조문", "영업신고")])
+    assert apply_parsed(law, emb)[0].embedded_chunks == 3
+    assert [len(batch) for batch in emb.batches] == [3]
+
+    revision = make_law(test_law, "200", [("첫 조문", f"{first}\n{amended}"), ("둘째 조문", "영업신고")])
+    result, _ = apply_parsed(revision, emb)
+    assert result.embedded_chunks == 2
+    expected_input = embed_text(law.name, "제37조", "첫 조문", amended)
+    assert emb.batches[1:] == [[expected_input]]
+
+    pins = [{"law_name": law.name, "label": label} for label in ("제38조", "제37조")]
+    with transaction() as session:
+        first_article = select(LawArticle.id).where(
+            LawArticle.url == revision.source_url, LawArticle.label == "제37조")
+        rows = session.execute(select(LawEmbedding.content, LawEmbedding.embedding).where(
+            LawEmbedding.article_id.in_(first_article)).order_by(LawEmbedding.chunk_no)).all()
+        hits = pinned_chunks(session, pins)
+    assert len(rows) == 2
+    for (content, vector), original in zip(rows, (first, amended), strict=True):
+        assert content == original
+        assert list(vector) == pytest.approx(emb.embed_query(embed_text(law.name, "제37조", "첫 조문", original)))
+    assert [hit.label for hit in hits] == ["제38조", "제37조", "제37조"]
+    assert all(hit.url == revision.source_url for hit in hits)
+
+    renamed = make_law(test_law, "300", [("첫 조문 새 제목", f"{first}\n{amended}"), ("둘째 조문", "영업신고")])
+    apply_parsed(renamed, emb)
+    assert emb.batches[-1] == [embed_text(law.name, "제37조", "첫 조문 새 제목", part) for part in (first, amended)]
+
+
+@needs_db
+def test_law_ingest_leaves_rejected_article_searchable_without_dropping_other_vectors(test_law):
+    from db.session import transaction
+    from law_rag.changes import apply_parsed
+    from law_rag.retriever import search
+
+    class PartialResponse(RecordingEmbedder):
+        def embed_documents(self, texts):
+            vectors = super().embed_documents(texts)
+            return vectors[:0] if any(text.endswith("오류 조문") for text in texts) else vectors
+
+    emb = PartialResponse()
+    law = make_law(test_law, "100", [("부정확한 임베딩", "오류 조문"), ("정상", "영업신고 조문")])
+    apply_parsed(law, emb)
+    with transaction() as session:
+        hits = search(session, query="영업신고", keywords=["조문"], names=[law.name], embedder=emb)
+    assert [len(batch) for batch in emb.batches] == [2, 1, 1]
+    assert {hit.label: hit.sources for hit in hits} == {"제37조": {"keyword"}, "제38조": {"keyword", "vector"}}
+
+
+@needs_db
+def test_rag_skips_provider_if_only_keyword_index_exists_and_uses_vector_after_indexing(test_law):
+    from law_rag.changes import apply_parsed
+    from law_rag.service import LawRag
+
+    class QueryCountingEmbedder(HashEmbedder):
+        model = f"test-{test_law['key']}"
+
+        def __init__(self):
+            self.calls = []
+
+        def embed_query(self, text):
+            self.calls.append(text)
+            return super().embed_query(text)
+
+    emb = QueryCountingEmbedder()
+    law = make_law(test_law, "100", [("영업신고", "영업신고를 하여야 한다.")])
+    apply_parsed(law, embed=False)
+    rag = LawRag(embedder=emb, pack={"law_rag": {"checks": {"test": {
+        "query": "영업신고", "keywords": ["영업신고"], "laws": [law.name],
+    }}}})
+    assert rag.articles_for("test").data["articles"][0]["retrieved_by"] == ["keyword"]
+    assert not emb.calls
+
+    # Ingest a changed article to enable this model without backfilling unrelated laws in the test database.
+    revision = make_law(test_law, "200", [("영업신고", "영업신고를 매년 하여야 한다.")])
+    apply_parsed(revision, emb)
+    assert rag.articles_for("test").data["articles"][0]["retrieved_by"] == ["keyword", "vector"]
+    assert emb.calls == ["영업신고"]
+
+
+@needs_db
+def test_duplicate_law_refresh_is_serialized_and_only_embeds_once(test_law):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from law_rag.changes import apply_parsed
+
+    emb = RecordingEmbedder()
+    law = make_law(test_law, "100", [("정상", "영업신고 조문")])
+    start = Barrier(2, timeout=5)
+
+    def ingest():
+        start.wait()
+        return apply_parsed(law, emb)[0].change
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first, second = executor.submit(ingest), executor.submit(ingest)
+        assert {first.result(10), second.result(10)} == {"added", "unchanged"}
+    assert len(emb.batches) == 1
+
+
 @needs_db
 def test_law_change_alerts_only_stores_with_affected_rules(test_law, monkeypatch):
     """바뀐 조문이 걸린 규칙이 적용·확인 필요인 가게에만 알림이 간다."""
@@ -309,6 +428,50 @@ def test_internal_refresh_requires_token(client, monkeypatch):
 def test_obligations_and_search_need_login(client):
     assert client.get("/api/laws/search", params={"q": "영업신고"}).status_code == 401
     assert client.get(f"/api/stores/{uuid.uuid4()}/obligations").status_code == 401
+
+
+@needs_db
+def test_authenticated_law_endpoints_read_saved_data_and_validate_queries(client, test_law, monkeypatch):
+    from db.models import LegalObligation, User
+    from db.session import transaction
+    from law_rag.store import save_law
+
+    demo = client.post("/api/demo")
+    assert demo.status_code == 201
+    account = demo.json()
+    user_id = uuid.UUID(account["user"]["user_id"])
+    store_id = uuid.UUID(account["store_id"])
+    headers = {"Authorization": f"Bearer {account['access_token']}"}
+    embedder = HashEmbedder()
+    law = make_law(test_law, "100", [("영업신고", "① 구청장에게 영업신고를 하여야 한다.")])
+    rule_id = f"{test_law['key']}-check"
+    monkeypatch.setattr("law_rag.embedder.make_embedder", lambda: embedder)
+    try:
+        with transaction() as session:
+            save_law(session, law, embedder=embedder)
+            session.add(LegalObligation(
+                store_id=store_id, rule_id=rule_id, title="시험 규칙", status="needs_check", reason="층 정보 필요",
+                missing_inputs=["floor"], law_name=test_law["name"], article_label="제37조",
+            ))
+        params = {"q": "영업신고", "laws": test_law["name"]}
+        response = client.get("/api/laws/search", headers=headers, params=params)
+        assert response.status_code == 200
+        laws = response.json()
+        assert laws["query"] == params["q"]
+        assert [(entry["law_name"], entry["article"]) for entry in laws["articles"]] == [(test_law["name"], "제37조")]
+        invalid = client.get("/api/laws/search", headers=headers, params={**params, "limit": 0})
+        assert invalid.status_code == 400 and invalid.json()["error"]["code"] == "INVALID_INPUT"
+
+        response = client.get(f"/api/stores/{store_id}/obligations", headers=headers)
+        assert response.status_code == 200
+        obligations = response.json()
+        assert obligations["store_id"] == str(store_id) and obligations["summary"]["needs_check"] >= 1
+        rule = next(entry for entry in obligations["items"] if entry["rule_id"] == rule_id)
+        assert rule["status"] == "needs_check" and rule["missing_inputs"][0]["key"] == "floor"
+        assert rule["law"]["law_name"] == test_law["name"] and rule["law"]["article"] == "제37조"
+    finally:
+        with transaction() as session:
+            session.execute(delete(User).where(User.id == user_id))
 
 
 # ---------------------------------------------------------------- 수집기 (가짜 법제처 응답, 접속 없음)
@@ -412,6 +575,46 @@ def test_openai_embedder_batches_and_does_not_retry_auth_errors():
     assert len(denied.embeddings.calls) == 1  # 인증 오류는 다시 시도하지 않는다
 
 
+def test_openai_query_cache_coalesces_repeated_calls_and_does_not_cache_errors():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from law_rag.embedder import OpenAIEmbedder
+
+    client = _FakeClient()
+    emb = OpenAIEmbedder("k", retries=1, client=client)
+    barrier = Barrier(6, timeout=5)
+
+    def lookup(_):
+        barrier.wait()
+        return emb.embed_query("같은 검색어")
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(lookup, range(6)))
+    assert len(client.embeddings.calls) == 1
+    for item in results:
+        assert item == results[0]
+    results[0][0] = 42
+    assert emb.embed_query("같은 검색어")[0] == 1.0
+    client.embeddings.fail = RuntimeError("temporary error")
+    with pytest.raises(RuntimeError):
+        emb.embed_query("다른 검색어")
+    client.embeddings.fail = None
+    assert emb.embed_query("다른 검색어")[0] == 1.0 and len(client.embeddings.calls) == 3
+
+
+def test_openai_embedder_rejects_missing_or_duplicate_vector_indices(monkeypatch):
+    from types import SimpleNamespace as Response
+
+    from law_rag.embedder import OpenAIEmbedder
+
+    client = _FakeClient()
+    duplicate = Response(index=0, embedding=[1.0] * DIM)
+    monkeypatch.setattr(client.embeddings, "create", lambda **params: Response(data=[duplicate, duplicate]))
+    with pytest.raises(RuntimeError, match="EmbeddingResponseError"):
+        OpenAIEmbedder("k", retries=1, client=client).embed_documents(["가", "나"])
+
+
 def test_make_embedder_prefers_embedding_key_over_gemini(monkeypatch):
     from law_rag import embedder as mod
 
@@ -421,6 +624,9 @@ def test_make_embedder_prefers_embedding_key_over_gemini(monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "gemini-key")
     emb = mod.make_embedder()
     assert isinstance(emb, mod.OpenAIEmbedder) and emb.model == "text-embedding-3-small"
+    assert mod.make_embedder() is emb
+    monkeypatch.setenv("EMBEDDING_BASE_URL", "https://embeddings.example.com")
+    assert mod.make_embedder() is not emb
     monkeypatch.delenv("EMBEDDING_API_KEY")
     monkeypatch.setenv("LLM_API_KEY", "")
     assert mod.make_embedder() is None  # 키가 없으면 키워드 검색만

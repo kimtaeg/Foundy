@@ -13,10 +13,11 @@ interface ReportActionContext {
   buildCards(): ReportCardData[];
   modal(
     title: string,
-    content: Extract<DialogContent, { kind: "option-confirm" }>,
+    content: Extract<DialogContent, { kind: "option-choices" | "option-confirm" }>,
   ): void;
   closeModal(): void;
-  applyChoice(cardId: string, optionId: string): void;
+  applyChoice(cardId: string, optionId: string): boolean;
+  openOptionResult(cardId: string): void;
   RS: Record<string, PersistedReportState>;
   put(key: string, value: unknown): void;
   logNext(cardId: string, status: NonNullable<ReportState["action"]>): void;
@@ -39,11 +40,22 @@ export function createReportActions(
 
       return true;
     },
+    options: (b: HTMLElement) => {
+      const card = context.buildCards().find((item) => item.id === b.dataset.id);
+      if (!card?.options.length) return true;
+      if (card.options.some((option) => option.id === context.RS[card.id]?.chosen)) {
+        context.openOptionResult(card.id);
+      } else {
+        context.modal("선택지 비교", { kind: "option-choices", card });
+      }
+      return true;
+    },
     opt: (b: HTMLElement) => {
       const id = b.dataset.id ?? "";
 
-      const card = context.buildCards().find((item) => item.id === id)!;
-      const option = card.options.find((item) => item.id === b.dataset.o)!;
+      const card = context.buildCards().find((item) => item.id === id);
+      const option = card?.options.find((item) => item.id === b.dataset.o);
+      if (!card || !option) return true;
       context.modal("선택지 적용 확인", {
         kind: "option-confirm",
         cardId: id,
@@ -61,8 +73,8 @@ export function createReportActions(
     confirm: (b: HTMLElement) => {
       const id = b.dataset.id ?? "";
 
-      context.closeModal();
-      context.applyChoice(id, b.dataset.o!);
+      if (context.applyChoice(id, b.dataset.o ?? "")) context.openOptionResult(id);
+      else context.closeModal();
 
       return true;
     },
@@ -70,19 +82,12 @@ export function createReportActions(
       const id = b.dataset.id ?? "";
 
       const card = context.buildCards().find((item) => item.id === id);
-      if (card && card.rec) context.applyChoice(id, card.rec.id);
+      if (card?.rec && context.applyChoice(id, card.rec.id)) context.openOptionResult(id);
 
       return true;
     },
-    undo: (b: HTMLElement) => {
-      const id = b.dataset.id ?? "";
-
-      delete context.RS[id];
-      context.put("rs", context.RS);
-      context.logNext(id, "pending");
-      context.syncLinks();
-      context.toast("선택을 되돌렸어요");
-
+    optionresult: (b: HTMLElement) => {
+      context.openOptionResult(b.dataset.id ?? "");
       return true;
     },
     act: (b: HTMLElement) => {

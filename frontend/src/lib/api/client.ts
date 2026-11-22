@@ -17,6 +17,21 @@ export class ApiError extends Error {
   }
 }
 
+export const apiSessionExpiredEvent = "foundy:api-session-expired";
+export type ApiSessionExpired = CustomEvent<{ token: string; message: string }>;
+
+export async function readApiError(response: Response, token?: string | null): Promise<ApiError> {
+  const body = await response.json().catch(() => null);
+  const details = body?.error;
+  const code = typeof details?.code === "string" ? details.code : "HTTP_ERROR";
+  const message = typeof details?.message === "string" && details.message.trim()
+    ? details.message : "요청을 처리하지 못했어요.";
+  if (response.status === 401 && token && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(apiSessionExpiredEvent, { detail: { token, message } }));
+  }
+  return new ApiError(response.status, code, message, details);
+}
+
 export async function apiFetch<T>(
   path: string,
   options: { method?: string; body?: unknown; token?: string | null } = {},
@@ -28,6 +43,7 @@ export async function apiFetch<T>(
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method: options.method ?? "GET",
+      cache: "no-store",
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
@@ -35,15 +51,8 @@ export async function apiFetch<T>(
     throw new ApiError(0, "NETWORK_ERROR", "서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
   }
   if (response.status === 204) return undefined as T;
+  if (!response.ok) throw await readApiError(response, options.token);
   const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    const error = data?.error ?? {};
-    throw new ApiError(
-      response.status,
-      error.code ?? "HTTP_ERROR",
-      error.message ?? "요청을 처리하지 못했어요.",
-      error,
-    );
-  }
+  if (data === null) throw new ApiError(response.status, "INVALID_RESPONSE", "서버 응답을 읽을 수 없어요.");
   return data as T;
 }

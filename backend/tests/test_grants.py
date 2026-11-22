@@ -118,6 +118,50 @@ def test_llm_failure_keeps_grant_as_unknown():
     assert m.eligibility.result == "unknown" and m.summary.who == "[확인 필요]" and m.summary.until == "2027-01-31"
 
 
+def test_repeated_notice_prompt_uses_one_extraction_but_keeps_each_grant_metadata():
+    first = grant("g1")
+    duplicate = {**first, "grant_id": "g2", "url": "https://k/2", "deadline": "2027-02-01"}
+    edited = {**first, "grant_id": "g3", "text": "조건 없음"}
+    llm = FakeLLM({"grants_extract": ex(AGE)})
+    result = judge_grants(llm, S, res(first, duplicate, edited), TODAY)
+    assert len(llm.calls) == 2
+    assert [item.grant_id for item in result.items] == ["g1", "g2", "g3"]
+    assert [item.eligibility.result for item in result.items] == ["eligible", "eligible", "unknown"]
+    assert [(item.eligibility.checks[0].evidence.url, item.summary.until) for item in result.items[:2]] == [
+        ("https://k/1", "2027-01-31"), ("https://k/2", "2027-02-01")]
+
+
+def test_repeated_notice_retries_after_an_extraction_failure():
+    calls = []
+
+    def extract(user):
+        calls.append(user)
+        if len(calls) == 1:
+            raise LLMError("temporary failure")
+        return ex(AGE)
+
+    first = grant("g1")
+    second = {**first, "grant_id": "g2"}
+    third = {**first, "grant_id": "g3"}
+    result = judge_grants(FakeLLM({"grants_extract": extract}), S, res(first, second, third), TODAY)
+    assert len(calls) == 2
+    assert result.extraction_failed
+    assert [(item.grant_id, item.eligibility.result) for item in result.items] == [
+        ("g2", "eligible"), ("g3", "eligible"), ("g1", "unknown")]
+
+
+def test_repeated_notice_does_not_reuse_unverified_evidence():
+    first = grant("g1")
+    second = {**first, "grant_id": "g2"}
+    incorrect = cond("age_max", "만 39세 이하", "신청 자격: 만 39세 이하", number=39)
+    extracts = iter([ex(incorrect), ex(AGE)])
+    llm = FakeLLM({"grants_extract": lambda _: next(extracts)})
+    result = judge_grants(llm, S, res(first, second), TODAY)
+    assert len(llm.calls) == 2
+    assert [(item.grant_id, item.eligibility.result) for item in result.items] == [
+        ("g2", "eligible"), ("g1", "unknown")]
+
+
 def test_tool_failure():
     r = judge_grants(FakeLLM({}), S, ToolResult(ok=False, source="K-Startup"), TODAY)
     assert r.ok is False and r.items == []

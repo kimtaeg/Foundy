@@ -1,1 +1,1 @@
-export { ChecklistViewTabs } from "@/components/checklist/ChecklistViewTabs/ChecklistViewTabs";
+export * from "./ChecklistViewTabs";

@@ -13,7 +13,7 @@ from sqlalchemy import delete, select
 
 from agent.loop import run_analysis
 from config import get_settings
-from db.models import ReportItem, Run, User
+from db.models import LegalObligation, ReportItem, Run, User
 from db.session import transaction
 from main import app, cleanup_stale_runs
 from services.timeutil import now_utc
@@ -143,8 +143,8 @@ def test_full_analysis_saved_and_readable(context):
     (["building"], ["building"]),
     (["trademark"], ["trademark"]),
     (["checklist"], []),
-    # 법령 범위는 조문을 읽는 카드 전부(영업신고·표시 의무·근로계약)의 조문을 다시 조회한다 (#113). 소방은 면적을 몰라 건너뛴다
-    (["law"], ["cached_building", "law:building_use", "law:permit_docs", "law:labeling", "law:labor_contract"]),
+    # 법령 적용 판정은 해당 카드가 화면에 표시되기 전에도 소방 조문을 조회한다.
+    (["law"], ["cached_building", "law:building_use", "law:permit_docs", "law:labeling", "law:fire_safety", "law:labor_contract"]),
 ])
 def test_partial_scope_does_not_call_unselected_providers(context, scope, expected):
     client, base, headers, tools, *_ = context
@@ -349,13 +349,12 @@ def test_closing_stream_does_not_cancel_analysis(context, monkeypatch):
     class Request:
         async def is_disconnected(self):
             return False
-    class ClosedSession:
-        def close(self):
-            pass
     with blocked(manager, monkeypatch) as (entered, release):
         rid = start(context)
         assert entered.wait(2)
-        response = stream(Request(), SimpleRun(uuid.UUID(rid)), ClosedSession(), None)
+        with transaction() as session:
+            row = session.get(Run, uuid.UUID(rid))
+            response = stream(Request(), row, session, None)
         async def disconnect():
             event = await anext(response.body_iterator)
             assert "event: step" in event
@@ -363,12 +362,6 @@ def test_closing_stream_does_not_cancel_analysis(context, monkeypatch):
         asyncio.run(disconnect())
         release.set()
         assert wait(client, rid, headers)["status"] == "done"
-
-
-class SimpleRun:
-    def __init__(self, key):
-        self.id = key
-
 
 def test_default_mock_runtime_completes_without_live_keys(context, monkeypatch):
     client, base, headers, _, manager, _ = context
@@ -468,3 +461,21 @@ def test_failed_run_preserves_incurred_costs(context, monkeypatch):
                 return
         time.sleep(0.01)
     pytest.fail("실패한 실행의 발생 비용이 저장되지 않음")
+
+
+def test_trademark_only_run_preserves_saved_legal_judgments(context):
+    client, base, headers, *_ = context
+    original_run = start(context)
+    assert wait(client, original_run, headers)["status"] == "done"
+    store_id = uuid.UUID(base.rsplit("/", 1)[-1])
+
+    def legal_results():
+        with transaction() as session:
+            rows = session.scalars(select(LegalObligation).where(LegalObligation.store_id == store_id))
+            return {row.rule_id: (str(row.run_id), row.status, row.reason) for row in rows}
+
+    before = legal_results()
+    assert before and all(row[0] == original_run for row in before.values())
+    trademark_run = start(context, ["trademark"])
+    assert wait(client, trademark_run, headers)["status"] == "done"
+    assert legal_results() == before

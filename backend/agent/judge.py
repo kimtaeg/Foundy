@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from rules.engine import RuleResult
 
+from .analysis_cache import accept_response
 from .llm import LLM, LLMError
 from .ports import StoreInput, ToolResult
 from .prompts import judge as prompt
@@ -93,7 +94,8 @@ def judge_trademark(
         j = llm.parse(
             step="judge_trademark", tier="main", system=prompt.TRADEMARK_SYSTEM,
             user=prompt.TRADEMARK_USER.format(
-                name=name, similar=json.dumps(similar, ensure_ascii=False)),
+                name=name, similar=json.dumps([{k: v for k, v in candidate.items() if k != "url"}
+                                               for candidate in similar], ensure_ascii=False, separators=(",", ":"))),
             schema=TrademarkJudgment,
         )
     except LLMError:
@@ -118,6 +120,8 @@ def judge_trademark(
         evidence = evidence or [_data_evidence(res, f"조회된 등록 상표 {len(similar)}건 검토")]
     elif verdict == "low" and not evidence:
         verdict, reason = "unknown", "비슷하다고 본 상표를 조회 결과에서 특정하지 못했어요. 목록을 직접 확인해 보세요."
+    if verdict in ("ok", "low") and verdict == j.verdict and j.title.strip() and reason.strip():
+        accept_response(llm, j)
     alternatives = (
         _distinct_names(j.alternatives, name, [by_reg[r].get("name", "") for r in by_reg]) if verdict == "low" else []
     )
@@ -146,6 +150,8 @@ def judge_ad_claims(llm: LLM, store: StoreInput, spec: dict, item_id: str) -> Re
     verdict, reason = j.verdict, j.reason
     if verdict == "low" and not quotes:
         verdict, reason = "unknown", "문제라고 본 표현을 원문에서 찾지 못했어요. 문구를 직접 확인해 보세요."
+    if verdict in ("ok", "low") and verdict == j.verdict and j.title.strip() and reason.strip():
+        accept_response(llm, j)
     evidence = [Evidence(type="data", source=src, value=q) for q in quotes]
     if verdict == "ok":
         evidence = [Evidence(type="data", source=src, value="입력한 문구 전체를 검토했어요")]
@@ -209,9 +215,8 @@ def judge_law_card(
         return _static_permit(spec, item_id, res)  # 읽을 조문이 없으면 판단하지 않는다 (근거 없음 → unknown)
 
     by_key = {f"{a.get('law_name')} {a.get('article')}": a for a in arts}
-    shown = [{"key": k, "law_name": a.get("law_name"), "article": a.get("article"),
-              "text": (a.get("text") or "")[:MAX_ARTICLE_CHARS]} for k, a in by_key.items()]
-    ctx_store = {"name": store.name, "sells_alcohol": store.answers.get("sells_alcohol"),
+    shown = [{"key": k, "text": a["text"][:MAX_ARTICLE_CHARS]} for k, a in by_key.items()]
+    ctx_store = {"sells_alcohol": store.answers.get("sells_alcohol"),
                  "uses_terrace": store.answers.get("uses_terrace"), "has_employees": store.answers.get("has_employees"),
                  "does_delivery": store.answers.get("does_delivery"), "area_sqm": store.area_sqm}
     topic = spec.get("topic")
@@ -220,13 +225,14 @@ def judge_law_card(
         if topic:  # 영업신고 외의 법령 카드(원산지 표시·소방·근로계약 등)
             system = prompt.OBLIGATION_SYSTEM.replace("{topic}", topic)
             user = prompt.OBLIGATION_USER.format(
-                business_type=business_type or "[확인 필요]", store=json.dumps(ctx_store, ensure_ascii=False),
-                rules=json.dumps(rules, ensure_ascii=False), articles=json.dumps(shown, ensure_ascii=False))
+                business_type=business_type or "[확인 필요]", store=json.dumps(ctx_store, ensure_ascii=False, separators=(",", ":")),
+                rules=json.dumps(rules, ensure_ascii=False, separators=(",", ":")),
+                articles=json.dumps(shown, ensure_ascii=False, separators=(",", ":")))
         else:
             system = prompt.PERMIT_SYSTEM
             user = prompt.PERMIT_USER.format(
-                business_type=business_type or "[확인 필요]", store=json.dumps(ctx_store, ensure_ascii=False),
-                articles=json.dumps(shown, ensure_ascii=False))
+                business_type=business_type or "[확인 필요]", store=json.dumps(ctx_store, ensure_ascii=False, separators=(",", ":")),
+                articles=json.dumps(shown, ensure_ascii=False, separators=(",", ":")))
         j = llm.parse(step="judge_law_card" if topic else "judge_permit_docs", tier="main", system=system, user=user, schema=PermitJudgment)
     except LLMError:
         return _static_permit(spec, item_id, res, fallback=True)
@@ -250,6 +256,8 @@ def judge_law_card(
         verdict, reason = "low", "이 가게에 적용되는 규정으로 확인됐어요. 아래 근거 조문을 확인해 보세요."
     elif verdict == "ok" and statuses == {"needs_check"}:
         verdict, reason = "unknown", "적용 여부를 판단할 정보가 부족해요. 관할 기관에 직접 확인해 보세요."
+    if verified and verdict == j.verdict and j.title.strip() and reason.strip():
+        accept_response(llm, j)
     evidence = [_law_evidence(res, by_key[k], " … ".join(quotes[k]) or None) for k in (verified or cited)]
     if verdict != "unknown" and j.required and verdict == "low":
         reason = f"{reason} 조문에 적힌 할 일: " + " / ".join(r.strip() for r in j.required[:4] if r.strip())
@@ -352,10 +360,9 @@ def judge_building_use_ai(
         j = llm.parse(
             step="judge_building_use", tier="main", system=prompt.BUILDING_SYSTEM,
             user=prompt.BUILDING_USER.format(
-                store=json.dumps({"name": store.name, "sells_alcohol": store.answers.get("sells_alcohol"),
-                                  "area_sqm": store.area_sqm}, ensure_ascii=False),
+                store=json.dumps({"area_sqm": store.area_sqm}, ensure_ascii=False, separators=(",", ":")),
                 business_type=business_type, floor_uses=json.dumps(uses, ensure_ascii=False),
-                articles=json.dumps(shown, ensure_ascii=False)),
+                articles=json.dumps(shown, ensure_ascii=False, separators=(",", ":"))),
             schema=BuildingJudgment,
         )
     except LLMError:
@@ -382,8 +389,11 @@ def judge_building_use_ai(
     elif verdict == "high" and rr.verdict == "unknown":
         verdict = "low"
         reason += " (규칙표로는 확인되지 않아 확인 권장으로 낮췄어요)"
-    if area_note and j.verdict in ("ok", "high") and verdict in ("ok", "low"):
-        verdict, reason = "low", area_note  # 면적 기준 이상이거나 면적을 모르면 가능·불가를 단정하지 않고 이유를 면적으로 설명한다
+    if area_note and verdict in ("ok", "low"):
+        verdict, reason = "low", area_note  # 확인 권장 사유에 검증된 면적 기준과 문의처를 일관되게 사용한다
+    if (cited_uses and (law_verified or verdict == "ok") and verdict == j.verdict
+            and reason == j.reason and j.title.strip() and reason.strip()):
+        accept_response(llm, j)
     evidence = [_building_evidence(b, bi, cited_uses or uses)]
     evidence += [_law_evidence(law, by_key[k], " … ".join(quotes[k]) or None) for k in (law_verified or cited)]
     ai_ok_types = [t for t in dict.fromkeys(j.ok_business_types) if t in BUSINESS_TYPES and t in rr_ok_types]
@@ -432,6 +442,8 @@ def judge_violation_ai(llm: LLM, b: ToolResult, spec: dict, item_id: str) -> Rep
     verdict, reason = j.verdict, j.reason
     if verdict != expected:  # 표기 값과 다른 판정은 쓰지 않는다
         verdict, reason = expected, rule_card(False).reason
+    if j.verdict == expected and j.title.strip() and reason.strip():
+        accept_response(llm, j)
     ev = [_data_evidence(b, "위반건축물 표기 있음" if violation else "위반건축물 표기 없음")]
     return ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="ai", verdict=verdict,
                       title=j.title if verdict == j.verdict else (render_title(spec, verdict) or j.title),

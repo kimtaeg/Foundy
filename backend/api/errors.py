@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.errors import ServerErrorMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,9 @@ def install(app: FastAPI) -> None:
         code = {404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED"}.get(exc.status_code, "HTTP_ERROR")
         return JSONResponse(_body(code, str(exc.detail)), status_code=exc.status_code)
 
-    @app.exception_handler(Exception)
     async def _internal(_: Request, exc: Exception):
         logger.exception("처리하지 못한 오류 (%s)", type(exc).__name__)
         return JSONResponse(_body("INTERNAL_ERROR", "서버 오류가 발생했습니다."), status_code=500)
+
+    # Keep endpoint failures inside CORS so browsers can read their JSON response.
+    app.add_middleware(ServerErrorMiddleware, handler=_internal)

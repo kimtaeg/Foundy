@@ -1,1 +1,1 @@
-export { TaskGroupCard } from "@/components/checklist/TaskGroupCard/TaskGroupCard";
+export * from "./TaskGroupCard";

@@ -15,13 +15,13 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
 from db.models import DocumentHistory, DocumentRequirement, LawForm, LegalObligation, Store
 from rules.applicability import APPLIES, NEEDS_CHECK
 from services.effective import effective_store
-from services.pack import hidden_categories
+from services.pack import hidden_categories, task_title
 from services.timeutil import iso_kst, now_utc
 
 DOC_TYPES = {
@@ -35,6 +35,7 @@ STATUSES = {
 DONE = {"obtained", "submitted"}
 LAW_WEB = "https://www.law.go.kr"
 STALE_PREFIX = "이 서류는 더 이상 필요하지 않을 수 있어요"
+STALE_REASON = f"{STALE_PREFIX}. 진행한 기록은 남겨 둘게요."
 
 
 class DocumentError(Exception):
@@ -106,36 +107,58 @@ def sync_requirements(session: Session, pack: dict, store: Any, cards: list[Any]
     """
     # 같은 가게에 동시에 들어온 요청이 같은 서류를 두 번 만들지 않게 가게 행을 잠그고 시작한다 (트랜잭션이 끝나면 풀린다)
     session.execute(select(Store.id).where(Store.id == store.id).with_for_update())
+    obligations = list(session.scalars(select(LegalObligation).where(LegalObligation.store_id == store.id)))
+    rows = list(session.scalars(select(DocumentRequirement).where(DocumentRequirement.store_id == store.id)))
+    changed, obsolete = requirement_changes(pack, store, cards, items, obligations, rows)
+    return apply_requirement_changes(session, store, rows, changed, obsolete)
+
+
+def requirement_changes(pack: dict, store: Any, cards: list[Any], items: list[Any], obligations: list[Any],
+                        rows: list[DocumentRequirement]) -> tuple[list[tuple[DocumentRequirement | None, dict]],
+                                                                   list[DocumentRequirement]]:
     eff = effective_store(pack, store, cards)
     hidden = {h["category"] for h in hidden_categories(pack, eff)}
-    obligations = list(session.scalars(select(LegalObligation).where(LegalObligation.store_id == store.id)))
     desired = desired_requirements(pack, items, obligations, eff, hidden)
-    rows = list(session.scalars(select(DocumentRequirement).where(DocumentRequirement.store_id == store.id)))
     by_key = {r.doc_key: r for r in rows}
-    now = now_utc()
-
+    changed = []
     for key, spec in desired.items():
-        row = by_key.get(key)
+        row = by_key.pop(key, None)
+        if (row is None or _stale_review(row) or
+                any(getattr(row, field) != value for field, value in spec.items())):
+            changed.append((row, spec))
+    obsolete = [row for row in by_key.values() if _deletable(row) or not row.review_needed or row.review_reason != STALE_REASON]
+    return changed, obsolete
+
+
+def _stale_review(row: DocumentRequirement) -> bool:
+    return bool(row.review_needed and (row.review_reason or "").startswith(STALE_PREFIX))
+
+
+def _deletable(row: DocumentRequirement) -> bool:
+    return row.status in ("not_started", "not_applicable")
+
+
+def apply_requirement_changes(session: Session, store: Any, rows: list[DocumentRequirement],
+                              changed: list[tuple[DocumentRequirement | None, dict]],
+                              obsolete: list[DocumentRequirement]) -> list[DocumentRequirement]:
+    now = now_utc()
+    for row, spec in changed:
         if row is None:
-            row = DocumentRequirement(store_id=store.id, doc_key=key, status="not_started", review_needed=False)
+            row = DocumentRequirement(store_id=store.id, status="not_started", review_needed=False)
             session.add(row)
             rows.append(row)
-            by_key[key] = row
         for field, value in spec.items():
             setattr(row, field, value)
-        if row.review_needed and (row.review_reason or "").startswith(STALE_PREFIX):
+        if _stale_review(row):
             row.review_needed, row.review_reason = False, None  # 다시 필요해졌다
         row.updated_at = now
 
-    for key, row in list(by_key.items()):
-        if key in desired:
-            continue
-        if row.status in ("not_started", "not_applicable"):
+    for row in obsolete:
+        if _deletable(row):
             session.delete(row)
             rows.remove(row)
         else:
-            row.review_needed = True
-            row.review_reason = f"{STALE_PREFIX}. 진행한 기록은 남겨 둘게요."
+            row.review_needed, row.review_reason = True, STALE_REASON
     session.flush()
     return rows
 
@@ -172,11 +195,22 @@ def set_status(session: Session, row: DocumentRequirement, status: str, note: st
 
 # ---------------------------------------------------------------- 응답 만들기
 
-def _form_view(session: Session, form: dict | None) -> dict | None:
+def _current_forms(session: Session, keys: set[tuple[str, str]]) -> dict[tuple[str, str], LawForm]:
+    if not keys:
+        return {}
+    rows = session.scalars(select(LawForm).where(tuple_(LawForm.law_name, LawForm.form_no).in_(keys),
+                                                LawForm.is_current.is_(True))
+                           .order_by(LawForm.promulgated_on.desc()))
+    latest = {}
+    for row in rows:
+        latest.setdefault((row.law_name, row.form_no), row)
+    return latest
+
+
+def _form_view(form: dict | None, forms: dict[tuple[str, str], LawForm]) -> dict | None:
     if not form:
         return None
-    row = session.scalar(select(LawForm).where(LawForm.law_name == form["law_name"], LawForm.form_no == form["form_no"],
-                                               LawForm.is_current.is_(True)).order_by(LawForm.promulgated_on.desc()))
+    row = forms.get((form["law_name"], form["form_no"]))
     view = {"law_name": form["law_name"], "form_no": form["form_no"], "title": form.get("title"), "pdf_url": None,
             "file_url": None, "revision_date": None}
     if row is not None:
@@ -192,26 +226,26 @@ def _links(pack: dict, site_keys: list[str]) -> list[dict]:
 
 
 def requirement_view(session: Session, pack: dict, row: DocumentRequirement, items_by_key: dict[str, Any],
-                     today: date, with_history: bool = False) -> dict:
+                     today: date, with_history: bool = False,
+                     forms: dict[tuple[str, str], LawForm] | None = None) -> dict:
     tasks = [items_by_key[k] for k in row.task_keys or [] if k in items_by_key]
     dues = sorted(t.due_date for t in tasks if t.due_date)
     statutory = sorted(t.statutory_deadline for t in tasks if getattr(t, "statutory_deadline", None))
+    if forms is None:
+        forms = _current_forms(session, {(row.form["law_name"], row.form["form_no"])} if row.form else set())
     out = {
-        "doc_id": row.doc_key, "doc_key": row.doc_key, "name": row.name,
+        **requirement_status(row), "name": row.name,
         "type": row.document_type, "type_label": DOC_TYPES.get(row.document_type, row.document_type),
-        "status": row.status, "status_label": STATUSES[row.status], "note": row.note,
-        "status_updated_at": iso_kst(row.status_updated_at) if row.status_updated_at else None,
         "applicability": row.applicability_status, "source_type": row.source_type,
         "added_by_ai": row.source_type in ("rule_engine", "legal_analysis"),
         "reason": row.reason, "law_basis": row.law_basis, "agency": row.agency or "", "guide": row.guide or "",
         "links": _links(pack, row.site_keys or []),
-        "form": _form_view(session, row.form),
+        "form": _form_view(row.form, forms),
         "tasks": [{"item_id": t.item_key, "task": t.task, "done": t.done, "category": t.category,
                    "group_label": t.group_label} for t in tasks],
         "due_date": dues[0].isoformat() if dues else None,
         "dday": (dues[0] - today).days if dues else None,
         "statutory_deadline": statutory[0].isoformat() if statutory else None,
-        "review_needed": row.review_needed, "review_reason": row.review_reason,
     }
     if with_history:
         hist = session.scalars(select(DocumentHistory).where(DocumentHistory.requirement_id == row.id)
@@ -221,6 +255,14 @@ def requirement_view(session: Session, pack: dict, row: DocumentRequirement, ite
     return out
 
 
+def requirement_status(row: DocumentRequirement) -> dict:
+    return {
+        "doc_id": row.doc_key, "doc_key": row.doc_key, "status": row.status, "status_label": STATUSES[row.status],
+        "note": row.note, "status_updated_at": iso_kst(row.status_updated_at) if row.status_updated_at else None,
+        "review_needed": row.review_needed, "review_reason": row.review_reason,
+    }
+
+
 def progress(rows: list[DocumentRequirement]) -> dict:
     """서류 진행률: 서류 자신의 상태로 센다. 해당 없음은 분모에서 뺀다."""
     counted = [r for r in rows if r.status != "not_applicable" and r.applicability_status != "not_applicable"]
@@ -228,18 +270,23 @@ def progress(rows: list[DocumentRequirement]) -> dict:
     return {"finished": finished, "total": len(counted)}
 
 
-def documents_response(session: Session, pack: dict, store: Any, rows: list[DocumentRequirement], items: list[Any],
+def documents_response(session: Session, pack: dict, store: Any, cards: list[Any],
+                       rows: list[DocumentRequirement], items: list[Any],
                        today: date, disclaimer: str) -> dict:
     """GET /documents. groups 는 예전 모양(체크리스트 항목별)을 유지하고, 서류별 상태는 requirements·sections 로 준다."""
     by_key = {i.item_key: i for i in items}
-    views = {r.doc_key: requirement_view(session, pack, r, by_key, today) for r in rows}
+    forms = _current_forms(session, {(r.form["law_name"], r.form["form_no"]) for r in rows if r.form})
+    views = {r.doc_key: requirement_view(session, pack, r, by_key, today, forms=forms) for r in rows}
     ordered = sorted(views.values(), key=lambda v: (v["due_date"] or "9999", v["name"]))
+    eff = effective_store(pack, store, cards)
+    hidden = {entry["category"] for entry in hidden_categories(pack, eff)}
 
     groups = []
-    for item in sorted(items, key=lambda i: (i.due_date, i.item_key)):
+    for item in sorted((i for i in items if i.category not in hidden), key=lambda i: (i.due_date, i.item_key)):
         docs = [v for v in ordered if item.item_key in [t["item_id"] for t in v["tasks"]]]
         if docs:
-            groups.append({"item_id": item.item_key, "task": item.task, "group_label": item.group_label,
+            groups.append({"item_id": item.item_key, "task": task_title(pack, item.task, eff, item.rule_key),
+                           "group_label": item.group_label, "category": item.category,
                            "due_date": item.due_date.isoformat(), "dday": (item.due_date - today).days,
                            "agency": item.agency, "done": item.done, "documents": docs})
     prog = progress(rows)

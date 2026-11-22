@@ -14,10 +14,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from api.deps import AuthToken, current_token
-from db.models import Store, User
+from db.models import User
 from db.session import get_db
 from api.errors import ApiError
-from services import oauth, password as pw, serializers
+from services import oauth, password as pw, store_setup
 from services.auth import issue_token, purge_expired, revoke
 
 router = APIRouter(prefix="/api/auth")
@@ -76,9 +76,7 @@ def social_login(body: SocialBody, db: Session = Depends(get_db)) -> dict:
     redirect_uri = oauth.consume_state(db, body.provider, body.state, body.browser_nonce)
     profile = oauth.exchange_code(body.provider, body.code, body.state, redirect_uri)
     user = _find_or_create_user(db, profile)
-    store_id = db.scalar(select(Store.id).where(Store.user_id == user.id))
-    return {"access_token": issue_token(str(user.id)), "user": serializers.user(user),
-            "store_id": str(store_id) if store_id else None}
+    return _session(user, store_setup.read_identity(db, user))
 
 
 class SignupBody(BaseModel):
@@ -96,10 +94,8 @@ class LoginBody(BaseModel):
     password: str
 
 
-def _session(db: Session, user: User) -> dict:
-    store_id = db.scalar(select(Store.id).where(Store.user_id == user.id))
-    return {"access_token": issue_token(str(user.id)), "user": serializers.user(user),
-            "store_id": str(store_id) if store_id else None}
+def _session(user: User, identity: dict) -> dict:
+    return {"access_token": issue_token(str(user.id)), **identity}
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
@@ -119,7 +115,7 @@ def signup(body: SignupBody, request: Request, db: Session = Depends(get_db)) ->
     except IntegrityError:  # 같은 아이디의 동시 가입
         db.rollback()
         raise taken from None
-    return _session(db, user)
+    return _session(user, store_setup.account_identity(user))
 
 
 @router.post("/login")
@@ -128,12 +124,13 @@ def login(body: LoginBody, request: Request, db: Session = Depends(get_db)) -> d
     username = (body.username or "").strip().lower()
     ip = pw.client_ip(request)
     pw.check_login(ip, username)
-    user = db.scalar(select(User).where(User.username == username, User.provider == "local"))
+    row = db.execute(store_setup.identity_query().where(User.username == username, User.provider == "local")).one_or_none()
+    user = row[0] if row else None
     if not pw.verify_password(body.password or "", user.password_hash if user else None):
         pw.login_failed(ip, username)
         raise ApiError(401, "INVALID_CREDENTIALS", "아이디 또는 비밀번호가 올바르지 않습니다.")
     pw.login_succeeded(ip, username)
-    return _session(db, user)
+    return _session(user, store_setup.account_identity(*row))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

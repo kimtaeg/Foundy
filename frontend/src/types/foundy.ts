@@ -1,11 +1,10 @@
-import { type ApplicationDialog, type DialogContent } from "@/types/dialog";
+import { type ApplicationDialog } from "@/types/dialog";
+import type { SignInHandler, SignUpHandler } from "@/types/auth";
 import {
   type FeatureContextMap,
   type FeatureContextPage,
 } from "@/types/features";
 import type { NotificationSummary } from "./notifications";
-import type { Grant } from "./grants";
-import type { Store } from "./store";
 
 export interface FoundySnapshot {
   notifications: NotificationSummary[];
@@ -15,6 +14,7 @@ export interface FoundySnapshot {
   currentPage: string;
   modal: ApplicationDialog | null;
   toast: string;
+  toastId: number;
   userName: string;
   storeName: string;
 }
@@ -32,18 +32,15 @@ export interface FoundyStore {
     },
   ): void;
   getSnapshot(): FoundySnapshot;
+  restoreSession(): Promise<void>;
+  retrySetup(): void;
+  adoptServerStore(next: import("./store").Store): void;
+  signIn: SignInHandler;
+  signUp: SignUpHandler;
   navigate(page: string): void;
+  openChat(): void;
   closeModal(): void;
-  showModal(title: string, content: DialogContent): void;
-  showToast(message: string): void;
-  /** 서버에 저장된 가게로 로컬 가게 정보를 맞추고 가게 등록을 마친 상태로 만든다 */
-  adoptServerStore(store: Store): void;
-  /** 서버 분석 진행(끝난 단계 번호들)과 예시·실패 등 단계별 실제 상태 문구를 가게 등록 화면에 표시한다 */
-  setAnalysisProgress(done: number[], notes?: Record<number, string>): void;
-  navigateTo(page: string): void;
-  logout(): void;
-  /** 지원사업 상세·달력에 쓸 공고 목록. null 이면 예시 공고로 되돌린다 */
-  setGrants(list: Grant[] | null): void;
+  logout(message?: string): void;
   openNotification(id: string): void;
   destroy(): void;
 }

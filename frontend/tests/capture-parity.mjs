@@ -1,3 +1,4 @@
+import { signIn } from './helpers/sign-in.mjs';
 import { chromium } from '@playwright/test';
 import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
@@ -48,7 +49,9 @@ async function capture(page, viewportName, route) {
         style: Object.fromEntries(props.map(p => [p, s[p]])),
       };
     };
-    const selectors = route === 'login' ? ['.nx-authbox', '.nx-btn'] : ['body', '.sidebar', '.topbar', '.container', '.pagetitle', '.nx-card', '.nx-btn', '.nx-authbox'];
+    const selectors = route === 'login'
+      ? ['.nx-authbox', '.nx-btn', '[data-testid="login-layout"]', '[data-testid="login-artwork"]', 'form', 'input[name="username"]', 'input[name="password"]']
+      : ['body', '.sidebar', '.topbar', '.container', '.pagetitle', '.nx-card', '.nx-btn', '.nx-authbox'];
     const elements = Object.fromEntries(selectors.map(selector => {
       const el = [...document.querySelectorAll(selector)].find(e => e.getBoundingClientRect().width && e.getBoundingClientRect().height);
       return [selector, styleOf(el)];
@@ -71,7 +74,7 @@ try {
     await page.goto(mode === 'baseline' ? baseURL : `${baseURL}/login`, { waitUntil: 'networkidle' });
     await page.locator('#authScreen').waitFor({ state: 'visible' });
     await capture(page, viewportName, 'login');
-    await page.locator('[data-nx="demologin"]').click();
+    await signIn(page, { mode });
     await page.locator('#page-dashboard.active').waitFor({ state: 'visible' });
     for (const route of routes) {
       if (mode === 'baseline') {

@@ -10,10 +10,20 @@ export async function fetchData<T>(relativePath: string): Promise<T> {
 
 const populationCache = new Map<string, Promise<PopFile>>();
 
+async function fetchPopulation(name: string): Promise<PopFile> {
+  const data = await fetchData<Partial<PopFile> | null>(`pop-${name}.json`);
+  const values = data?.values;
+  if (!values || typeof values !== "object" || Array.isArray(values)
+    || Object.values(values).some((hours) => !Array.isArray(hours))) {
+    throw new Error("생활인구 데이터 형식이 올바르지 않아요.");
+  }
+  return data as PopFile;
+}
+
 export function loadPop(name: string): Promise<PopFile> {
   const cached = populationCache.get(name);
   if (cached) return cached;
-  const request = fetchData<PopFile>(`pop-${name}.json`).catch((error: unknown) => {
+  const request = fetchPopulation(name).catch((error: unknown) => {
     populationCache.delete(name);
     throw error;
   });
