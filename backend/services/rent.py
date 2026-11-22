@@ -3,6 +3,9 @@
 저장하지 않고 요청마다 계산한다. 실제 통계를 못 불러오면(키 오류·결과 없음·호출 실패) 비교하지 않고 안내만 한다.
 지어낸 평균값은 쓰지 않는다. 예시 계정·USE_MOCK=true 에서만 mocks/rent.json 예시 값을 쓰고 is_example 로 표시한다.
 
+지도 중심 (#201): lat·lng 가 오면 좌표의 법정동(카카오 coord2regioncode, B 문서)만으로 상권 → 권역 → 시도를 찾는다.
+층은 가게 층을 쓴다. 동을 확인하지 못하면 unavailable 로 두고 가게 주소로 대신하지 않는다. 저장하지 않는다.
+
 층별 비교 (#187): 같은 지역의 1층·2층·지하1층과 상위(시도, 시도 자체면 전국) 1층 평균을 rows 로 보여 주고,
 가게 층에 맞는 통계 층과 비교한다. 층별 표만 실패하면 지역별(1층) 값 1행으로 비교한다. 문장(readings)은 규칙으로 만든다.
 """
@@ -23,6 +26,7 @@ BASIS_AREA = "임대가능면적(전용+공용) 기준"
 BASIS_FLOOR = "1층 기준"
 STATISTIC = "평균(면적 가중)"
 FLOORS_UNAVAILABLE = "층별 통계를 불러오지 못했어요"
+MAP_UNRESOLVED = "지도 위치의 동을 확인하지 못했어요"
 
 
 def _address_text(store: Any) -> str:
@@ -39,11 +43,18 @@ def _average(found: dict) -> dict:
     }
 
 
-def statistics(store: Any, tools) -> tuple[dict | None, bool, str | None]:
-    """(통계, 예시 여부, 실패 원인). 예시 계정·USE_MOCK 이면 예시 값, 아니면 실제 조회만 쓴다."""
-    if getattr(store, "is_demo", False) or get_settings().use_mock:
+def _is_example(store: Any) -> bool:
+    return bool(getattr(store, "is_demo", False)) or get_settings().use_mock
+
+
+def statistics(store: Any, tools, text: str | None = None) -> tuple[dict | None, bool, str | None]:
+    """(통계, 예시 여부, 실패 원인). 예시 계정·USE_MOCK 이면 예시 값, 아니면 실제 조회만 쓴다.
+
+    text: 상권 매칭 글자. 없으면 가게 주소(도로명 + 지번 지역)를 쓴다.
+    """
+    if _is_example(store):
         return json.loads(MOCK.read_text(encoding="utf-8"))["data"], True, None
-    res = tools.rent(_address_text(store))
+    res = tools.rent(text if text is not None else _address_text(store))
     if not res.ok or res.from_mock or getattr(res, "substituted", False) or not res.data:
         return None, False, getattr(res, "reason", None)
     return res.data, False, None
@@ -81,7 +92,21 @@ def _rows(found: dict, values: dict[str, float], top: dict | None, compared: str
     return rows
 
 
-def view(store: Any, tools, *, monthly_rent: int | None, deposit: int | None, area: float | None) -> dict:
+def _location(store: Any, tools, lat: float | None, lng: float | None) -> tuple[dict, str | None]:
+    """(location 필드, 상권 매칭 글자). 지도 기준이면 좌표의 법정동 글자만 쓴다 (가게 주소를 섞지 않는다)."""
+    if lat is None or lng is None:
+        if _is_example(store):
+            return {"source": "store", "region": None, "resolved": False}, None
+        region = getattr(store, "region", None) or None
+        return {"source": "store", "region": region, "resolved": region is not None}, None
+    if _is_example(store):
+        return {"source": "map", "region": None, "resolved": False}, None
+    region = tools.coord_region(lat, lng)
+    return {"source": "map", "region": region, "resolved": region is not None}, region
+
+
+def view(store: Any, tools, *, monthly_rent: int | None, deposit: int | None, area: float | None,
+         lat: float | None = None, lng: float | None = None) -> dict:
     detail = parse_detail(store.address_detail)
     store_area = float(store.area_sqm) if getattr(store, "area_sqm", None) else None
     use_area = area if area else store_area
@@ -90,12 +115,17 @@ def view(store: Any, tools, *, monthly_rent: int | None, deposit: int | None, ar
         "area_source": "query" if area else ("store" if store_area else None),
         "floor": detail["floor"], "underground": detail["underground"],
     }
-    found, example, reason = statistics(store, tools)
+    location, text = _location(store, tools, lat, lng)
+    unresolved_map = location["source"] == "map" and not location["resolved"] and not _is_example(store)
+    if unresolved_map:
+        found, example, reason = None, False, MAP_UNRESOLVED
+    else:
+        found, example, reason = statistics(store, tools, text)
     out: dict = {
         "status": "ready", "is_example": example, "message": None, "reason": None, "missing": [],
         "inputs": inputs, "headline": None, "comparison": None, "rows": None, "readings": [], "notes": [],
         "basis": {"rent": "월세 + 보증금 환산(전환율)", "area": BASIS_AREA, "floor": BASIS_FLOOR},
-        "source": None, "average": None,
+        "source": None, "average": None, "location": location,
     }
     if found is None:
         out.update(status="unavailable", message=UNAVAILABLE, reason=reason)
