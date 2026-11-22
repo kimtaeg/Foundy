@@ -1,3 +1,4 @@
+export * from "./useChat";
 export * from "./useChatElapsed";
 export * from "./useChecklist";
 export * from "./useDashboard";
@@ -13,6 +14,7 @@ export * from "./useNotificationPreview";
 export * from "./useOnboarding";
 export * from "./useProfile";
 export * from "./usePopulationInsights";
+export * from "./usePreparationRingMotion";
 export * from "./useReport";
 export * from "./useRoadPopulationOverlay";
 export * from "./useSites";

@@ -60,7 +60,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "gr-new",
         type: "grant",
         title: "새 지원사업 공고 · 청년 소상공인 점포 임차 지원",
-        body: "신청 가능성 높음 · 마감 2027-02-14 (예시 공고)",
+        body: "신청 가능성 높음 · 마감 2027-02-14",
         cta: ["지원사업 열기", "grants"],
         ex: true,
       });
@@ -68,7 +68,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "gr-dl",
         type: "deadline",
         title: "마감 임박 · 창업 기초 교육 과정",
-        body: "마감 2026-12-20 " + dday("2026-12-20") + " (예시 공고)",
+        body: "마감 2026-12-20 " + dday("2026-12-20"),
         cta: ["지원사업 열기", "grants"],
         ex: true,
       });
@@ -76,7 +76,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "chg-now",
         type: "change",
         title: "주변 카페 1곳 개업 · 반경 300m 54 → 55곳",
-        body: "다시 조회로 감지된 변화 (예시)",
+        body: "반경 안 점포 구성을 확인하세요.",
         cta: ["상권 분석 열기", "sites"],
         ex: true,
       });
@@ -112,7 +112,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "chk-d7",
         type: "deadline",
         title: "개업 7일 전 · 가격표·원산지 표시, 소방·안전 점검",
-        body: "개업 전 마지막 점검 항목 (예시)",
+        body: "개업 전 마지막 점검 항목",
         cta: ["체크리스트 열기", "checklist"],
         ex: true,
       });
@@ -120,7 +120,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "chg-d7",
         type: "change",
         title: "식품 관련 규정 개정 시행 예정 · 내 가게 해당 여부 확인",
-        body: "조문 번호와 시행일은 실제 조회 후 표시돼요 (예시)",
+        body: "관련 조문과 시행일을 확인하세요.",
         cta: ["점검 리포트 열기", "report"],
         ex: true,
       });
@@ -130,7 +130,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "vat",
         type: "deadline",
         title: "부가가치세 신고 시기가 다가와요",
-        body: "정확한 기한은 국세청 안내로 확인하세요 (예시)",
+        body: "정확한 기한은 국세청 안내로 확인하세요.",
         cta: ["체크리스트 열기", "checklist"],
         ex: true,
       });
@@ -138,7 +138,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "edu",
         type: "deadline",
         title: "위생교육·점검 갱신 일정 확인",
-        body: "갱신 주기는 관할 기관 안내 확인 필요 (예시)",
+        body: "갱신 주기는 관할 기관에 확인하세요.",
         cta: ["체크리스트 열기", "checklist"],
         ex: true,
       });
@@ -146,7 +146,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "chg-6m",
         type: "change",
         title: "반경 300m 신규 카페 2곳 개업, 1곳 폐업",
-        body: "월 1회 상권 요약 (예시)",
+        body: "월간 상권 요약",
         cta: ["상권 분석 열기", "sites"],
         ex: true,
       });
@@ -154,7 +154,7 @@ export function createAlertSelectors(context: AlertDependencies) {
         id: "gr-6m",
         type: "grant",
         title: "새 지원사업 · 개업 1년 이내 소상공인 대상",
-        body: "신청 가능성은 공고문 조건 대조 후 표시돼요 (예시)",
+        body: "공고문에서 신청 조건을 확인하세요.",
         cta: ["지원사업 열기", "grants"],
         ex: true,
       });

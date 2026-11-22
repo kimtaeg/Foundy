@@ -3,9 +3,13 @@ import { OnboardingView } from "@/components/onboarding/OnboardingView";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useFoundy } from "@/hooks/useFoundy";
 
-/** Connects the local demo store; the view also accepts API data independently. */
-export function OnboardingPage() {
-  const data = useOnboarding();
+/** Connects the setup flow to the application state. */
+export interface OnboardingPageProps {
+  embedded?: boolean;
+}
+
+export function OnboardingPage({ embedded }: OnboardingPageProps = {}) {
+  const { data, error, retry } = useOnboarding();
   const { onEvent } = useFoundy();
-  return <OnboardingView data={data ?? undefined} loading={data === null} onEvent={onEvent} />;
+  return <OnboardingView embedded={embedded} data={data ?? undefined} loading={!data && !error} error={error} onRetry={retry} onEvent={onEvent} />;
 }

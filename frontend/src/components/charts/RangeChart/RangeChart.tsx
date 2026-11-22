@@ -31,7 +31,7 @@ export function RangeChart({
 
   return (
     <figure className="m-0" aria-label={title}>
-      <figcaption className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-neutral-800">
+      <figcaption className="flex flex-wrap items-center justify-between gap-2 text-[15px] font-semibold text-neutral-900">
         <span>{title}</span>
         {current !== null && <span className="rounded-full bg-foundy-primary/10 px-2.5 py-1 tabular-nums text-foundy-primary-ink">내 가격 {format(current)}</span>}
       </figcaption>
@@ -43,11 +43,11 @@ export function RangeChart({
         ))}
         {current !== null && <span className="absolute top-0.5 size-6 -translate-x-1/2 rounded-full border-[5px] border-solid border-white bg-foundy-primary ring-1 ring-foundy-primary/20" style={{ left: `${position(current)}%` }} />}
       </div>
-      <dl className="m-0 grid grid-cols-3 gap-2 rounded-xl bg-neutral-50 p-3 text-center">
+      <dl className="m-0 grid grid-cols-3 gap-2 border-0 border-t border-solid border-neutral-100 pt-3 text-center">
         {statistics.map(({ label, amount }) => (
           <div key={label} className="min-w-0">
             <dt className="text-xs text-neutral-600">{label}</dt>
-            <dd className="m-0 mt-1 break-words text-sm font-semibold tabular-nums text-neutral-800">{format(amount)}</dd>
+            <dd className="m-0 mt-1 break-words text-[15px] font-semibold tabular-nums text-neutral-900">{format(amount)}</dd>
           </div>
         ))}
       </dl>

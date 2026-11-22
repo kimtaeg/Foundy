@@ -1,10 +1,10 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { SectionSkeleton } from "@/components/loading/SectionSkeleton";
+import { FootTrafficMapSkeleton } from "../FootTrafficMapSkeleton";
 import { useFootTrafficData } from "@/hooks/useFootTrafficData";
 import { AGE_GROUPS, SEX_GROUPS, TYPE_LABEL, type Category, type HourSel, type LatLng, type ViewType } from "@/lib/foot-traffic";
-import type { NearbyShopsState, Shop } from "@/types/market";
+import type { Shop } from "@/types/market";
 import type { FootTrafficDataSource, FootTrafficDataset } from "@/types/foot-traffic";
 import { MapAvailability } from "../MapAvailability";
 import { MapCanvas } from "../MapCanvas";
@@ -27,7 +27,6 @@ export interface FootTrafficMapProps {
   selectedShopId: string | null;
   onSelectShop: (id: string) => void;
   address?: string;
-  onNearbyShopsChange?: (state: NearbyShopsState) => void;
   settingsOpen: boolean;
   onSettingsOpenChange: (open: boolean) => void;
   hour: HourSel;
@@ -50,7 +49,7 @@ export function FootTrafficMap(props: FootTrafficMapProps) {
   const appKey = props.appKey;
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden bg-neutral-100 text-neutral-900" data-testid="traffic-map">
-      <Suspense fallback={<SectionSkeleton variant="map" label="상권 지도" className="h-full" />}>
+      <Suspense fallback={<FootTrafficMapSkeleton canvasOnly />}>
       {appKey ? <MapCanvas {...props} appKey={appKey} level={level} lines={props.loading ? [] : data.lines} cells={data.cells} cuts={data.cuts} label={label} hour={hour}
         onLevelChange={setLevel} onRegionChange={setRegion} onAddressStatusChange={setAddressStatus} />
         : <MapAvailability state="missing-key" />}

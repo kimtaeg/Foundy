@@ -1,36 +1,37 @@
 import { GrantPosterArtwork } from "@/components/grants/GrantPosterArtwork";
-import { Element } from "@/components/view/Element";
-import { type Grant } from "@/types/grants";
+import { grantDisplay } from "@/lib/grants/format-grant";
+import type { Grant } from "@/types/grants";
+import styles from "./GrantPoster.module.css";
+import { posterTheme } from "./poster-motif";
 
 export interface GrantPosterProps {
   grant: Grant;
-  deadline: string;
+  variant?: "card" | "detail";
   big?: boolean;
 }
 
-export function GrantPoster({
-  grant,
-  deadline,
-  big = false,
-}: GrantPosterProps) {
+export function GrantPoster({ grant, big = false, variant = "card" }: GrantPosterProps) {
+  const { title } = grantDisplay(grant);
+  const { motif, palette } = posterTheme(grant);
   return (
-    <Element
-      className={`nx-poster ${big ? "big" : ""}`}
-      style={{
-        background: `linear-gradient(145deg,${grant.hue[0]},${grant.hue[1]})`,
-      }}
+    <header
+      className={`${styles.poster} ${big ? styles.large : ""}`}
+      data-grant-poster={grant.id}
+      data-motif={motif}
+      data-palette={palette}
     >
-      <GrantPosterArtwork />
-      <Element className="nx-pk">
-        {grant.cat} · {grant.region}
-      </Element>
-      <Element className="nx-pt">
-        {grant.title.replace(" (예시 공고)", "")}
-      </Element>
-      <Element className="nx-pa">{grant.amount}</Element>
-      <Element className="nx-po">{grant.org}</Element>
-      <Element className="nx-pd">{deadline}</Element>
-      <Element className="nx-pmark">자동 생성 포스터</Element>
-    </Element>
+      <div className={styles.copy}>
+        <p className={styles.metadata}>{[grant.cat, grant.region].filter(Boolean).join(" · ")}</p>
+        <div className="min-w-0">
+          <h3 className={styles.title}>{title}</h3>
+          {variant === "detail" && grant.amount && (
+            <p className="mb-0 mt-2 break-keep text-base font-semibold leading-snug [overflow-wrap:anywhere] sm:text-lg">
+              <span className="sr-only">지원 규모 </span>{grant.amount}
+            </p>
+          )}
+        </div>
+      </div>
+      <GrantPosterArtwork motif={motif} />
+    </header>
   );
 }

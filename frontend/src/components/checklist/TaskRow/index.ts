@@ -1,1 +1,1 @@
-export { TaskRow } from "@/components/checklist/TaskRow/TaskRow";
+export * from "./TaskRow";

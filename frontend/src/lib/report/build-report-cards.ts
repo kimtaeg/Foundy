@@ -8,16 +8,17 @@ export function buildCards(S: Store): any {
   list.push({
     id: "r-01",
     check: "building_use",
+    decisionTask: "영업 방식 정하기",
     stage: "계약 전",
     contact: "build",
     base: alc ? "high" : "ok",
     by: "rule",
     title: alc
-      ? "이 자리에서는 술을 팔 수 없어요"
-      : "카페(휴게음식점)로 이 자리에서 열 수 있어요",
+      ? "술을 팔 수 있는 자리인지 확인하세요"
+      : "이 자리에서 휴게음식점으로 신고할 수 있는지 확인하세요",
     reason: alc
-      ? "술을 팔려면 일반음식점으로 신고해야 하는데, 이 건물 1층은 휴게음식점(카페)까지만 가능한 제1종 근린생활시설이에요 (모의 응답)."
-      : "술을 팔지 않으면 휴게음식점 신고 대상이고, 이 건물 1층 용도와 맞아요 (모의 응답).",
+      ? "건축물대장에서 영업할 층의 용도를 확인하고, 일반음식점으로 신고할 수 있는지 구청에 문의하세요."
+      : "건축물대장에서 영업할 층의 용도를 확인하고, 카페 영업이 가능한지 구청에 문의하세요.",
     consequence: alc
       ? "이대로 계약하면 영업신고가 반려돼 보증금이 묶일 수 있어요."
       : "",
@@ -26,12 +27,12 @@ export function buildCards(S: Store): any {
           {
             id: "o-1",
             label: "술 빼고 카페로 시작",
-            summary: "휴게음식점으로 신고합니다. 바로 가능해요.",
+            summary: "주류를 메뉴에서 빼고 휴게음식점으로 신고를 준비해요.",
             time: ["즉시", "rule"],
             cost: ["추가 비용 없음", "rule"],
             fx: {
               verdict: "ok",
-              resolved: "술 없이 카페로 시작하면 이 자리에서 열 수 있어요",
+              resolved: "술 없이 카페로 시작하기로 했어요",
               alcohol: false,
               changes: [
                 "업종 변경: 일반음식점 → 휴게음식점 (주류 판매 안 함, 규칙)",
@@ -102,12 +103,12 @@ export function buildCards(S: Store): any {
     evidence: [
       {
         kind: "data",
-        source: "건축물대장 층별개요 (모의 응답)",
-        value: "1층 제1종근린생활시설",
+        source: "건축물대장 층별개요",
+        value: "영업할 층의 용도",
       },
       {
         kind: "law",
-        source: "건축법 시행령 별표 1 (조문 번호는 확정 전)",
+        source: "건축법 시행령",
         value: "용도별 건축물의 종류",
         url: "https://www.law.go.kr/",
       },
@@ -116,28 +117,28 @@ export function buildCards(S: Store): any {
   list.push({
     id: "r-02",
     check: "trademark_similar",
+    decisionTask: "가게 이름을 바꿀지 정하기",
     stage: "계약 전",
     base: "low",
     by: "ai",
-    title: "“" + name + "”와 비슷한 상표가 이미 등록돼 있어요",
+    title: "“" + name + "”와 비슷한 등록 상표가 있는지 확인하세요",
     reason:
-      "같은 서비스 분류에 발음이 비슷한 등록 상표 2건이 있어요 (모의 응답).",
+      "같은 서비스 분류에서 발음이 비슷한 등록 상표를 찾아보세요.",
     consequence:
       "간판을 단 뒤 상표권자가 문제 삼으면 간판과 메뉴판을 바꿔야 할 수 있어요.",
     options: [
       {
         id: "o-1",
         label: "이름 바꾸기",
-        summary: "겹치지 않는 후보: 모노로스터스, 모노하우스 (예시)",
+        summary: "새 이름 후보로 모노로스터스와 모노하우스가 있어요.",
         time: ["즉시", "rule"],
         cost: ["간판 제작 전이면 추가 비용 없음", "rule"],
         fx: {
           verdict: "ok",
-          resolved: "새 이름으로 바꿔 상표 걱정을 덜었어요",
+          resolved: "가게 이름을 모노로스터스로 바꿨어요",
           name: "모노로스터스",
           changes: [
-            "가게 이름: " + name + " → 모노로스터스 (예시 후보)",
-            "상표 재검색: 유사 등록 상표 0건 (예시)",
+            "가게 이름: " + name + " → 모노로스터스",
             "재분석: 상표 점검 확인 권장 → 문제 없음",
           ],
         },
@@ -171,8 +172,8 @@ export function buildCards(S: Store): any {
     evidence: [
       {
         kind: "data",
-        source: "KIPRIS 상표 검색 (모의 응답, 승인 전)",
-        value: "유사 상표 2건 (예시 데이터)",
+        source: "KIPRIS 상표 검색",
+        value: "같은 서비스 분류의 유사 상표",
         url: "https://www.kipris.or.kr/",
       },
     ],
@@ -185,7 +186,7 @@ export function buildCards(S: Store): any {
     base: "unknown",
     by: "rule",
     title: "위반건축물인지 확인할 수 없어요",
-    reason: "건축물대장 응답에 위반건축물 표기 정보가 없어요.",
+    reason: "건축물대장 표제부에서 위반건축물 표기를 확인하세요.",
     consequence: "위반건축물이면 영업신고가 반려될 수 있어요.",
     options: [],
     rec: null,
@@ -197,8 +198,8 @@ export function buildCards(S: Store): any {
     evidence: [
       {
         kind: "data",
-        source: "건축물대장 표제부 (모의 응답)",
-        value: "위반건축물 표기 없음 (필드 미제공)",
+        source: "건축물대장 표제부",
+        value: "위반건축물 표기 여부",
       },
     ],
   });
@@ -222,7 +223,7 @@ export function buildCards(S: Store): any {
     evidence: [
       {
         kind: "law",
-        source: "식품위생법 (조문 번호는 확정 전)",
+        source: "식품위생법",
         value: "영업 신고 관련 규정",
         url: "https://www.law.go.kr/",
       },
@@ -235,7 +236,7 @@ export function buildCards(S: Store): any {
     base: "ok",
     by: "rule",
     title: "기본 표시 의무 점검 항목",
-    reason: "운영 단계의 일반적인 점검 항목입니다. 실제 점검 결과가 아닙니다.",
+    reason: "운영 중 지켜야 할 표시 의무를 확인하세요.",
     consequence: "",
     options: [],
     rec: null,

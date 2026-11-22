@@ -1,8 +1,8 @@
 "use client";
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { FootTrafficMapSkeleton } from "@/components/foot-traffic/FootTrafficMapSkeleton";
 import { SectionSkeleton } from "@/components/loading/SectionSkeleton";
-import { MARKET_DEMO_CENTER } from "@/data/market";
 import { analyzeMarket } from "@/lib/market";
 import { CompetitionCard } from "@/components/sites/CompetitionCard";
 import { FieldChecklistCard } from "@/components/sites/FieldChecklistCard";
@@ -15,14 +15,14 @@ import { PopulationSummaryCard } from "@/components/sites/PopulationSummaryCard"
 import { StrategyCard } from "@/components/sites/StrategyCard";
 import { usePopulationInsights } from "@/hooks/usePopulationInsights";
 import type { HourSel } from "@/types/foot-traffic";
-import type { MarketCategory, MarketPoint, NearbyShopsState, SitesDataServices, SitesViewData } from "@/types/market";
+import type { MarketCategory, MarketPoint, SitesDataServices, SitesViewData } from "@/types/market";
 
 const FootTrafficMap = dynamic(
   () =>
     import("@/components/foot-traffic/FootTrafficMap").then((module) => module.FootTrafficMap),
   {
     ssr: false,
-    loading: () => <SectionSkeleton variant="map" label="상권 지도" className="h-full" />,
+    loading: () => <FootTrafficMapSkeleton />,
   },
 );
 
@@ -45,8 +45,7 @@ export function SitesWorkspace({
   onOpenReport,
   onAnalysisChange,
 }: SitesWorkspaceProps) {
-  // 지도 키가 없으면 지도를 그리지 못하고 시연용 예시 점포(성수역 근처)로만 분석하므로, 그 점포가 있는 곳을 중심으로 시작한다.
-  const [center, setCenter] = useState<MarketPoint>(appKey ? data.initialCenter : MARKET_DEMO_CENTER);
+  const [center, setCenter] = useState<MarketPoint>(data.initialCenter);
   const [radius, setRadius] = useState(500);
   const [category, setCategory] = useState<MarketCategory>("all");
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
@@ -54,17 +53,9 @@ export function SitesWorkspace({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [time, setTime] = useState<{ hour: HourSel; lastHour: number }>({ hour: "avg", lastHour: 12 });
   const toggleButton = useRef<HTMLButtonElement>(null);
-  // 지도 키가 있으면 카카오 지도에서 조회한 실제 점포로, 없으면(지도 자체를 못 쓰는 환경) 시연용 예시 점포로 분석한다.
-  const [live, setLive] = useState<NearbyShopsState>({ status: "idle", shops: [], truncated: false });
-  const useLive = Boolean(appKey);
   const analysis = useMemo(
-    () => ({
-      ...analyzeMarket(useLive ? live.shops : data.shops, center, radius, category),
-      example: !useLive,
-      status: useLive ? live.status : ("ready" as const),
-      truncated: useLive && live.truncated,
-    }),
-    [useLive, live, data.shops, center, radius, category],
+    () => analyzeMarket(data.shops, center, radius, category),
+    [data.shops, center, radius, category],
   );
   const selectedShop = analysis.nearby.find((shop) => shop.id === selectedShopId);
   const loadedPopulation = usePopulationInsights({
@@ -96,7 +87,7 @@ export function SitesWorkspace({
       aria-label="상권 분석 지도"
     >
       <h1 className="sr-only">상권 분석</h1>
-      <Suspense fallback={<SectionSkeleton variant="map" label="상권 지도" className="h-full" />}>
+      <Suspense fallback={<FootTrafficMapSkeleton />}>
         <FootTrafficMap
           appKey={appKey}
           dataset={footTrafficData}
@@ -114,8 +105,7 @@ export function SitesWorkspace({
           shops={analysis.nearby}
           selectedShopId={selectedShop?.id ?? null}
           onSelectShop={setSelectedShopId}
-          address={data.address}
-          onNearbyShopsChange={setLive}
+          address={data.addressResolved ? undefined : data.address}
           settingsOpen={settingsOpen}
           onSettingsOpenChange={(open) => {
             setSettingsOpen(open);
@@ -146,22 +136,21 @@ export function SitesWorkspace({
         summary={
           <>
             <PopulationSummaryCard data={population.data} loading={population.loading} error={population.error} onRetry={population.retry} />
-            <Suspense fallback={<SectionSkeleton variant="card" label="상권 요약" />}>
+            <Suspense fallback={<SectionSkeleton appearance="plain" variant="card" label="상권 요약" />}>
               <MarketSummaryCard analysis={analysis} />
             </Suspense>
-            <Suspense fallback={<SectionSkeleton variant="chart" label="주변 경쟁" />}>
+            <Suspense fallback={<SectionSkeleton appearance="plain" variant="chart" label="주변 경쟁" />}>
               <CompetitionCard analysis={analysis} />
             </Suspense>
-            <Suspense fallback={<SectionSkeleton variant="list" label="분석 안내" />}>
-              <StrategyCard example={analysis.example} />
+            <Suspense fallback={<SectionSkeleton appearance="plain" variant="list" label="분석 안내" />}>
+              <StrategyCard />
             </Suspense>
           </>
         }
         population={<PopulationReport {...population} hour={time.hour} onHourChange={changeHour} />}
         shops={
-          <Suspense fallback={<SectionSkeleton variant="list" label="주변 점포" />}>
+          <Suspense fallback={<SectionSkeleton appearance="plain" variant="list" label="주변 점포" />}>
             <NearbyShopsCard
-              analysis={analysis}
               shops={analysis.nearby}
               selectedShop={selectedShop}
               onSelect={setSelectedShopId}
@@ -170,7 +159,7 @@ export function SitesWorkspace({
         }
         planning={
           <>
-            <Suspense fallback={<SectionSkeleton variant="chart" label="가격 비교" />}>
+            <Suspense fallback={<SectionSkeleton appearance="plain" variant="chart" label="가격 비교" />}>
               <PricePositionCard
                 price={data.price}
                 range={data.priceRange}

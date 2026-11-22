@@ -1,11 +1,11 @@
 import { type Grant, type GrantResultLabels } from "@/types/grants";
 
 /** Demonstration grant catalog; not live eligibility data. */
-const EXAMPLE_GRANTS: Grant[] = [
+export const GRANTS: Grant[] = [
   {
     id: "g1",
-    title: "청년 예비창업자 사업화 지원 (예시 공고)",
-    org: "K-Startup · 예시",
+    title: "청년 예비창업자 사업화 지원",
+    org: "K-Startup",
     cat: "사업화",
     region: "전국",
     amount: "최대 1,500만원",
@@ -23,8 +23,8 @@ const EXAMPLE_GRANTS: Grant[] = [
   },
   {
     id: "g2",
-    title: "청년 소상공인 점포 임차 지원 (예시 공고)",
-    org: "서울시 · 예시",
+    title: "청년 소상공인 점포 임차 지원",
+    org: "서울시",
     cat: "공간",
     region: "서울",
     amount: "임차료 월 최대 50만원",
@@ -42,8 +42,8 @@ const EXAMPLE_GRANTS: Grant[] = [
   },
   {
     id: "g3",
-    title: "청년 창업 저금리 융자 (예시 공고)",
-    org: "소상공인시장진흥공단 · 예시",
+    title: "청년 창업 저금리 융자",
+    org: "소상공인시장진흥공단",
     cat: "융자",
     region: "전국",
     amount: "최대 5천만원 · 금리는 공고 확인",
@@ -61,8 +61,8 @@ const EXAMPLE_GRANTS: Grant[] = [
   },
   {
     id: "g4",
-    title: "창업 기초 교육 과정 (예시 공고)",
-    org: "창업진흥원 · 예시",
+    title: "창업 기초 교육 과정",
+    org: "창업진흥원",
     cat: "교육",
     region: "전국",
     amount: "교육비 전액 지원",
@@ -76,8 +76,8 @@ const EXAMPLE_GRANTS: Grant[] = [
   },
   {
     id: "g5",
-    title: "지역 소상공인 창업 준비 멘토링 (예시 공고)",
-    org: "성동구 · 예시",
+    title: "지역 소상공인 창업 준비 멘토링",
+    org: "성동구",
     cat: "멘토링",
     region: "서울 성동구",
     amount: "멘토링 6회",
@@ -90,9 +90,6 @@ const EXAMPLE_GRANTS: Grant[] = [
     checks: [["사업장 소재지", "unknown", "공고에 소재지 기준 시점이 없어요"]],
   },
 ];
-
-/** Demonstration grant catalog; not live eligibility data. */
-export const GRANTS: Grant[] = EXAMPLE_GRANTS.map((grant) => ({ ...grant, example: true }));
 
 export const GRANT_EXCLUDED = 3;
 

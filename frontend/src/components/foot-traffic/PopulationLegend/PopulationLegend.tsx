@@ -23,7 +23,7 @@ export function PopulationLegend({ category, label, hour, date, radius, cuts, su
     <span role="status" aria-label="생활인구 합계를 불러오는 중" className="inline-block h-6 w-20 rounded-md bg-neutral-200 motion-safe:animate-pulse" />
   );
   return (
-    <section aria-label="생활인구 범례와 데이터 기준" className={`${settingsOpen ? "hidden lg:block" : "block"} absolute bottom-14 left-3 z-10 max-h-[45%] w-[min(300px,calc(100%-1.5rem))] overflow-y-auto rounded-2xl border border-solid border-neutral-200 bg-white p-4 lg:left-4 lg:max-h-[calc(40%-3.5rem)]`}>
+    <section aria-label="생활인구 범례와 데이터 기준" data-open={!settingsOpen} className="map-disclosure absolute bottom-14 left-3 z-10 max-h-[45%] w-[min(300px,calc(100%-1.5rem))] overflow-y-auto rounded-2xl border border-solid border-neutral-200 bg-white p-4 lg:left-4 lg:max-h-[calc(40%-3.5rem)]">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="m-0 text-base font-bold text-neutral-800">생활인구 · {label}</h3>
         <span className="text-xs text-neutral-600">{hour === "avg" ? "공개시간 평균" : `${String(hour).padStart(2, "0")}시`}</span>

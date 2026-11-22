@@ -1,21 +1,25 @@
 "use client";
-import { LoginCard } from "@/components/login/LoginCard";
-import { Element } from "@/components/view/Element";
+import { LoginLayout } from "@/components/login/LoginLayout";
+import { LoginSkeleton } from "@/components/login/LoginSkeleton";
 import { FeatureView } from "@/components/view/FeatureView";
-import { PageSkeleton } from "@/components/loading/PageSkeleton";
+import type { SignInHandler, SignUpHandler } from "@/types/auth";
 import type { ViewEventHandler } from "@/types/events";
 import { Suspense } from "react";
 
-export interface LoginViewProps { onEvent?: ViewEventHandler }
+export interface LoginViewProps {
+  onEvent?: ViewEventHandler;
+  onSignIn?: SignInHandler;
+  onSignUp?: SignUpHandler;
+}
 
-export function LoginView({ onEvent }: LoginViewProps = {}) {
+export function LoginView({ onEvent, onSignIn, onSignUp }: LoginViewProps = {}) {
   return (
     <FeatureView page="login" onEvent={onEvent}>
-      <Element id="authScreen" className="nx-auth">
-        <Suspense fallback={<PageSkeleton page="login" />}>
-          <LoginCard />
+      <main id="authScreen" className="min-h-dvh w-full bg-white">
+        <Suspense fallback={<LoginSkeleton />}>
+          <LoginLayout onSignIn={onSignIn} onSignUp={onSignUp} />
         </Suspense>
-      </Element>
+      </main>
     </FeatureView>
   );
 }

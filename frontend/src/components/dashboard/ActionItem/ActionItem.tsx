@@ -8,7 +8,7 @@ export function ActionItem({ item }: ActionItemProps) {
     <Element className="nx-check">
       <div className="flex-1">
         <b>{item.action.text}</b>
-        <Element className="nx-muted">결과 카드{item.action.min > 0 ? ` · ${item.action.min}분` : ""}</Element>
+        <Element className="nx-muted">결과 카드 · {item.action.min}분</Element>
       </div>
       <Element
         as="button"

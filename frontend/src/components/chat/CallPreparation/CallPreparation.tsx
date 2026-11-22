@@ -1,17 +1,14 @@
-import { PhoneContact } from "@/components/common/PhoneContact";
 import { Element } from "@/components/view/Element";
 import { type CallGuide } from "@/types/chat";
-import type { Contact } from "@/types/contact";
 export interface CallPreparationProps {
   cardId: string;
   guide: CallGuide;
-  contact?: Contact;
   memo: string;
 }
-export function CallPreparation({ cardId, guide, contact, memo }: CallPreparationProps) {
+export function CallPreparation({ cardId, guide, memo }: CallPreparationProps) {
   return (
     <Element className="nx-call">
-      <PhoneContact contact={contact} />
+      <p className="m-0 text-sm font-medium text-neutral-800">담당 기관 · {guide.who}</p>
       <Element className="nx-seg-title">30초 통화 순서</Element>
       <ol>
         {guide.steps.map((step, index) => (

@@ -1,0 +1,1 @@
+export { ReportRationale } from "./ReportRationale";

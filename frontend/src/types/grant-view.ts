@@ -1,6 +1,7 @@
 import {
   type Grant,
   type GrantFilters,
+  type GrantResult,
   type GrantResultLabels,
 } from "@/types/grants";
 
@@ -17,14 +18,6 @@ export interface GrantsContext {
   RES: GrantResultLabels;
   dday(date: string): string;
   GRANT_EXCLUDED: number;
-  /** 서버 연결 모드에서만: 실제 공고 조회 상태 */
-  GRANT_STATUS?: GrantStatus;
-}
-export interface GrantStatus {
-  state: "ready" | "loading" | "empty" | "unavailable";
-  source: string | null;
-  judgedAt: string | null;
-  example: boolean;
 }
 export interface GrantMonth {
   month: string;
@@ -44,7 +37,14 @@ export interface GrantsViewData {
   filters: GrantFilters;
   categories: string[];
   grants: GrantViewItem[];
-  months: GrantMonthViewData[];
+  months?: GrantMonthViewData[];
   excludedCount: number;
-  status: GrantStatus | null;
+  sourceLabel?: string;
+  status?: "ready" | "empty" | "unavailable";
+  overview?: {
+    /** All eligibility outcomes within the selected category, before the status filter. */
+    counts: Record<GrantResult, number>;
+    /** Earliest unexpired deadline in the filtered results, including today. */
+    nextDeadline: GrantViewItem | null;
+  };
 }

@@ -1,10 +1,9 @@
 import { GrantCardActions } from "@/components/grants/GrantCardActions";
-import { GrantConditions } from "@/components/grants/GrantConditions";
 import { GrantEligibility } from "@/components/grants/GrantEligibility";
 import { GrantPoster } from "@/components/grants/GrantPoster";
 import { GrantSummary } from "@/components/grants/GrantSummary";
-import { Element } from "@/components/view/Element";
-import { type Grant } from "@/types/grants";
+import { grantDisplay } from "@/lib/grants/format-grant";
+import type { Grant } from "@/types/grants";
 
 export interface GrantCardProps {
   grant: Grant;
@@ -13,22 +12,16 @@ export interface GrantCardProps {
   deadline: string;
 }
 
-export function GrantCard({
-  grant,
-  label,
-  tone,
-  deadline,
-}: GrantCardProps) {
+export function GrantCard({ grant, label, tone, deadline }: GrantCardProps) {
+  const { title, org } = grantDisplay(grant);
   return (
-    <Element as="article" className="nx-gcard">
-      <GrantPoster grant={grant} deadline={deadline} />
-      <Element className="nx-gbody">
-        <GrantEligibility label={label} tone={tone} example={grant.example} />
-        <h3>{grant.title}</h3>
-        <GrantSummary grant={grant} deadline={deadline} />
-        <GrantConditions checks={grant.checks} />
-        <GrantCardActions id={grant.id} />
-      </Element>
-    </Element>
+    <article className="flex min-w-0 flex-col items-start [container-type:inline-size]">
+      <GrantPoster grant={grant} />
+      <div className="mt-4">
+        <GrantEligibility label={label} tone={tone} organization={org} deadline={grant.deadline ? deadline : undefined} />
+      </div>
+      <GrantSummary grant={grant} />
+      <GrantCardActions id={grant.id} title={title} />
+    </article>
   );
 }

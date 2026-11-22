@@ -13,7 +13,7 @@ const tabs: readonly [MarketPanelTab, string][] = [
 export function MarketPanelTabs({ value, onChange }: MarketPanelTabsProps) {
   return (
     <nav
-      className="flex gap-1 overflow-x-auto rounded-xl bg-neutral-100 p-1"
+      className="grid grid-cols-4 border-0 border-b border-solid border-neutral-200"
       aria-label="상권 정보 보기"
     >
       {tabs.map(([tab, label]) => (
@@ -22,7 +22,7 @@ export function MarketPanelTabs({ value, onChange }: MarketPanelTabsProps) {
           type="button"
           aria-pressed={value === tab}
           onClick={() => onChange(tab)}
-          className={`min-h-11 shrink-0 flex-1 whitespace-nowrap rounded-lg border-0 px-3 text-sm transition-colors ${value === tab ? "bg-white font-semibold text-foundy-primary" : "bg-transparent text-neutral-600 hover:text-neutral-900"}`}
+          className={`min-h-11 min-w-0 cursor-pointer whitespace-nowrap border-0 border-b-2 border-solid bg-transparent px-0.5 text-sm transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foundy-primary motion-reduce:transition-none ${value === tab ? "border-foundy-primary font-semibold text-neutral-900" : "border-transparent text-neutral-600 hover:text-neutral-900"}`}
         >
           {label}
         </button>

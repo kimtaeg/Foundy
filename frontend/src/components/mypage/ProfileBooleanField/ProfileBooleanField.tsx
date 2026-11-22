@@ -1,54 +1,32 @@
-import { ImpactHint } from "@/components/mypage/ImpactHint";
-import { Element } from "@/components/view/Element";
+import { profileFieldLabels } from "@/lib/profile/editable-fields";
+import type { BooleanProfileField } from "@/types/profile";
 
 export interface ProfileBooleanFieldProps {
-  field: string;
-  label: string;
-  /** null 은 아직 답하지 않음 (둘 다 선택 안 됨) */
+  field: BooleanProfileField;
   value: boolean | null;
-  hints: string[];
-  /** 카드 선택으로 저장값과 다르게 적용 중인 값 안내 */
-  note?: string;
+  onChange?(answer: boolean): void;
 }
 
-export function ProfileBooleanField({
-  field,
-  label,
-  value,
-  hints,
-  note,
-}: ProfileBooleanFieldProps) {
+export function ProfileBooleanField({ field, value, onChange }: ProfileBooleanFieldProps) {
+  const label = profileFieldLabels[field];
   return (
-    <Element className="nx-f">
-      {label}
-      <Element className="options">
-        <Element
-          as="button"
-          type="button"
-          className={`nx-yn ${value === true ? "on" : ""}`}
-          data-nx="mpyn"
-          data-k={field}
-          data-v="1"
-        >
-          네
-        </Element>
-        <Element
-          as="button"
-          type="button"
-          className={`nx-yn ${value === false ? "on" : ""}`}
-          data-nx="mpyn"
-          data-k={field}
-          data-v="0"
-        >
-          아니요
-        </Element>
-      </Element>
-      {note && (
-        <Element as="small" className="nx-muted" data-effective-note={field}>
-          {note}
-        </Element>
-      )}
-      <ImpactHint labels={hints} />
-    </Element>
+    <div role="group" aria-label={label} className="relative inline-grid w-fit grid-cols-2 rounded-lg bg-neutral-100 p-1">
+      <span aria-hidden="true" className={`pointer-events-none absolute inset-1 ${value === null ? "invisible" : ""}`}>
+        <span className={`block h-full w-1/2 rounded-md transition-[translate,background-color] duration-200 ease-out motion-reduce:transition-none ${value ? "translate-x-0 bg-foundy-primary" : "translate-x-full bg-white"}`} />
+      </span>
+      {[true, false].map((answer) => {
+        const text = answer ? "네" : "아니요";
+        const selected = answer === value;
+        const color = selected ? (answer ? "text-white" : "text-neutral-900") : "text-neutral-600";
+        return (
+          <button key={text} type="button" aria-pressed={selected}
+            data-nx={onChange ? undefined : "mptoggle"} data-field={field} data-answer={String(answer)}
+            onClick={onChange && (() => { if (!selected) onChange(answer); })}
+            className={`relative grid min-h-9 min-w-12 cursor-pointer place-items-center rounded-md border-0 bg-transparent px-2 text-sm font-medium leading-5 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-foundy-primary motion-reduce:transition-none ${color}`}>
+            {text}
+          </button>
+        );
+      })}
+    </div>
   );
 }

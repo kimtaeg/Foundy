@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 56 56" fill="none">
+  <defs>
+    <linearGradient id="paper" x1="16" y1="8" x2="48" y2="55" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/><stop offset="1" stop-color="#e2f2ee"/>
+    </linearGradient>
+    <linearGradient id="back" x1="22" y1="9" x2="51" y2="53" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d3ece5"/><stop offset="1" stop-color="#73b7ac"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="36" y1="8" x2="47" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#effbf6"/><stop offset="1" stop-color="#9dcfc3"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="37" y1="29" x2="43" y2="46" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#24998f"/><stop offset="1" stop-color="#0b6663"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="33" cy="57" rx="20" ry="3" fill="#0c6564" opacity=".12"/>
+  <rect x="21" y="10" width="30" height="43" rx="5" transform="rotate(9 36 31.5)" fill="url(#back)"/>
+  <g transform="rotate(-8 30 31)">
+    <path d="M18 9h20l12 12v29a6 6 0 0 1-6 6H18a5 5 0 0 1-5-5V14a5 5 0 0 1 5-5Z" fill="#80b9ad"/>
+    <path d="M18 7h18l12 12v29a6 6 0 0 1-6 6H18a6 6 0 0 1-6-6V13a6 6 0 0 1 6-6Z" fill="url(#paper)" stroke="#fff" stroke-width=".8"/>
+    <path d="M36 8v8a4 4 0 0 0 4 4h8" stroke="#6fae9f" stroke-opacity=".2" stroke-width="2"/>
+    <path d="M36 7v8a4 4 0 0 0 4 4h8L36 7Z" fill="url(#fold)"/>
+    <path d="M20 17h9M20 23h19" stroke="#90b9ad" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="19" y="37" width="6" height="10" rx="2" fill="#91cdc0"/>
+    <rect x="28" y="33" width="6" height="14" rx="2" fill="#53afa0"/>
+    <rect x="37" y="28" width="6" height="19" rx="2" fill="url(#bar)"/>
+    <path d="M20 38v6M29 34v9M38 29v13" stroke="#fff" stroke-opacity=".35" stroke-linecap="round"/>
+  </g>
+</svg>

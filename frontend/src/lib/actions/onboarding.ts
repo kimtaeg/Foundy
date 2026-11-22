@@ -47,7 +47,7 @@ export function createOnboardingActions(
       if (funds instanceof HTMLInputElement)
         context.S.funds = funds.value ? Number(funds.value) : null;
       const field = button.dataset.k;
-      if (field === "alcohol" || field === "terrace" || field === "employees" || field === "delivery")
+      if (field === "alcohol" || field === "terrace" || field === "employees")
         context.S[field] = button.dataset.v === "1";
       context.saveS();
       context.prepareRegistration();

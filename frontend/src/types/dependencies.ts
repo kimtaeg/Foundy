@@ -1,4 +1,18 @@
 /** Dependencies injected into the existing simulation rules and workflows. */
+export interface ReplyDependencies {
+  S: any;
+  RS: any;
+  optList: any;
+  A: any;
+  pendingDecisions: any;
+  curAction: any;
+  allTasks: any;
+  tasks: any;
+  cardShort: any;
+  buildCards: any;
+  CH: any;
+}
+
 export interface AlertDependencies {
   S: any;
   SIM: any;
@@ -9,10 +23,6 @@ export interface AlertDependencies {
 }
 
 export interface ProfileWorkflowDependencies {
-  modalState: any;
-  modal: any;
-  setTimeout: any;
-  mpDraft: any;
   mpDiff: any;
   toast: any;
   mpValidate: any;
@@ -29,7 +39,6 @@ export interface ProfileWorkflowDependencies {
   recalc: any;
   CAL: any;
   CHGLOG: any;
-  MP: any;
   W: any;
   runAnalysis: any;
   goto: any;
@@ -39,13 +48,13 @@ export interface ProfileWorkflowDependencies {
   AUTO: any;
   PRICE: any;
   tasks: any;
+  CH: any;
   closeModal: any;
 }
 
 export interface ProfileDependencies {
   eff: any;
   S: any;
-  MP: any;
   normMp: any;
   buildCards: any;
   RS: any;

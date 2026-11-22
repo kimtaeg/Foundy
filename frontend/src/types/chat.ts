@@ -16,7 +16,18 @@ export interface ChatAction {
   state?: string;
   result?: string[];
 }
-export type ChatCitation = string | { p?: string; label: string; url?: string | null };
+export type ChatCitation = string | { p?: string; label: string; url?: string; focus?: string };
+export interface ChatFocus {
+  id: string;
+  title: string;
+  verdict: string;
+  verdictLabel: string;
+}
+export interface ChatLaunch {
+  id: number;
+  question?: string;
+  focus?: ChatFocus;
+}
 export interface ChatProcessingStep {
   id: string;
   label: string;
@@ -58,7 +69,7 @@ export interface CallGuide {
 export interface ChatViewData {
   storeName: string;
   undecided: boolean;
-  focus?: { title: string; verdict: string; verdictLabel: string };
+  focus?: Omit<ChatFocus, "id">;
   messages: ChatMessageModel[];
   busy: boolean;
   request: ChatProcessing | null;
@@ -69,6 +80,19 @@ export interface ChatViewData {
   actionLabels: Record<string, string>;
   callGuides: Record<string, CallGuide>;
 }
+export interface ChatContext {
+  S: { location: string };
+  CH: ChatState;
+  buildCards: () => ConsultationCard[];
+  eff: () => { name: string };
+  cardShort: (card: ConsultationCard) => string;
+  VL: Record<string, string>;
+  ev: (card: ConsultationCard) => string;
+  suggestions: () => string[];
+  callSteps: (card: ConsultationCard) => CallGuide;
+  CONTACT: Record<string, Contact>;
+  ACTLBL: Record<string, string>;
+}
 export interface FocusOption {
   id: string;
   label: string;
@@ -76,8 +100,8 @@ export interface FocusOption {
 }
 export interface CitationItem {
   label: string;
-  /** 외부 원문 링크 (법령·공고) */
-  url?: string | null;
   cardId?: string;
   page?: string;
+  focus?: string;
+  url?: string;
 }

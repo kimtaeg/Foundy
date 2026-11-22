@@ -49,8 +49,6 @@ const componentRecipes: Record<string, string> = {
     "flex items-center [gap:13px] [padding:14px_0] [border-bottom:1px_solid_var(--line)] text-sm [&_.circle]:w-7 [&_.circle]:h-7 [&_.circle]:rounded-full [&_.circle]:bg-neutral-100 [&_.circle]:text-neutral-600 [&_.circle]:grid [&_.circle]:place-items-center [&.done_.circle]:[background:var(--green-bg)]! [&.done_.circle]:text-[var(--green)]! [&.running_.circle]:[background:var(--tp-soft)]! [&.running_.circle]:text-[var(--tp-d)]! [&_.status]:ml-auto [&_.status]:text-xs [&_.status]:text-neutral-600",
   modal:
     "bg-white! rounded-[28px]! [width:min(480px,100%)] p-8! [box-shadow:0_30px_80px_rgba(0,0,0,.25)]! [&_h2]:text-[20px] [&_h2]:[margin:0_0_9px] [&_p]:text-sm [&_p]:text-neutral-600 [&_p]:leading-[1.7]",
-  toast:
-    "fixed [right:27px] [bottom:25px] bg-neutral-900! text-[#fff] [padding:14px_20px] rounded-[14px]! text-sm z-150 hidden font-semibold [&.show]:block",
   "nx-wrap": "grid gap-4",
   "nx-stack": "grid gap-3",
   "nx-grid2": "grid grid-cols-2 gap-4 [@media(max-width:900px)]:grid-cols-1",
@@ -158,19 +156,8 @@ const componentRecipes: Record<string, string> = {
   "nx-na": "text-neutral-600 font-medium",
   "nx-bar":
     "grid [grid-template-columns:minmax(0,90px)_minmax(0,1fr)_auto] gap-2 items-center text-sm [margin:5px_0] [&_div]:h-2 [&_div]:bg-neutral-100! [&_div]:rounded-[99px] [&_i]:block [&_i]:h-full [&_i]:[background:var(--tp)]! [&_i]:rounded-[99px] [&_em]:not-italic [&_em]:text-[var(--muted)] [&_em]:text-right [&_div_i]:[background:var(--tp)]!",
-  "nx-phone":
-    "flex justify-between items-center gap-2.5 flex-wrap bg-neutral-100! border-0! rounded-[16px]! [padding:12px_14px] mb-2.5",
-  "nx-num": "text-[20px] font-extrabold tracking-[-.02em] text-neutral-700",
   "nx-call":
     "mt-2.5 grid gap-1 [&_ol]:[margin:0_0_6px] [&_ol]:pl-5 [&_ol]:text-sm [&_ol]:leading-[1.8] [&_ul]:[margin:0_0_6px] [&_ul]:pl-5 [&_ul]:text-sm [&_ul]:leading-[1.8]",
-  "nx-auth":
-    "fixed inset-0 z-90 [background:linear-gradient(180deg,#fff_0,#fff_100%)]! grid place-items-center p-5 overflow-auto",
-  "nx-authbox":
-    "[width:min(440px,100%)] bg-neutral-50! border-0! rounded-[var(--radius)]! [padding:40px_34px]! grid gap-3 text-center [box-shadow:0_18px_60px_rgba(0,0,0,.08)]! [&_h1]:text-[30px]! [&_h1]:font-extrabold! [&_h1]:tracking-[-.05em]! [&_.wordmark]:text-[var(--tp-d)]! [&_.wordmark]:text-[30px]! [&_.wordmark]:font-extrabold! [&_.wordmark]:tracking-[-.06em]! [&_.brand-period]:text-[var(--tp-d)]! [&_.wordmark-sub]:hidden",
-  "nx-social":
-    "rounded-[14px]! border border-solid border-neutral-200 bg-white p-3.5 text-neutral-800 font-bold! text-sm cursor-pointer min-h-13! [font-family:inherit] hover:bg-neutral-50",
-  "nx-or":
-    "flex items-center gap-2.5 text-[var(--muted)] text-xs [&:before]:[content:''] [&:before]:flex-1 [&:before]:[height:1px] [&:before]:[background:var(--line)] [&:after]:[content:''] [&:after]:flex-1 [&:after]:[height:1px] [&:after]:[background:var(--line)]",
   onboarding: "[body&_.sidebar]:hidden! [body&_.main]:ml-0!",
   "nx-hint": "block text-[var(--tp-d)]! text-sm font-semibold leading-[1.5]",
   "nx-sticky": "sticky bottom-3 z-5 [box-shadow:0_12px_40px_rgba(0,0,0,.14)]!",

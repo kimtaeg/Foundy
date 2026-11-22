@@ -1,16 +1,14 @@
-import { Element } from "@/components/view/Element";
-import { type Grant } from "@/types/grants";
+import { GrantConditionQuote } from "@/components/grants/GrantConditionQuote";
+import type { Grant } from "@/types/grants";
 
-export interface GrantConditionsProps { checks: Grant["checks"] }
+export interface GrantConditionsProps {
+  checks: Grant["checks"];
+}
 
 export function GrantConditions({ checks }: GrantConditionsProps) {
   return (
-    <Element className="nx-chips">
-      {checks.map(([label, state]) => (
-        <span key={label} className={state}>
-          {state === "pass" ? "✓" : "?"} {label.split(" (")[0]}
-        </span>
-      ))}
-    </Element>
+    <ul className="m-0 list-none p-0">
+      {checks.map((condition) => <GrantConditionQuote key={condition[0]} condition={condition} />)}
+    </ul>
   );
 }

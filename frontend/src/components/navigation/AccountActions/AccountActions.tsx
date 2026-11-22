@@ -1,10 +1,11 @@
 import { LogoutButton } from "@/components/navigation/LogoutButton";
 import { NotificationMenu } from "@/components/navigation/NotificationMenu";
 import { StoreIdentity } from "@/components/navigation/StoreIdentity";
-import type { NotificationSummary } from "@/types/notifications";
+import type { NotificationFetchStatus, NotificationSummary } from "@/types/notifications";
 export interface AccountActionsProps {
   storeName: string;
   notifications: NotificationSummary[];
+  notificationFetch?: NotificationFetchStatus;
   onOpenNotification: (notification: NotificationSummary) => void;
   onOpenStore: () => void;
   onLogout: () => void;
@@ -12,6 +13,7 @@ export interface AccountActionsProps {
 export function AccountActions({
   storeName,
   notifications,
+  notificationFetch,
   onOpenNotification,
   onOpenStore,
   onLogout,
@@ -20,6 +22,7 @@ export function AccountActions({
     <div className="flex shrink-0 items-center gap-1 sm:gap-2">
       <NotificationMenu
         notifications={notifications}
+        notificationFetch={notificationFetch}
         onOpen={onOpenNotification}
       />
       <span
@@ -27,6 +30,10 @@ export function AccountActions({
         className="mx-1 hidden h-5 w-px bg-neutral-200 sm:block"
       />
       <StoreIdentity name={storeName} onOpen={onOpenStore} />
+      <span
+        aria-hidden="true"
+        className="mx-1 hidden h-5 w-px bg-neutral-200 sm:block"
+      />
       <LogoutButton onLogout={onLogout} />
     </div>
   );

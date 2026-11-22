@@ -4,6 +4,7 @@ export * from "./BusinessQuestionsStep";
 export * from "./DemoScenarioBanner";
 export * from "./OnboardingHeader";
 export * from "./OnboardingView";
+export * from "./RegistrationSkeleton";
 export * from "./StoreAddressFields";
 export * from "./StoreIdentityFields";
 export * from "./StoreInformationForm";

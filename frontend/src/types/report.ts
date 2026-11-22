@@ -1,15 +1,5 @@
 import type { Contact } from "./contact";
 export type Verdict = "high" | "low" | "unknown" | "ok";
-export interface ObligationData {
-  rule_id: string;
-  title: string;
-  status: "applies" | "needs_check" | "not_applicable";
-  reason: string;
-  missing_inputs: { key: string; label: string }[];
-  law: { law_name: string | null; article: string | null; url: string | null };
-  required_action: string | null;
-  review_status: "draft" | "reviewed";
-}
 export interface ReportAction {
   type: string;
   text: string;
@@ -33,6 +23,7 @@ export interface ReportCardData {
   base: Verdict;
   by: string;
   title: string;
+  decisionTask?: string;
   reason: string;
   consequence?: string;
   options: ReportOption[];
@@ -67,15 +58,10 @@ export interface ReportCardModel {
   open: boolean;
   /** 선택은 했지만 후속 행동을 아직 마치지 않은 상태 */
   followUpPending: boolean;
-  /** 접힌 줄 오른쪽에 보이는 진행 상태 */
-  statusLabel: string;
+  /** @deprecated 이전 API 응답과의 호환용 필드 */
+  statusLabel?: string;
 }
 export interface ReportViewData {
-  obligations: ObligationData[];
-  /** 서버가 실제로 조회·판정한 결과로 그린 화면이면 true (로컬 예시 화면이면 false) */
-  live: boolean;
-  /** 실제 조회가 아니라 예시·캐시 자료로 판정한 점검 항목 제목 (서버 데이터로 그릴 때만) */
-  exampleItems: string[];
   locked: boolean;
   filter: string;
   counts: Record<Verdict, number>;
@@ -83,9 +69,6 @@ export interface ReportViewData {
   cards: ReportCardModel[];
 }
 export interface ReportContext {
-  /** 서버가 정한 법령 적용 결과 (서버 데이터로 그릴 때만) */
-  obligations?: ObligationData[];
-  exampleItems?: string[];
   S: { location: string };
   reportFilter: string;
   buildCards(): ReportCardData[];
@@ -106,6 +89,4 @@ export interface EvidenceItemData {
   value?: string;
   kind: string;
   url?: string;
-  /** false면 실제 조회 결과 (없으면 로컬 예시 데이터라 모의 응답으로 표시) */
-  mock?: boolean;
 }

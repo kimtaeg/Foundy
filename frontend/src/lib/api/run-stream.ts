@@ -1,5 +1,5 @@
 /** 분석 실행(run)의 진행을 SSE로 따라간다. 스트림이 끊기면 상태 조회로 마무리한다. */
-import { apiFetch } from "@/lib/api/client";
+import { ApiError, apiFetch } from "@/lib/api/client";
 import { readEventStream } from "@/lib/api/sse";
 
 const POLL_MS = 1500;
@@ -29,9 +29,9 @@ export async function followRun(runId: string, token: string, onStep: StepHandle
       } else if (event === "done") finished = true;
       else if (event === "error") failure = (data as { message?: string }).message ?? "분석에 실패했어요";
     });
-  } catch {
-    await pollUntilDone(runId, token);
-    finished = true;
+  } catch (error) {
+    if (failure) throw new Error(failure);
+    if (error instanceof ApiError && error.status >= 400 && error.status < 500) throw error;
   }
   if (failure) throw new Error(failure);
   if (!finished) await pollUntilDone(runId, token);
@@ -65,13 +65,13 @@ export function finishedIndexes(step: string, status: string): number[] {
 
 /**
  * 서버가 보낸 단계 상태를 화면에 보여 줄 문구로 바꾼다. 정상 완료면 null (화면은 "완료"라고 쓴다).
- * 예시·캐시 자료로 대체됐거나 실패·건너뛴 단계는 숨기지 않고 그대로 알린다.
+ * 대체 처리·실패·건너뛴 단계에는 서버가 알려 준 이유를 표시한다.
  */
 export function stepNote(step: string, status: string, message?: string): { index: number; note: string } | null {
   const index = STEP_INDEX[step];
   if (index === undefined || status === "done") return null;
   if (status === "fallback")
-    return { index, note: message && /예시|캐시|저장/.test(message) ? message : "예시·캐시 자료로 대체" };
+    return { index, note: message?.trim() || "대체 방식으로 처리했어요" };
   if (status === "failed") return { index, note: message && message !== "" ? message : "조회 실패" };
   if (status === "skipped") return { index, note: message || "건너뜀" };
   return null;

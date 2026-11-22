@@ -1,5 +1,6 @@
-import { PageSkeleton } from "@/components/loading/PageSkeleton";
+import { DocsHeader } from "@/components/docs/DocsHeader";
+import { DocsSkeleton } from "@/components/docs/DocsSkeleton";
 
 export default function Loading() {
-  return <PageSkeleton page="docs" />;
+  return <><DocsHeader /><DocsSkeleton /></>;
 }

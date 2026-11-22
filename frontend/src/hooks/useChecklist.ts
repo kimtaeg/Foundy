@@ -21,7 +21,6 @@ export function useChecklist(): ChecklistViewData | null {
         )
         .map((task) => ({
           task,
-          contact: model.contactOfAgency(task.agency),
           documentCount: model.documentCount(task.id),
           deadline: model.dday(task.due),
         })),
@@ -55,8 +54,6 @@ export function useChecklist(): ChecklistViewData | null {
     colors: model.CATCOLOR,
     groups,
     count: model.taskCount(),
-    kinds: model.typeCounts?.() ?? null,
-    reviewCount: tasks.filter((task) => task.review).length,
     calendar: {
       year,
       month,

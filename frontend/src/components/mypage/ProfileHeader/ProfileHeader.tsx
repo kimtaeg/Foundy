@@ -5,7 +5,7 @@ export function ProfileHeader() {
     <PageHeader
       eyebrow="MY PAGE"
       title="마이페이지"
-      description="계정과 가게 정보를 한곳에서 관리해요. 사업 정보를 바꾸면 영향받는 점검만 다시 반영해요."
+      description="가게 정보와 영업 조건을 관리하고, 변경 사항을 개업 준비에 반영하세요."
     />
   );
 }

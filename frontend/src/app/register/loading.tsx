@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/loading/PageSkeleton";
+import { RegistrationSkeleton } from "@/components/onboarding/RegistrationSkeleton";
 
 export default function Loading() {
-  return <PageSkeleton page="register" />;
+  return <RegistrationSkeleton />;
 }

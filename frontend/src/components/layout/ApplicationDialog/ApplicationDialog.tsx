@@ -1,10 +1,10 @@
 import { OpeningDateDialog } from "@/components/checklist/OpeningDateDialog";
 import { GrantDetails } from "@/components/grants/GrantDetails";
-import { SocialSignInDialog } from "@/components/login/SocialSignInDialog";
-import { AnalysisProgressDialog } from "@/components/mypage/AnalysisProgressDialog";
 import { StoreResetDialog } from "@/components/mypage/StoreResetDialog";
 import { EvidenceDialog } from "@/components/report/EvidenceDialog";
 import { OptionConfirmDialog } from "@/components/report/OptionConfirmDialog";
+import { ReportChoiceDialog } from "@/components/report/ReportChoiceDialog";
+import { ReportResultDialog } from "@/components/report/ReportResultDialog";
 import { LocationPickDialog } from "@/components/sites/LocationPickDialog";
 import { type DialogContent } from "@/types/dialog";
 
@@ -15,6 +15,10 @@ export function ApplicationDialog({ content }: ApplicationDialogProps) {
   switch (content.kind) {
     case "evidence":
       return <EvidenceDialog items={content.items} date={content.date} />;
+    case "option-choices":
+      return <ReportChoiceDialog card={content.card} />;
+    case "option-result":
+      return <ReportResultDialog model={content.model} />;
     case "grant":
       return (
         <GrantDetails
@@ -40,22 +44,7 @@ export function ApplicationDialog({ content }: ApplicationDialogProps) {
       return <OpeningDateDialog opening={content.opening} />;
     case "location-pick":
       return <LocationPickDialog areaId={content.areaId} />;
-    case "social-sign-in":
-      return (
-        <SocialSignInDialog
-          provider={content.provider}
-          providerLabel={content.providerLabel}
-        />
-      );
     case "store-reset":
       return <StoreResetDialog />;
-    case "analysis-progress":
-      return (
-        <AnalysisProgressDialog
-          steps={content.steps}
-          completed={content.completed}
-          changes={content.changes}
-        />
-      );
   }
 }

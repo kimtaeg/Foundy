@@ -11,10 +11,10 @@ export function ShopListItem({ shop, selected, onSelect }: ShopListItemProps) {
       type="button"
       aria-pressed={selected}
       onClick={() => onSelect(shop.id)}
-      className={`w-full rounded-xl border border-solid p-3 text-left transition-colors ${selected ? "border-foundy-primary bg-foundy-primary/5" : "border-neutral-100 bg-white hover:bg-neutral-50"}`}
+      className={`w-full cursor-pointer rounded-md border-0 px-2 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foundy-primary ${selected ? "bg-foundy-primary/5" : "bg-transparent hover:bg-neutral-50"}`}
     >
       <span className="flex items-start justify-between gap-2">
-        <strong className="text-sm font-semibold text-neutral-800">
+        <strong className="text-[15px] font-semibold text-neutral-900">
           {shop.name}
         </strong>
         <span className="shrink-0 text-sm font-medium tabular-nums text-foundy-primary">
@@ -22,7 +22,7 @@ export function ShopListItem({ shop, selected, onSelect }: ShopListItemProps) {
         </span>
       </span>
       <span className="mt-1 block text-sm text-neutral-600">
-        {shop.cat} · {shop.sub}{shop.ex ? " · 예시" : ""}
+        {shop.cat} · {shop.sub}
       </span>
     </button>
   );

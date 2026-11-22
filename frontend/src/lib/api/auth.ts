@@ -2,6 +2,7 @@
 import { ApiError, apiEnabled, apiFetch } from "@/lib/api/client";
 import { clearSession, loadSession, saveSession } from "@/lib/api/foundy-api";
 import type { ApiAuthSession } from "@/lib/api/types";
+import type { SignUpCredentials } from "@/types/auth";
 
 function requireApi() {
   if (!apiEnabled())
@@ -14,7 +15,7 @@ function remember(session: ApiAuthSession) {
   return session;
 }
 
-export async function signup(input: { username: string; password: string; name: string }) {
+export async function signup(input: SignUpCredentials) {
   requireApi();
   return remember(await apiFetch<ApiAuthSession>("/api/auth/signup", { method: "POST", body: input }));
 }
@@ -26,7 +27,7 @@ export async function login(input: { username: string; password: string }) {
 
 /** 서버 토큰을 폐기하고 지운다. 서버가 응답하지 않아도 이 브라우저에서는 로그아웃된다. */
 export async function logoutServer() {
-  const session = loadSession("account");
+  const session = loadSession();
   if (!session) return;
   clearSession();
   if (!apiEnabled()) return;

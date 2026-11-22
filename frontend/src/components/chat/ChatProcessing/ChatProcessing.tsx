@@ -1,6 +1,7 @@
 "use client";
 
 import { ChatProcessingStep } from "@/components/chat/ChatProcessingStep";
+import { ShiningText } from "@/components/ui/ShiningText";
 import { useChatElapsed } from "@/hooks/useChatElapsed";
 import type { ChatAction, ChatProcessing as Processing } from "@/types/chat";
 import { useId, useState } from "react";
@@ -91,7 +92,11 @@ export function ChatProcessing({ processing, actions = [], messageIndex }: ChatP
             />
           )}
         </svg>
-        <span className="min-w-0 font-medium leading-5">{title}</span>
+        {running ? (
+          <ShiningText text={title} className="min-w-0 font-medium leading-5" />
+        ) : (
+          <span className="min-w-0 font-medium leading-5">{title}</span>
+        )}
         <span className="shrink-0 text-xs tabular-nums text-neutral-600" aria-hidden="true">
           {elapsed < 1 && !running ? "1초 미만" : `${Math.floor(elapsed)}초`}
         </span>
@@ -99,12 +104,12 @@ export function ChatProcessing({ processing, actions = [], messageIndex }: ChatP
           aria-hidden="true"
           viewBox="0 0 16 16"
           fill="none"
-          className={`ml-auto size-3.5 shrink-0 transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
+          className={`ml-auto size-3.5 shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
         >
           <path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      <div id={contentId} role="region" aria-labelledby={headingId} hidden={!expanded}>
+      <div id={contentId} role="region" aria-labelledby={headingId} aria-hidden={!expanded} inert={!expanded} className="disclosure-panel">
         <ol className="mb-3 ml-1 mt-2 list-none border-0 border-b border-solid border-neutral-100 p-0 pb-4">
           {steps.map((step, index) => (
             <ChatProcessingStep key={step.id} {...step} last={index === steps.length - 1} />

@@ -1,77 +1,101 @@
-/** 질문 하나를 서버 상담에 보내고 SSE 이벤트를 화면 상태 변화로 바꾼다 (훅 밖의 순수 처리). */
+import { ApiError } from "@/lib/api/client";
 import type { ApiChatMessage, createChatApi } from "@/lib/api/chat";
-import { stripRefs, toChatMessage } from "@/lib/chat/server-message";
-import type { ChatMessageModel, ChatProcessing } from "@/types/chat";
+import { serverQuestion, stripRefs, toChatMessage } from "@/lib/chat/server-message";
+import type { ChatFocus, ChatMessageModel, ChatProcessing } from "@/types/chat";
 
-export const CHAT_FAILED = "지금은 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.";
+const failedMessage = "지금은 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요.";
 
-export interface TurnCallbacks {
-  /** 상담방을 새로 만들었다 */
-  onSession(sessionId: string): void;
-  /** 처리 단계(도구 실행) 표시. null 이면 숨긴다 (답변 글자가 오기 시작함) */
-  onRequest(processing: ChatProcessing | null): void;
-  /** 지금까지 받은 답변 글자 (빈 글이면 진행 중 답변을 지운다) */
-  onPartial(message: ChatMessageModel | null): void;
-  /** 최종 답변 */
+export interface ChatQuestion {
+  text: string;
+  focus?: ChatFocus;
+}
+
+interface TurnOptions {
+  sessionId: string | null;
+  storeId: string;
+  question: ChatQuestion;
+  signal: AbortSignal;
+}
+
+function isAssistantReply(value: unknown): value is ApiChatMessage {
+  if (!value || typeof value !== "object") return false;
+  const message = value as Partial<ApiChatMessage>;
+  return message.role === "assistant" && typeof message.content === "string" &&
+    Array.isArray(message.actions) && Array.isArray(message.citations);
+}
+
+interface TurnCallbacks {
+  onSession(id: string): void;
+  onProgress(processing: ChatProcessing, partial: string): void;
   onFinish(message: ChatMessageModel): void;
 }
 
-export async function runChatTurn(
-  api: ReturnType<typeof createChatApi>,
-  options: { sessionId: string | null; storeId: string; text: string; signal: AbortSignal },
-  cb: TurnCallbacks,
-): Promise<void> {
-  const turn = {
-    processing: { status: "processing", question: options.text, focus: null, startedAt: Date.now(), steps: [] } as ChatProcessing,
-    partial: "",
-    finished: false,
+/** Translates one server stream into the in-progress and final chat messages. */
+export async function runChatTurn(api: ReturnType<typeof createChatApi>, options: TurnOptions, callbacks: TurnCallbacks) {
+  const { sessionId, storeId, question, signal } = options;
+  let processing: ChatProcessing = {
+    status: "processing",
+    question: question.text,
+    focus: question.focus?.id ?? null,
+    startedAt: Date.now(),
+    steps: [],
   };
-  const end = (status: ChatProcessing["status"]) => ({ ...turn.processing, status, finishedAt: Date.now() });
-  const finish = (message: ChatMessageModel) => {
-    turn.finished = true;
-    cb.onRequest(null);
-    cb.onFinish(message);
+  let partial = "";
+  let finished = false;
+  const finish = (status: ChatProcessing["status"], text?: string, reply?: ApiChatMessage) => {
+    if (finished) return;
+    const final = { ...processing, status, finishedAt: Date.now() };
+    const message = reply
+      ? toChatMessage({ ...reply, content: text ?? reply.content }, final)
+      : { role: "a", text: text ?? failedMessage, processing: final };
+    finished = true;
+    callbacks.onFinish(message);
   };
-  cb.onRequest(turn.processing);
+
+  callbacks.onProgress(processing, "");
   try {
-    const id = options.sessionId ?? (await api.create(options.storeId)).session_id;
-    if (!options.sessionId) cb.onSession(id);
-    await api.send(
-      id,
-      options.text,
-      (event, raw) => {
-        const data = (raw ?? {}) as Record<string, unknown>;
-        if (event === "tool") {
+    const id = sessionId ?? (await api.create(storeId)).session_id;
+    if (!sessionId) callbacks.onSession(id);
+    signal.throwIfAborted();
+    await api.send(id, serverQuestion(question.text, question.focus), (event, raw) => {
+      if (finished || !raw || typeof raw !== "object") return;
+      const data = raw as Record<string, unknown>;
+      switch (event) {
+        case "tool": {
+          if (typeof data.label !== "string") break;
           const step = {
-            id: `${data.name}-${turn.processing.steps.length}`,
-            label: String(data.label ?? data.name),
+            id: `tool-${processing.steps.length}`,
+            label: data.label,
             detail: data.status === "failed" ? "조회하지 못했어요" : undefined,
           };
-          turn.processing = { ...turn.processing, steps: [...turn.processing.steps, step] };
-          cb.onRequest(turn.processing);
-        } else if (event === "delta") {
-          turn.partial += String(data.text ?? "");
-          cb.onRequest(null);
-          cb.onPartial({ role: "a", text: stripRefs(turn.partial), processing: turn.processing });
-        } else if (event === "reset") {
-          turn.partial = "";
-          cb.onPartial(null);
-          cb.onRequest(turn.processing);
-        } else if (event === "done") {
-          finish(toChatMessage(data as unknown as ApiChatMessage, end("completed")));
-        } else if (event === "error") {
-          finish({ role: "a", text: String(data.message ?? CHAT_FAILED), processing: end("error") });
+          processing = { ...processing, steps: [...processing.steps, step] };
+          callbacks.onProgress(processing, stripRefs(partial));
+          break;
         }
-      },
-      options.signal,
-    );
-    if (!turn.finished) finish({ role: "a", text: CHAT_FAILED, processing: end("error") });
-  } catch {
-    const canceled = options.signal.aborted;
-    finish({
-      role: "a",
-      text: canceled ? turn.partial || "답변 생성을 중지했어요." : CHAT_FAILED,
-      processing: end(canceled ? "canceled" : "error"),
-    });
+        case "delta":
+          if (typeof data.text !== "string") break;
+          partial += data.text;
+          callbacks.onProgress(processing, stripRefs(partial));
+          break;
+        case "reset":
+          partial = "";
+          callbacks.onProgress(processing, "");
+          break;
+        case "done":
+          if (isAssistantReply(raw)) finish("completed", undefined, raw);
+          break;
+        case "error":
+          finish(
+            "error",
+            typeof data.message === "string" && data.message.trim() ? data.message : undefined,
+            isAssistantReply(data.reply) ? data.reply : undefined,
+          );
+          break;
+      }
+    }, signal);
+    finish("error", failedMessage);
+  } catch (error) {
+    if (signal.aborted) finish("canceled", stripRefs(partial) || "답변 생성을 중지했어요.");
+    else finish("error", error instanceof ApiError ? error.message : failedMessage);
   }
 }

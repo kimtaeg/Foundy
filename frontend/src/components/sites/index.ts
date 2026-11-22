@@ -22,6 +22,7 @@ export * from "./SelectedShop";
 export * from "./ShopListItem";
 export * from "./StrategyCard";
 export * from "./StrategyRow";
+export * from "./SitesSkeleton";
 export * from "./SitesView";
 export * from "./SitesPage";
 export * from "./SitesWorkspace";

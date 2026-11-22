@@ -1,4 +1,4 @@
-// 서류함·체크리스트의 서버 연결 화면: 서류별 상태·서식·재검토와 작업 유형·법정 기한 표시를 렌더링으로 확인한다.
+// 서류함과 체크리스트에서 서버 응답의 필요한 정보를 표시하는지 확인한다.
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -7,104 +7,75 @@ import { createSourceRuntime } from './helpers/source-runtime.mjs';
 const { load } = createSourceRuntime();
 const { DocsView } = load('@/components/docs/DocsView');
 const { ChecklistView } = load('@/components/checklist/ChecklistView');
+const { createApiModel } = load('@/lib/api/contexts');
 const render = (component, props) => renderToStaticMarkup(React.createElement(component, props));
 const results = [];
 const test = (name, run) => { run(); results.push(name); console.log(`PASS ${name}`); };
 
-const doc = (over = {}) => ({
-  id: 'edu_cert', name: '식품위생교육 이수증', type: 'certificate', typeLabel: '교육·검사로 취득하는 서류',
-  status: 'not_started', statusLabel: '준비 전', applicability: 'applies', aiAdded: true,
-  reason: '이 가게가 신고 업종 일반음식점 조건에 해당해 적용돼요.',
-  lawBasis: { label: '식품위생법 제41조', url: 'https://www.law.go.kr/x' },
-  agency: '식품위생교육전문기관', guide: '영업 전에 교육을 받아요', sites: [], form: null,
-  tasks: [{ id: 'c-05', task: '식품위생교육 이수', done: false }], anchors: ['c-05'],
-  due: '2027-02-08', deadline: 'D-22', statutoryDate: '2027-03-01', review: null, files: [], ...over,
-});
-const managed = (docs, over = {}) => ({
-  total: 3, finished: 1, remaining: 2, notApplicable: 1, toObtain: 2, toWrite: 1, reviewCount: 0,
-  byStatus: { not_started: 2, in_progress: 0, obtained: 1, submitted: 0, needs_fix: 0, not_applicable: 1 },
-  sections: [{ title: '영업 인허가', documents: docs }], ...over,
-});
-const docs = (data) => ({ rows: [], total: data.total, finished: data.finished, remaining: data.remaining, contacts: {}, managed: data });
-
-test('서류함: 진행률은 서류 상태로 세고 해당 없음은 뺀다고 알려 준다', () => {
-  const html = render(DocsView, { data: docs(managed([doc()])) });
-  assert.ok(html.includes('1 / 3개 준비 완료'));
-  assert.ok(html.includes('해당 없음 1개는 빼고 셌어요'));
-  assert.ok(html.includes('발급·취득 필요') && html.includes('직접 작성·보관'));
-});
-
-test('서류함: 서류마다 유형·상태 선택·AI 추가·근거 법령·이유가 보인다', () => {
-  const html = render(DocsView, { data: docs(managed([doc()])) });
-  for (const text of ['교육·검사로 취득하는 서류', 'AI 분석에서 추가됨', '식품위생법 제41조', '왜 필요한가요', '법정 기한 03.01까지'])
-    assert.ok(html.includes(text), text);
-  assert.ok(html.includes('data-doc-status="edu_cert"'));
-  assert.ok(html.includes('발급·취득 완료') && html.includes('제출 완료'), '발급·취득과 제출은 다른 상태');
-  assert.ok(html.includes('id="doc-c-05"'), '체크리스트의 "서류함에서 보기"가 찾아올 위치');
-});
-
-test('서류함: 공식 서식 링크는 열 수 있고 파일 올리기·전화번호는 없다', () => {
-  const form = { title: '식품 영업 신고서', pdfUrl: 'https://www.law.go.kr/LSW/flDownload.do?flSeq=1', fileUrl: null, revision: '2026-09-01' };
-  const html = render(DocsView, { data: docs(managed([doc({ form, status: 'obtained', statusLabel: '발급·취득 완료' })])) });
-  assert.ok(html.includes('공식 서식 열기') && html.includes('2026-09-01 공포'));
-  for (const gone of ['data-doc-upload', 'docget', 'docdel', '파일 올리기', '내려받기', '내 파일', '번호 복사', '☎', 'tel:'])
-    assert.ok(!html.includes(gone), `${gone} 는 서류함에서 없앴다`);
-});
-
-test('서류함: 서식 링크를 못 받았으면 지어내지 않고 안내한다', () => {
-  const form = { title: '식품 영업 신고서', pdfUrl: null, fileUrl: null, revision: null };
-  const html = render(DocsView, { data: docs(managed([doc({ form })])) });
-  assert.ok(html.includes('링크를 아직 받아 오지 못했어요') && !html.includes('공식 서식 열기'));
-});
-
-test('서류함: 재검토 안내와 해당 여부 확인 표시', () => {
-  const html = render(DocsView, { data: docs(managed([doc({ review: '식품위생법이 개정됐어요', applicability: 'needs_check' })], { reviewCount: 1 })) });
-  assert.ok(html.includes('식품위생법이 개정됐어요') && html.includes('data-nx="docack"') && html.includes('해당 여부 확인'));
-});
-
-test('서류함: 서버 연결이 아니면 예전 체크리스트 항목별 안내를 그대로 보여 준다', () => {
-  const task = { id: 'c-01', task: '예전 화면 작업', category: '건물·시설', group: '계약 전', due: '2027-01-05', documents: '', agency: '', done: false };
-  const legacy = { rows: [{ task, deadline: 'D-1', documents: [{ id: 'bldg', name: '건축물대장', agency: '정부24', guide: '발급', sites: [] }] }],
-    total: 1, finished: 0, remaining: 1, contacts: {} };
-  const html = render(DocsView, { data: legacy });
-  assert.ok(html.includes('예전 화면 작업') && html.includes('건축물대장') && !html.includes('data-doc-status'));
-  assert.ok(!html.includes('번호 복사') && !html.includes('☎'), '예전 화면의 서류 안내에도 전화번호는 없다');
-});
-
 const task = (over = {}) => ({ id: 'c-05', task: '식품위생교육 이수', category: '영업 인허가', group: '개업 4주 전', due: '2027-02-08',
   documents: '식품위생교육 이수증', agency: '교육기관', done: false, ...over });
-const checklist = (tasks, over = {}) => ({
-  opening: '2027-03-02', employees: true, view: 'timeline', count: { done: 0, total: tasks.length }, colors: {},
-  kinds: null, reviewCount: 0, groups: [{ title: '개업 4주 전', tasks: tasks.map((t) => ({ task: t, deadline: 'D-22', documentCount: 1, contact: null })) }],
-  calendar: { year: 2027, month: 2, selected: null, days: [], selectedEvents: [] }, ...over,
+const requirement = (over = {}) => ({
+  doc_key: 'edu_cert', name: '식품위생교육 이수증', status: 'obtained',
+  agency: '식품위생교육전문기관', guide: '영업 전에 교육을 받아요',
+  links: [{ label: '정부24', url: 'https://www.gov.kr/' }], ...over,
+});
+const apiDocs = createApiModel({ documents: {
+  summary: { total: 3, finished: 1, remaining: 2 },
+  groups: [{
+    item_id: 'c-05', task: '식품위생교육 이수', group_label: '개업 4주 전', category: '영업 인허가',
+    due_date: '2027-02-08', dday: 22, done: false, documents: [requirement()],
+  }],
+} }).docsView;
+
+test('서류함: 서버가 계산한 서류 준비율을 사용한다', () => {
+  const html = render(DocsView, { data: apiDocs });
+  assert.match(html, /전체 서류 중 준비한 비율/);
+  assert.match(html, /aria-valuetext="전체 3개 중 1개"/);
+  assert.match(html, /준비할 서류/);
 });
 
-test('체크리스트: 필수·조건부·권장 개수와 작업 유형·AI 추가 표시', () => {
-  const rows = [task({ kind: 'legal_obligation' }), task({ id: 'o-fire', task: '소방 확인', kind: 'conditional', aiAdded: true }), task({ id: 'c-01', kind: 'preparation' })];
-  const html = render(ChecklistView, { data: checklist(rows, { kinds: { legal_obligation: 1, conditional: 1, preparation: 1 } }) });
-  for (const text of ['필수 1개', '조건부 1개', '권장 1개', 'AI 분석에서 추가됨']) assert.ok(html.includes(text), text);
+test('서류함: 서버 서류 상태, 발급 기관과 공식 링크가 연결된다', () => {
+  const html = render(DocsView, { data: apiDocs });
+  for (const text of ['식품위생교육 이수증', '식품위생교육전문기관', '영업 전에 교육을 받아요', '서류명', '정부24'])
+    assert.ok(html.includes(text), text);
+  assert.match(html, /data-document-status="edu_cert"/);
+  assert.match(html, /value="obtained" selected="">발급·취득 완료/);
+  assert.match(html, /value="submitted">제출 완료/);
+  assert.match(html, /href="https:\/\/www\.gov\.kr\/"/);
+  assert.match(html, /id="doc-c-05"/);
+  assert.doesNotMatch(html, /data-doc-upload|docget|docdel|파일 올리기|번호 복사|☎|tel:/);
 });
 
-test('체크리스트: 권장 준비일과 법정 기한을 따로 보여 주고 이유·근거를 붙인다', () => {
-  const t = task({ kind: 'legal_obligation', reason: '이 가게가 신고 업종 일반음식점 조건에 해당해 적용돼요.',
-    lawBasis: { label: '식품위생법 제41조', url: 'https://www.law.go.kr/x' }, statutory: { date: '2027-03-01', basis: '영업 시작 전 교육' } });
-  const html = render(ChecklistView, { data: checklist([t]) });
-  for (const text of ['권장 준비일', '02.08', '법정 03.01', '법정 기한 03.01까지', '식품위생법 제41조', '왜 필요한가요']) assert.ok(html.includes(text), text);
+test('서류함: 공식 링크나 상태가 없는 로컬 서류는 안내만 표시한다', () => {
+  const data = { rows: [{ task: task({ task: '건물 용도 확인', done: true }), deadline: 'D-22',
+    documents: [{ id: 'bldg', name: '건축물대장', agency: '정부24', guide: '발급', sites: [] }] }],
+    total: 1, finished: 1, remaining: 0 };
+  const html = render(DocsView, { data });
+  assert.match(html, /항목 완료[\s\S]*건물 용도 확인[\s\S]*개업 4주 전[\s\S]*예정 2027\.02\.08/);
+  assert.match(html, /체크리스트 기준 서류 현황/);
+  assert.match(html, /건축물대장/);
+  assert.doesNotMatch(html, /data-document-status|D-22|https?:\/\//);
 });
 
-test('체크리스트: 법령 개정으로 다시 확인할 작업 안내와 확인 버튼', () => {
-  const html = render(ChecklistView, { data: checklist([task({ kind: 'legal_obligation', review: '식품위생법이 개정됐어요' })], { reviewCount: 1 }) });
-  assert.ok(html.includes('다시 확인할 작업이 1개') && html.includes('data-nx="taskack"') && html.includes('data-tid="c-05"'));
+const checklist = tasks => ({
+  opening: '2027-03-02', employees: true, view: 'timeline', count: { done: tasks.filter(item => item.done).length, total: tasks.length }, colors: {},
+  groups: [{ title: '개업 4주 전', tasks: tasks.map(item => ({ task: item, deadline: 'D-22', documentCount: item.documents ? 1 : 0 })) }],
+  calendar: { year: 2027, month: 2, selected: null, days: [], selectedEvents: [] },
 });
 
-test('체크리스트: 서버 연결이 아니면 예전 모양 그대로 (유형·법정 기한 표시 없음)', () => {
+test('체크리스트: 예정일과 D-day, 체크 상태 및 준비 정보·서류함 연결을 보여 준다', () => {
   const html = render(ChecklistView, { data: checklist([task()]) });
-  assert.ok(html.includes('식품위생교육 이수') && !html.includes('권장 준비일') && !html.includes('필수 ') && !html.includes('법정'));
+  for (const text of ['식품위생교육 이수', '02.08', 'D-22', '준비 정보', '필요 서류', '식품위생교육 이수증', '교육기관', '서류 안내 1개'])
+    assert.ok(html.includes(text), text);
+  assert.match(html, /data-nx="godocs" data-tid="c-05"/);
+  assert.match(html, /<input(?=[^>]*type="checkbox")(?=[^>]*data-task="c-05")[^>]*>/);
 });
 
-test('체크리스트: 서류·담당 정보가 비어 있으면 빈 "필요 서류:"를 그리지 않는다', () => {
-  const html = render(ChecklistView, { data: checklist([task({ documents: '', agency: '', kind: 'conditional' })]) });
-  assert.ok(html.includes('영업 인허가') && !html.includes('필요 서류:') && !html.includes('담당:'));
+test('체크리스트: 완료 항목에는 취소선이 그어지고 비어 있는 준비 정보는 숨긴다', () => {
+  const html = render(ChecklistView, { data: checklist([task({ done: true, documents: '', agency: '' })]) });
+  assert.match(html, /영업 인허가/);
+  assert.match(html, /line-through/);
+  assert.doesNotMatch(html, /준비 정보|필요 서류|담당 기관|서류 안내 1개|D-22/);
 });
 
 console.log(`${results.length} passed`);

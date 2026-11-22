@@ -1,1 +1,1 @@
-export { ChecklistProgress } from "@/components/checklist/ChecklistProgress/ChecklistProgress";
+export * from "./ChecklistProgress";

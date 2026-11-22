@@ -1,83 +1,31 @@
 import { ProfileField } from "@/components/mypage/ProfileField";
-import { Element } from "@/components/view/Element";
-import { type FieldDefinitions, type StoreDraft } from "@/types/profile";
+import type { ProfileFieldEdit, StoreDraft } from "@/types/profile";
+import { profileTitle } from "../profile-styles";
 
-export interface StoreDetailsCardProps {
-  draft: StoreDraft;
-  fields: FieldDefinitions;
-  impacts: Record<string, string>;
-  regions: string[];
-}
+export interface StoreDetailsCardProps { draft: StoreDraft; edit?: ProfileFieldEdit }
 
-export function StoreDetailsCard({
-  draft,
-  fields,
-  impacts,
-  regions,
-}: StoreDetailsCardProps) {
+export function StoreDetailsCard({ draft, edit }: StoreDetailsCardProps) {
   const decided = draft.location === "decided";
-  const options =
-    regions.includes(draft.region) || !draft.region
-      ? regions
-      : [draft.region, ...regions];
-  const hints = (key: keyof StoreDraft) =>
-    fields[key][1].map((id) => impacts[id]);
   return (
-    <Element as="section" className="nx-card">
-      <h3>가게 정보</h3>
-      <Element className="nx-form">
-        <ProfileField
-          label={`가게 이름${decided ? " *" : ""}`}
-          hints={hints("name")}
-        >
-          <Element as="input" data-mp="name" value={draft.name} />
-        </ProfileField>
-        <ProfileField label="업종" hints={hints("type")}>
-          <Element as="select" data-mp="type" value={draft.type}>
-            <option>카페</option>
-            <option>음식점</option>
-          </Element>
-        </ProfileField>
+    <section aria-labelledby="profile-store-title" className="min-w-0">
+      <div className="mb-3 flex min-h-7 items-center gap-2.5">
+        <h2 id="profile-store-title" className={profileTitle}>가게 정보</h2>
+        <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-semibold leading-5 text-neutral-700">
+          {decided ? "자리 확정" : "입지 미정"}
+        </span>
+      </div>
+      <dl className="m-0 min-w-0">
+        <ProfileField edit={edit} field="name" value={draft.name} />
+        <ProfileField edit={edit} field="type" value={draft.type} />
         {decided ? (
           <>
-            <ProfileField label="가게 주소 *" hints={hints("address")} full>
-              <Element
-                as="input"
-                data-mp="address"
-                value={draft.address}
-                placeholder="예: 서울 성동구 성수이로 00"
-              />
-            </ProfileField>
-            <ProfileField label="층·호" hints={hints("detail")}>
-              <Element as="input" data-mp="detail" value={draft.detail} />
-            </ProfileField>
+            <ProfileField edit={edit} field="address" value={draft.address} />
+            <ProfileField edit={edit} field="detail" value={draft.detail} />
           </>
-        ) : (
-          <ProfileField label="관심 지역" hints={hints("region")} full>
-            <Element as="select" data-mp="region" value={draft.region}>
-              {options.map((region) => (
-                <option key={region}>{region}</option>
-              ))}
-            </Element>
-          </ProfileField>
-        )}
-        <ProfileField label="개업 예정일 *" hints={hints("opening")}>
-          <Element
-            as="input"
-            data-mp="opening"
-            type="date"
-            value={draft.opening}
-          />
-        </ProfileField>
-        <ProfileField label="출생 연도" hints={hints("birth")}>
-          <Element
-            as="input"
-            data-mp="birth"
-            type="number"
-            value={draft.birth}
-          />
-        </ProfileField>
-      </Element>
-    </Element>
+        ) : <ProfileField edit={edit} field="region" value={draft.region} />}
+        <ProfileField edit={edit} field="opening" value={draft.opening} />
+        <ProfileField edit={edit} field="birth" value={draft.birth} />
+      </dl>
+    </section>
   );
 }

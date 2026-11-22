@@ -1,11 +1,19 @@
 "use client";
 import { useFeatureData } from "@/hooks/useFeatureData";
+import { buildDashboardPreparation, countDashboardReports } from "@/lib/dashboard";
+import { iso } from "@/lib/date";
 import { type DashboardAction, type DashboardViewData } from "@/types/dashboard";
 
 export function useDashboard(): DashboardViewData | null {
-  const { context } = useFeatureData("dashboard");
+  const { context, api, apiActive } = useFeatureData("dashboard");
+  if (apiActive) return api?.dashboard ?? null;
   if (!context) return null;
-  const actions: DashboardAction[] = context.buildCards().flatMap((card) => {
+  const cards = context.buildCards();
+  const tasks = context.allTasks();
+  const preparation = buildDashboardPreparation(tasks);
+  const today = context.realToday();
+  const undecided = context.S.location === "undecided";
+  const actions: DashboardAction[] = cards.flatMap((card) => {
     const action = context.curAction(card);
     const state = context.RS[card.id] || {};
     if (
@@ -20,17 +28,12 @@ export function useDashboard(): DashboardViewData | null {
   return {
     store: context.S,
     name: context.eff().name || "내 가게",
-    undecided: context.S.location === "undecided",
-    days: context.diffDays(context.D(context.S.opening), context.realToday()),
+    undecided,
+    days: context.diffDays(context.D(context.S.opening), today),
     decisions: context.pendingDecisions(),
-    taskCount: context.taskCount(),
-    unread: context
-      .alertsFor(context.SIM)
-      .filter((alert) => !context.AR[alert.id]).length,
+    ...preparation,
     actions,
-    tasks: context
-      .allTasks()
-      .filter((task) => !task.done)
-      .slice(0, 4),
+    reportCounts: undecided ? undefined : countDashboardReports(cards, (card) => context.ev(card)),
+    asOf: iso(today),
   };
 }

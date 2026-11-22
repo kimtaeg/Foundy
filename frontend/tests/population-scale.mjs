@@ -52,7 +52,7 @@ test('eight age-group people are very low and visibly paler than higher counts',
   assert.equal(LEVEL_META[toLevel(8, cuts)].label, '매우 적음');
   const eight = rgb(populationColor(8, cuts));
   const twoHundred = rgb(populationColor(200, cuts));
-  assert.ok(eight[0] === 255 && eight[1] > 235 && eight[2] > 185, 'single-digit public counts must be pale yellow');
+  assert.deepEqual(eight, [255, 235, 172], 'eight people use the interpolated pale yellow');
   assert.ok(eight[0] > eight[1] && eight[1] > eight[2], 'very low roads remain in the yellow-to-red palette');
   assert.ok(eight.every((channel, index) => channel >= twoHundred[index]) && eight[1] > twoHundred[1] && eight[2] > twoHundred[2], 'eight people must be lighter than two hundred');
   assert.equal(new Set([8, 50, 200, 500, 2000].map((value) => toLevel(value, cuts))).size, 5);

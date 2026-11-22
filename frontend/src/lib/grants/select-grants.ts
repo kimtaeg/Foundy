@@ -1,4 +1,3 @@
-import { type GrantMonth } from "@/types/grant-view";
 import { type Grant, type GrantFilters } from "@/types/grants";
 
 export function selectGrants(grants: Grant[], filters: GrantFilters): Grant[] {
@@ -7,23 +6,19 @@ export function selectGrants(grants: Grant[], filters: GrantFilters): Grant[] {
       (filters.res === "all" || grant.res === filters.res) &&
       (filters.cat === "all" || grant.cat === filters.cat),
   );
-  return result.sort((a, b) =>
-    filters.sort === "deadline"
-      ? (a.deadline || "9999") < (b.deadline || "9999")
-        ? -1
-        : 1
-      : ["eligible", "partial", "unknown"].indexOf(a.res) -
-        ["eligible", "partial", "unknown"].indexOf(b.res),
-  );
+  return result.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
 }
-export function groupGrantsByMonth(grants: Grant[]): GrantMonth[] {
-  const grouped: Record<string, Grant[]> = {};
-  for (const grant of grants) {
-    if (!grant.deadline) continue;
-    const month = grant.deadline.slice(0, 7);
-    (grouped[month] ??= []).push(grant);
+
+export function selectGrantOverview(catalog: Grant[], filters: GrantFilters, asOf: string) {
+  const counts = { eligible: 0, partial: 0, unknown: 0 };
+  let nextDeadline: Grant | null = null;
+  for (const grant of catalog) {
+    if (filters.cat !== "all" && grant.cat !== filters.cat) continue;
+    counts[grant.res]++;
+    if (filters.res !== "all" && grant.res !== filters.res) continue;
+    if (grant.deadline && grant.deadline >= asOf && (!nextDeadline?.deadline || grant.deadline < nextDeadline.deadline)) {
+      nextDeadline = grant;
+    }
   }
-  return Object.keys(grouped)
-    .sort()
-    .map((month) => ({ month, grants: grouped[month] }));
+  return { counts, nextDeadline };
 }

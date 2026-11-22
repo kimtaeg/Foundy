@@ -1,18 +1,19 @@
-import { Element } from "@/components/view/Element";
+import { profileTitle } from "../profile-styles";
 
-export function DataManagementCard() {
+export interface DataManagementCardProps {
+  canReset?: boolean;
+}
+
+export function DataManagementCard({ canReset = true }: DataManagementCardProps) {
   return (
-    <Element as="section" className="nx-card">
-      <h3>데이터 관리</h3>
-      <Element className="nx-muted">
-        가게 정보를 지우고 처음 선택(자리를 정했는지)부터 다시 시작할 수 있어요.
-        다른 계정의 데이터는 그대로예요.
-      </Element>
-      <Element className="nx-row" style={{ marginTop: 10 }}>
-        <Element as="button" className="nx-btn outline" data-nx="mpwipe">
-          가게 정보 처음부터 다시 설정
-        </Element>
-      </Element>
-    </Element>
+    <section aria-labelledby="profile-data-title" className="min-w-0 border-0 border-t border-solid border-neutral-200 pt-7 lg:border-t-0 lg:pt-0">
+      <h2 id="profile-data-title" className={profileTitle}>데이터 관리</h2>
+      <p className="mb-4 mt-3 max-w-prose break-keep text-[15px] leading-relaxed text-neutral-600">
+        {canReset ? "이 계정의 가게 정보와 준비 내역을 지우고, 자리 선택부터 다시 시작해요." : "현재 계정은 가게 정보 초기화를 지원하지 않아요."}
+      </p>
+      <button type="button" disabled={!canReset} data-nx={canReset ? "mpwipe" : undefined} className="min-h-11 rounded-lg border border-solid border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50">
+        가게 정보 초기화
+      </button>
+    </section>
   );
 }

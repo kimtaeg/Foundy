@@ -1,16 +1,12 @@
-export interface FavoriteQuestion {
-  query: string;
-  label: string;
-}
+const questions = [
+  { query: "오늘 뭐부터 하죠?", label: "오늘 할 일 정리" },
+  { query: "구청에 전화하기 전에 뭘 준비하죠?", label: "구청 통화 준비" },
+  { query: "개업일을 4월 1일로 미루고 싶어요", label: "개업일 변경" },
+];
 
-export interface FavoriteQuestionsProps {
-  /** 추천 질문은 호출하는 쪽(서버 추천 질문 API)이 준다. 없으면 표시하지 않는다. */
-  questions?: FavoriteQuestion[];
-  busy?: boolean;
-}
+export interface FavoriteQuestionsProps { busy?: boolean }
 
-export function FavoriteQuestions({ questions = [], busy = false }: FavoriteQuestionsProps) {
-  if (!questions.length) return null;
+export function FavoriteQuestions({ busy = false }: FavoriteQuestionsProps) {
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label="추천 질문">
       {questions.map((question) => (

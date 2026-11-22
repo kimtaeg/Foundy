@@ -1,5 +1,4 @@
 import { GrantDeadlineRow } from "@/components/grants/GrantDeadlineRow";
-import { Element } from "@/components/view/Element";
 import type { GrantMonthViewData } from "@/types/grant-view";
 
 export interface GrantMonthCardProps {
@@ -7,12 +6,17 @@ export interface GrantMonthCardProps {
 }
 
 export function GrantMonthCard({ group }: GrantMonthCardProps) {
+  const [year, month] = group.month.split("-");
   return (
-    <Element as="section" className="nx-card">
-      <h3>{group.month.replace("-", "년 ")}월 마감</h3>
-      {group.grants.map((item) => (
-        <GrantDeadlineRow key={item.grant.id} {...item} />
-      ))}
-    </Element>
+    <section className="grid gap-3 border-0 border-t border-solid border-neutral-200 py-5 sm:py-6 lg:grid-cols-[10rem_minmax(0,1fr)] lg:gap-8">
+      <h3 className="m-0 text-lg font-semibold leading-snug tracking-tight text-neutral-900 sm:text-xl">
+        <time dateTime={group.month}>{year}년 {Number(month)}월</time>
+      </h3>
+      <div className="min-w-0">
+        {group.grants.map((item) => (
+          <GrantDeadlineRow key={item.grant.id} {...item} />
+        ))}
+      </div>
+    </section>
   );
 }

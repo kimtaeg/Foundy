@@ -1,42 +1,39 @@
 import { ReportCardActions } from "@/components/report/ReportCardActions";
 import { ReportCardSummary } from "@/components/report/ReportCardSummary";
-import { ReportFollowUp } from "@/components/report/ReportFollowUp";
-import { ReportNextSteps } from "@/components/report/ReportNextSteps";
 import { ReportOptions } from "@/components/report/ReportOptions";
-import { Element } from "@/components/view/Element";
-import { type ReportCardModel } from "@/types/report";
+import { ReportRationale } from "@/components/report/ReportRationale";
+import type { ReportCardModel } from "@/types/report";
 
-/** 접고 펼 수 있는 점검 카드. 지금 결정이 필요한 가장 급한 카드만 펼쳐 둔다. */
-export type ReportCardProps = { model: ReportCardModel };
+export type ReportCardProps = {
+  model: ReportCardModel;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+};
 
-export function ReportCard({ model }: ReportCardProps) {
-  const { card, state, verdict, open } = model;
-  const simple = card.base === "ok" && !card.options.length;
+export function ReportCard({ model, expanded = model.open, onExpandedChange }: ReportCardProps) {
+  const { card, state, verdict } = model;
   return (
-    <Element
-      as="details"
-      className="nx-card group"
-      id={`result-${card.id}`}
-      open={open}
-    >
+    <details id={`result-${card.id}`} open={expanded}
+      onToggle={(event) => {
+        if (event.currentTarget.open !== expanded) onExpandedChange?.(event.currentTarget.open);
+      }}
+      className="group/report min-w-0 scroll-mt-36 border-0 border-t border-solid border-neutral-200 xl:scroll-mt-24">
       <ReportCardSummary
         card={card}
-        state={simple ? {} : state}
-        verdict={simple ? "ok" : verdict}
+        state={state}
+        verdict={verdict}
         followUpPending={model.followUpPending}
-        status={model.statusLabel}
       />
-      <Element as="p" className="nx-muted mt-3">
-        {card.reason}
-      </Element>
-      {!simple && (
-        <>
-          <ReportOptions card={card} state={state} verdict={verdict} />
-          <ReportFollowUp model={model} />
-          <ReportNextSteps model={model} />
-        </>
-      )}
-      <ReportCardActions cardId={card.id} />
-    </Element>
+      <div className="grid min-w-0 items-start gap-y-4 pb-4 sm:gap-y-5 sm:pb-5">
+        <ReportRationale reason={card.reason} />
+        <ReportOptions
+          card={card}
+          state={state}
+          actionTitle={model.action?.text}
+          nextStep={model.nextSteps[0]}
+        />
+        <ReportCardActions cardId={card.id} />
+      </div>
+    </details>
   );
 }

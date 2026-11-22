@@ -1,5 +1,4 @@
 import { X_DEFS } from "@/data/checklist";
-import { contactOfAgency } from "@/data/contacts";
 import { addDays, D, dday, iso, realToday } from "@/lib/date";
 import type { FollowUpDependencies } from "@/types/dependencies";
 
@@ -67,7 +66,7 @@ export function createFollowUp(context: FollowUpDependencies) {
         out.push({
           k: "do",
           t: a.text + " (" + a.min + "분)",
-          s: "결과 카드 · " + context.cardShort(c),
+          s: context.cardShort(c),
           go: ["report", c.id],
           cta: "카드 열기",
         });
@@ -77,18 +76,16 @@ export function createFollowUp(context: FollowUpDependencies) {
       .filter((t: any) => !t.done && !added.includes(t.id))
       .slice(0, 2)
       .forEach((t: any) => {
-        const k: any = contactOfAgency(t.agency);
         out.push({
           k: "task",
           t: t.task,
           s:
-            "체크리스트 · 예정 " +
+            "예정 " +
             t.due.slice(5).replace("-", ".") +
             " (" +
             dday(t.due) +
             ") · " +
-            t.agency +
-            (k ? " ☎ " + k.phone + (k.ex ? " (예시)" : "") : ""),
+            t.agency,
           go: ["checklist", ""],
           cta: "체크리스트 열기",
         });

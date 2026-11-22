@@ -1,15 +1,9 @@
 import type { MarketPoint, PriceRange, Shop } from "@/types/market";
 
-/** 시연용 예시 점포(SHOPS·EXFOOD)가 모여 있는 성수역 근처 좌표. 실제 조회 결과가 아니다. */
+/** Illustrative coordinates, not a live Kakao Places response. */
 export const MARKET_DEMO_CENTER: MarketPoint = {
   lat: 37.54515,
   lng: 127.05713,
-};
-
-/** 가게 주소를 찾기 전·찾지 못했을 때의 기본 지도 중심(서울시청). 특정 상권을 가리키지 않는다. */
-export const MARKET_DEFAULT_CENTER: MarketPoint = {
-  lat: 37.5665,
-  lng: 126.978,
 };
 
 /** Demonstration market data and display-independent market calculations. */
@@ -43,14 +37,14 @@ export const SHOPS: Shop[] = shopFixtures.map((a, i) => ({
 }));
 
 const foodFixtures: [string, number, string][] = [
-  ["예시 한식당 1", 90, "한식"],
-  ["예시 한식당 2", 140, "한식"],
-  ["예시 일식당", 170, "일식"],
-  ["예시 양식당", 210, "양식"],
-  ["예시 분식집", 120, "분식"],
-  ["예시 고깃집", 250, "한식"],
-  ["예시 중식당", 190, "중식"],
-  ["예시 파스타집", 280, "양식"],
+  ["한식당", 90, "한식"],
+  ["한식당", 140, "한식"],
+  ["일식당", 170, "일식"],
+  ["양식당", 210, "양식"],
+  ["분식집", 120, "분식"],
+  ["고깃집", 250, "한식"],
+  ["중식당", 190, "중식"],
+  ["파스타집", 280, "양식"],
 ];
 
 export const EXFOOD: Shop[] = foodFixtures.map((a, i) => {
@@ -72,7 +66,7 @@ export const AREAS = [
     id: "a1",
     name: "성수2가3동 (성수역 일대)",
     count: 54,
-    note: "성수역 일대 후보지 비교용 예시 지표",
+    note: "후보지 비교 지표",
     real: false,
     traits: "유동 많고 프랜차이즈·디저트 카페가 섞여 있어요",
   },
@@ -80,7 +74,7 @@ export const AREAS = [
     id: "a2",
     name: "성수1가1동 (서울숲 인근)",
     count: 31,
-    note: "예시 지표",
+    note: "후보지 비교 지표",
     real: false,
     traits: "산책 수요 중심, 개인 카페 비중이 높아요",
   },
@@ -88,7 +82,7 @@ export const AREAS = [
     id: "a3",
     name: "송정동 (뚝섬 방향)",
     count: 12,
-    note: "예시 지표",
+    note: "후보지 비교 지표",
     real: false,
     traits: "경쟁 가게가 적지만 유동 인구는 확인이 필요해요",
   },

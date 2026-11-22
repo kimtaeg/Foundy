@@ -2,6 +2,7 @@ import { KeyboardEventHandler, Ref } from "react";
 
 export interface NotificationButtonProps {
   unread: number;
+  countKnown?: boolean;
   open: boolean;
   panelId: string;
   buttonRef: Ref<HTMLButtonElement>;
@@ -10,6 +11,7 @@ export interface NotificationButtonProps {
 }
 export function NotificationButton({
   unread,
+  countKnown = true,
   open,
   panelId,
   buttonRef,
@@ -22,7 +24,7 @@ export function NotificationButton({
       type="button"
       onClick={onToggle}
       onKeyDown={onKeyDown}
-      aria-label={`알림, 읽지 않은 알림 ${unread}개`}
+      aria-label={countKnown ? `알림, 읽지 않은 알림 ${unread}개` : "알림"}
       aria-expanded={open}
       aria-controls={open ? panelId : undefined}
       aria-haspopup="dialog"

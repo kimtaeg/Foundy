@@ -2,8 +2,8 @@
 import { apiFetch } from "@/lib/api/client";
 import type {
   ApiAlert,
-  ApiBundle,
-  ApiChangeLog,
+  ApiIdentity,
+  ApiNextStep,
   ApiChecklist,
   ApiDashboard,
   ApiDemoSession,
@@ -11,10 +11,14 @@ import type {
   ApiDocuments,
   ApiGrants,
   ApiDocumentStatus,
-  ApiObligation,
   ApiPatchResult,
   ApiRegisterBody,
   ApiReport,
+  ApiReportMutationUpdate,
+  ApiResources,
+  ApiChecklistState,
+  ApiDocumentState,
+  ApiSetup,
   ApiStore,
 } from "@/lib/api/types";
 
@@ -30,39 +34,87 @@ export interface ApiSession {
   kind: SessionKind;
 }
 
-/** 저장된 세션. 종류가 다르면(예: 예시 계정으로 들어왔는데 일반 계정 세션이 남아 있음) 쓰지 않는다. */
-export function loadSession(kind: SessionKind = "demo"): ApiSession | null {
+const sessionEvent = "foundy-api-session-change";
+let memorySession: string | null = null;
+let identity: { token: string; value: ApiIdentity } | null = null;
+const identityReads = new Map<string, Promise<ApiIdentity>>();
+
+export function sessionSnapshot(): string | null {
+  if (typeof window === "undefined") return null;
   try {
-    const value = JSON.parse(localStorage.getItem(SESSION_KEY) ?? "null");
-    if (!value || typeof value.token !== "string") return null;
-    const savedKind: SessionKind = value.kind === "account" ? "account" : "demo";
-    if (savedKind !== kind) return null;
-    const storeId = typeof value.storeId === "string" ? value.storeId : null;
-    if (kind === "demo" && !storeId) return null;
-    return { token: value.token, storeId, kind };
+    return localStorage.getItem(SESSION_KEY);
+  } catch {
+    return memorySession;
+  }
+}
+
+export function subscribeSession(notify: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== SESSION_KEY && event.key !== null) return;
+    // Another tab changed the signed-in account. Restore the engine and the token together.
+    window.location.reload();
+  };
+  window.addEventListener(sessionEvent, notify);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(sessionEvent, notify);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+export function loadSession(kind?: SessionKind): ApiSession | null {
+  try {
+    const value = JSON.parse(sessionSnapshot() ?? "null") as ApiSession | null;
+    if (!value || !value.token || !["demo", "account"].includes(value.kind)) return null;
+    if (kind && value.kind !== kind) return null;
+    if (value.kind === "demo" && !value.storeId) return null;
+    return value;
   } catch {
     return null;
   }
 }
 
 export function saveSession(session: ApiSession | null) {
+  if (identity?.token !== session?.token) identity = null;
+  memorySession = session ? JSON.stringify(session) : null;
   try {
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    if (memorySession) localStorage.setItem(SESSION_KEY, memorySession);
     else localStorage.removeItem(SESSION_KEY);
   } catch {
-    // 저장소를 못 쓰면 이번 탭에서만 세션을 유지한다.
+    // Storage may be disabled. Keep the session for this tab.
   }
+  window.dispatchEvent(new Event(sessionEvent));
 }
 
 export function clearSession() {
   saveSession(null);
 }
 
-/** POST /api/demo: 예시 계정(이서연)을 새로 만들고 토큰을 받는다. */
+export function getApiIdentity(token: string) {
+  return identity?.token === token ? identity.value : undefined;
+}
+
+export function rememberApiIdentity(token: string, value: ApiIdentity) {
+  if (loadSession()?.token === token) identity = { token, value };
+  return value;
+}
+
+export function readApiIdentity(token: string): Promise<ApiIdentity> {
+  const pending = identityReads.get(token);
+  if (pending) return pending;
+  const request = apiFetch<ApiIdentity>("/api/me", { token })
+    .then(value => rememberApiIdentity(token, value))
+    .finally(() => identityReads.delete(token));
+  identityReads.set(token, request);
+  return request;
+}
+
+/** POST /api/demo: 예시 계정을 만들고 세션과 초기 상태를 저장한다. */
 export async function startDemoSession(): Promise<ApiSession> {
   const body = await apiFetch<ApiDemoSession>("/api/demo", { method: "POST" });
   const session: ApiSession = { token: body.access_token, storeId: body.store_id, kind: "demo" };
   saveSession(session);
+  rememberApiIdentity(session.token, body);
   return session;
 }
 
@@ -73,50 +125,39 @@ export function createStoreApi(session: ApiSession) {
     apiFetch<T>(`${base}${path}`, { method, body, token: session.token });
 
   return {
-    async loadBundle(): Promise<ApiBundle> {
-      const [store, dashboard, report, checklist, alerts, obligations, documents, grants] = await Promise.all([
-        call<ApiStore>(""),
-        call<ApiDashboard>("/dashboard"),
-        call<ApiReport>("/report"),
-        call<ApiChecklist>("/checklist"),
-        call<{ items: ApiAlert[] }>("/alerts"),
-        // 법령 적용 결과는 보조 정보라서 못 받아도 화면은 그린다
-        call<{ items: ApiObligation[] }>("/obligations").catch(() => ({ items: [] as ApiObligation[] })),
-        // 서류함은 서류별 상태를 보여 주는 화면이라서, 못 받으면 체크리스트에 붙은 서류 안내로 대신 그린다
-        call<ApiDocuments>("/documents").catch(() => null),
-        // 지원사업은 따로 판정해 저장한 결과다. 못 받아도 다른 화면은 그린다
-        call<ApiGrants>("/grants").catch(() => null),
-      ]);
-      return { store, dashboard, report, checklist, alerts: alerts.items, obligations: obligations.items, documents, grants };
-    },
+    store: () => call<ApiStore>(""),
+    dashboard: () => call<ApiDashboard>("/dashboard"),
+    report: () => call<ApiReport>("/report"),
+    checklist: () => call<ApiChecklist>("/checklist"),
+    alerts: () => call<{ items: ApiAlert[] }>("/alerts").then(response => response.items),
+    documents: () => call<ApiDocuments>("/documents"),
+    grants: () => call<ApiGrants>("/grants"),
+    refreshGrants: () => call<ApiGrants>("/grants/refresh", "POST"),
     choose: (itemId: string, optionId: string) =>
-      call<{ applied_changes: string[]; added_checklist: string[]; run_id: string | null }>(
+      call<ApiReportMutationUpdate & { applied_changes: string[]; added_checklist: string[]; run_id: string | null }>(
         `/report/items/${itemId}/choose`,
         "POST",
         { option_id: optionId },
       ),
     action: (itemId: string, status: "pending" | "sent" | "done", reply?: string) =>
-      call<{ auto_checked: string[] }>(`/report/items/${itemId}/action`, "POST", {
+      call<ApiReportMutationUpdate & { auto_checked: string[]; next_steps: ApiNextStep[] }>(`/report/items/${itemId}/action`, "POST", {
         status,
         ...(reply ? { reply } : {}),
       }),
     setTaskDone: (itemId: string, done: boolean) =>
-      call<unknown>(`/checklist/${itemId}`, "PATCH", { done }),
+      call<ApiChecklistState>(`/checklist/${itemId}?detail=status`, "PATCH", { done }),
     /** 법령 개정 등으로 표시된 "다시 확인" 안내를 확인했다고 알린다 */
     ackTaskReview: (itemId: string) => call<unknown>(`/checklist/${itemId}`, "PATCH", { review_ack: true }),
     /** 서류 상태를 바꾼다 (발급·취득 완료와 제출 완료는 다른 상태다) */
     setDocumentStatus: (docKey: string, status: ApiDocumentStatus) =>
-      call<ApiDocumentRequirement>(`/documents/${docKey}`, "PATCH", { status }),
+      call<ApiDocumentState & { catalog_changed?: boolean }>(`/documents/${docKey}?detail=status`, "PATCH", { status }),
     ackDocumentReview: (docKey: string) =>
       call<ApiDocumentRequirement>(`/documents/${docKey}`, "PATCH", { review_ack: true }),
-    /** K-Startup 모집 중 공고를 다시 조회해 판정한다 (AI 호출이 있어 수십 초 걸린다) */
-    refreshGrants: () => call<ApiGrants>("/grants/refresh", "POST"),
-    readAlert: (alertId: string) => call<unknown>(`/alerts/${alertId}`, "PATCH", { read: true }),
+    readAlert: (alertId: string) => call<ApiAlert>(`/alerts/${alertId}`, "PATCH", { read: true }),
     /** 가게 정보 수정. dryRun 이면 저장하지 않고 영향(impacts·reset_items)만 돌려준다. 미리보기와 저장은 같은 본문을 쓴다. */
     patchStore: (body: Record<string, unknown>, dryRun = false) =>
       call<ApiPatchResult>(dryRun ? "?dry_run=true" : "", "PATCH", body),
-    changes: () => call<{ items: ApiChangeLog[] }>("/changes"),
-    saveAnswers: (answers: Record<string, unknown>) => call<unknown>("/answers", "POST", { answers }),
+    saveAnswers: (answers: Record<string, unknown>) => call<{ setup: ApiSetup }>("/answers", "POST", { answers }),
     analyze: () => call<{ run_id: string }>("/analyze", "POST"),
     runStatus: (runId: string) =>
       apiFetch<{ status: string }>(`/api/runs/${runId}`, { token: session.token }),
@@ -129,6 +170,20 @@ export type StoreApi = ReturnType<typeof createStoreApi>;
 export function createAccountApi(session: ApiSession) {
   return {
     registerStore: (body: ApiRegisterBody) =>
-      apiFetch<{ store_id: string }>("/api/stores", { method: "POST", body, token: session.token }),
+      apiFetch<{ store_id: string; setup: ApiSetup }>("/api/stores", { method: "POST", body, token: session.token }),
+  };
+}
+
+export function readStoreResources(session: ApiSession): { [K in keyof ApiResources]: () => Promise<ApiResources[K]> } {
+  const api = () => createStoreApi(session);
+  return {
+    me: () => readApiIdentity(session.token),
+    store: () => api().store(),
+    dashboard: () => api().dashboard(),
+    report: () => api().report(),
+    checklist: () => api().checklist(),
+    documents: () => api().documents(),
+    grants: () => api().grants(),
+    alerts: () => api().alerts(),
   };
 }

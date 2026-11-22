@@ -1,65 +1,33 @@
-import { PhoneContact } from "@/components/common/PhoneContact";
-import { Element } from "@/components/view/Element";
-import { type ReportCardModel } from "@/types/report";
+import type { ReportCardModel } from "@/types/report";
 
-/** 선택지를 정한 뒤 이어지는 다음 할 일. "했어요" 한 번으로 완료된다. */
 export type ReportFollowUpProps = { model: ReportCardModel };
 
 export function ReportFollowUp({ model }: ReportFollowUpProps) {
   const { card, action, state, contact } = model;
   if (!action || (card.options.length > 0 && !state.chosen)) return null;
-  if (state.action === "done")
-    return (
-      <Element className="nx-seg">
-        <Element className="nx-ok">
-          ✓ 다음 할 일을 마쳤어요 · {action.text}
-        </Element>
-        <Element
-          as="button"
-          className="nx-btn ghost slim mt-2"
-          data-nx="actreset"
-          data-id={card.id}
-        >
-          되돌리기
-        </Element>
-      </Element>
-    );
+  const done = state.action === "done";
+
   return (
-    <Element className="nx-seg">
-      <Element className="nx-seg-title">다음 할 일</Element>
-      <b className="block text-[15px] leading-6">
-        {action.text}{" "}
-        {action.min > 0 && (
-          <Element as="span" className="nx-muted">
-            · {action.min}분
-          </Element>
-        )}
-      </b>
-      {action.type === "send" && contact && (
-        <Element className="mt-2">
-          <PhoneContact contact={contact} />
-        </Element>
+    <section className="grid min-w-0 gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <h4 className="m-0 text-sm font-semibold text-neutral-600">{done ? "완료한 작업" : "다음 할 일"}</h4>
+        <span className="shrink-0 text-sm tabular-nums text-neutral-600">{action.min}분</span>
+      </div>
+      {done ? (
+        <p className="m-0 flex items-center gap-2 rounded-lg bg-foundy-primary/10 px-3 py-2.5 text-base font-semibold leading-6 text-foundy-primary-ink">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="m5 12 4 4 10-10" /></svg>
+          <span className="break-keep [overflow-wrap:anywhere]">{action.text}</span>
+        </p>
+      ) : (
+        <p className="m-0 break-keep text-base font-semibold leading-6 text-neutral-900 [overflow-wrap:anywhere]">{action.text}</p>
       )}
-      <Element className="nx-row mt-2">
-        {action.go && (
-          <Element
-            as="button"
-            className="nx-btn outline"
-            data-nx="go"
-            data-p={action.go.page}
-          >
-            {action.go.label}
-          </Element>
-        )}
-        <Element
-          as="button"
-          className="nx-btn"
-          data-nx="actdone"
-          data-id={card.id}
-        >
-          했어요
-        </Element>
-      </Element>
-    </Element>
+      {!done && action.type === "send" && contact && <p className="m-0 text-sm leading-6 text-neutral-600">담당 기관 · {contact.name}</p>}
+      {!done && action.go && (
+        <button type="button" data-nx="go" data-p={action.go.page}
+          className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-0 text-sm font-semibold text-foundy-primary-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foundy-primary">
+          {action.go.label} <span aria-hidden="true">→</span>
+        </button>
+      )}
+    </section>
   );
 }

@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/loading/PageSkeleton";
+import { ChecklistSkeleton } from "@/components/checklist/ChecklistSkeleton";
 
 export default function Loading() {
-  return <PageSkeleton page="checklist" />;
+  return <ChecklistSkeleton />;
 }

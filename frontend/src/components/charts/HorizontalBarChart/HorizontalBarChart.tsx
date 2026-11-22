@@ -14,22 +14,30 @@ export function HorizontalBarChart({ title, rows, unit = "", formatValue = forma
   const scale = maxValue !== undefined && Number.isFinite(maxValue) && maxValue > 0 ? Math.max(maxValue, largest) : largest;
   return (
     <figure className="m-0" aria-label={title}>
-      <figcaption className="mb-3 text-sm font-semibold text-neutral-800">{title}</figcaption>
+      <figcaption className="mb-3 text-[15px] font-semibold text-neutral-900">{title}</figcaption>
       <ul className="m-0 list-none space-y-3 p-0">
-        {rows.map((row, index) => (
-          <li key={row.label}>
-            <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm leading-relaxed">
-              <span className="min-w-0 text-neutral-700">{row.label}</span>
-              <span className="ml-auto max-w-full break-words text-right font-semibold tabular-nums text-neutral-800">
-                {values[index] === null ? row.unavailableLabel ?? "미제공" : `${formatValue(values[index])}${unit}`}
-                {row.detail && <span className="block text-xs font-normal text-neutral-600">{row.detail}</span>}
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-neutral-100" aria-hidden="true">
-              {values[index] !== null && <div className="h-full rounded-full bg-foundy-primary" style={{ width: `${scale ? values[index] / scale * 100 : 0}%`, opacity: 1 - Math.min(index, 5) * 0.08 }} />}
-            </div>
-          </li>
-        ))}
+        {rows.map((row, index) => {
+          const value = values[index];
+          const fraction = value !== null && scale > 0 ? value / scale : 0;
+          return (
+            <li key={row.label}>
+              <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm leading-relaxed">
+                <span className="min-w-0 text-neutral-700">{row.label}</span>
+                <span className="ml-auto text-right font-semibold text-neutral-900 tabular-nums">
+                  {value === null ? row.unavailableLabel ?? "미제공" : `${formatValue(value)}${unit}`}
+                  {row.detail && <span className="ml-2 inline-block text-xs font-normal text-neutral-600">{row.detail}</span>}
+                </span>
+              </div>
+              {value === null ? (
+                <div aria-hidden="true" className="h-1.5 border-0 border-b border-dashed border-neutral-300" />
+              ) : (
+                <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                  <div className="h-full rounded-full bg-foundy-primary" style={{ width: `${fraction * 100}%`, opacity: 0.15 + 0.85 * fraction }} />
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </figure>
   );
