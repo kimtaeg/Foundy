@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Callable, Iterator
 
+from . import scope_gate
 from .llm import LLMError
 
 MAX_TOOL_ROUNDS = 4
@@ -30,6 +31,7 @@ OUT_OF_SCOPE_REPLY = "저는 카페·음식점 창업 준비에 관한 상담만
 
 # 모델 프롬프트만으로는 일반 상식 질문까지 답하는 경우가 있어, LLM 호출 전에
 # 서비스 관련성의 최소 경계를 코드로 확인한다. 새 기능을 추가하면 이 목록도 함께 넓힌다.
+# 이 목록에 맞으면 AI 판별 없이 바로 통과하고, 안 맞으면 저비용 모델이 한 번 더 판별한다 (check_service_scope).
 SCOPE_TERMS = (
     "창업", "가게", "매장", "카페", "음식점", "식당", "영업", "신고", "인허가", "허가",
     "건축물대장", "건물", "주소", "층", "임대차", "상표", "상호", "메뉴", "광고", "원산지",
@@ -58,6 +60,16 @@ def is_in_service_scope(question: str, history: list[dict] | None = None) -> boo
     ).lower()
     return bool(re.search(r"왜|어떻게|가능|얼마|언제|그럼|이건|이거|다른 방법|자세히", text)
                 and any(term.lower() in recent for term in SCOPE_TERMS))
+
+def check_service_scope(llm, question: str, history: list[dict] | None = None) -> scope_gate.ScopeDecision:
+    """질문 범위 게이트: 1) 키워드에 맞으면 AI 호출 없이 통과 2) 아니면 저비용 모델이 판별 (실패 시 허용)."""
+    if is_in_service_scope(question, history):
+        scope_gate.logger.info("chat_scope_check result=allowed source=keyword")
+        return scope_gate.ScopeDecision(True, "키워드", "keyword")
+    if not str(question or "").strip():
+        return scope_gate.ScopeDecision(False, "빈 질문", "keyword")
+    return scope_gate.classify(llm, question, history)
+
 
 SYSTEM = """너는 FOUNDY의 AI 창업 상담사 "파운디"다. 카페·음식점을 여는 청년 창업자를 돕는다.
 
@@ -310,9 +322,9 @@ def run_turn(llm, *, profile: dict, history: list[dict], question: str, box: Too
     ("delta", 글자) — 최종 답변 스트리밍
     ("done", {"content", "citations", "actions"}) — 끝
     """
-    if not is_in_service_scope(question, history):
-        # 범위 밖 질문은 모델에 전달하지 않는다. 따라서 모델이 일반 상식이나 잡담으로
-        # 답을 만들어 내는 경로 자체가 없다.
+    if not check_service_scope(llm, question, history).allowed:
+        # 범위 밖 질문은 상담 모델에 전달하지 않는다. 따라서 모델이 일반 상식이나 잡담으로
+        # 답을 만들어 내는 경로 자체가 없다. (판별 모델에는 질문 범위만 묻는다)
         yield "delta", OUT_OF_SCOPE_REPLY
         yield "done", {"content": OUT_OF_SCOPE_REPLY, "citations": [], "actions": []}
         return

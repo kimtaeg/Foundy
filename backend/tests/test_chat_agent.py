@@ -56,15 +56,14 @@ def test_same_source_gets_same_ref():
     assert box.sources.add("law", "A", source_id="A") == box.sources.add("law", "A", source_id="A") == "S1"
 
 
-def test_unrelated_question_is_rejected_before_llm_call():
-    class ExplodingLLM:
-        def stream_tools(self, **kwargs):
-            raise AssertionError("범위 밖 질문은 LLM을 호출하면 안 됩니다")
+def test_keyword_question_passes_without_scope_ai_call():
+    """키워드에 맞는 질문은 판별 모델을 부르지 않고 바로 통과한다."""
+    from agent.assistant import check_service_scope
+    from agent.scope_gate import COUNTER
 
-    events = list(run_turn(ExplodingLLM(), profile={}, history=[], question="오늘 주식 뭐가 좋아요?",
-                           box=ToolBox({}), today=date(2026, 11, 22)))
-    assert events == [("delta", OUT_OF_SCOPE_REPLY),
-                      ("done", {"content": OUT_OF_SCOPE_REPLY, "citations": [], "actions": []})]
+    before = COUNTER.calls
+    decision = check_service_scope(object(), "개업 전에 위생교육 받아야 해?", [])
+    assert (decision.allowed, decision.source) == (True, "keyword") and COUNTER.calls == before
 
 
 def test_contextual_follow_up_remains_allowed():
@@ -219,3 +218,124 @@ def test_real_law_question_searches_and_cites_law(real):
     assert done["content"]
     for cite in done["citations"]:  # 인용은 모두 실제로 검색된 조문이다
         assert cite["source_type"] == "law" and cite["source_title"] in {s["source_title"] for s in box.sources.items.values()}
+
+
+# ── 질문 범위 게이트: 키워드에 안 걸린 질문은 실제 저비용 모델(gpt-4.1-mini)이 판별한다 ──
+
+def openai_llm(**client_kwargs):
+    if os.getenv("LLM_PROVIDER", "").lower() != "openai" or not os.getenv("LLM_API_KEY"):
+        pytest.skip("LLM_PROVIDER=openai·LLM_API_KEY 가 없어 실제 판별 호출을 건너뜀")
+    from openai import OpenAI
+
+    from agent.cost import CostTracker
+    from agent.llm import OpenAILLM
+
+    return OpenAILLM(cost=CostTracker(), client=OpenAI(api_key=os.environ["LLM_API_KEY"], **client_kwargs))
+
+
+ALLOWED = ["오늘 할 일이 뭐야", "오늘 할 일 알려줘", "이번 주에 뭐 해야 돼?", "지금 뭐 해야 돼?", "남은 할 일 알려줘",
+           "마감 임박한 거 있어?", "급한 거 뭐 있어?", "진행률 어때?", "내가 놓친 거 있어?", "다음에 뭐 하면 돼?",
+           "할 일 목록 보여줘", "이번 달 일정 알려줘", "언제까지 해야 돼?", "보건증 어디서 받아?", "보증금 얼마가 적당해?",
+           "권리금 뭐야?"]
+BLOCKED = ["오늘 날씨 어때?", "파이썬 코드 짜줘", "삼성전자 주가 알려줘", "맛집 추천해줘", "오늘 주식 뭐가 좋아요?",
+           "비트코인 지금 사도 돼?", "손흥민 오늘 골 넣었어?"]
+
+
+@pytest.mark.parametrize("question", ALLOWED)
+def test_real_scope_ai_allows_startup_questions_missed_by_keywords(question):
+    from agent.assistant import check_service_scope, is_in_service_scope
+
+    llm = openai_llm()
+    assert not is_in_service_scope(question, [])  # 키워드에는 안 걸리는 질문
+    decision = check_service_scope(llm, question, [])
+    assert decision.source == "ai" and decision.allowed, (question, decision.reason)
+    assert [r.step for r in llm.cost.rows] == ["chat_scope"] and llm.cost.rows[0].model == "gpt-4.1-mini"
+    assert llm.cost.rows[0].input_tokens > 0 and llm.cost.rows[0].output_tokens > 0
+
+
+@pytest.mark.parametrize("question", BLOCKED)
+def test_real_scope_ai_blocks_unrelated_questions(question):
+    from agent.assistant import check_service_scope
+
+    decision = check_service_scope(openai_llm(), question, [])
+    assert decision.source == "ai" and not decision.allowed, (question, decision.reason)
+    assert decision.reason and decision.reason != "-"
+
+
+def test_real_blocked_question_never_reaches_answer_model():
+    llm = openai_llm()
+
+    class AnswerLLM:
+        client, cost = llm.client, llm.cost
+
+        def stream_tools(self, **kwargs):
+            raise AssertionError("범위 밖 질문은 상담 모델을 호출하면 안 됩니다")
+
+    events = list(run_turn(AnswerLLM(), profile={}, history=[], question="오늘 주식 뭐가 좋아요?",
+                           box=ToolBox({}), today=date(2026, 11, 22)))
+    assert events == [("delta", OUT_OF_SCOPE_REPLY),
+                      ("done", {"content": OUT_OF_SCOPE_REPLY, "citations": [], "actions": []})]
+
+
+def test_real_scope_ai_uses_recent_conversation_for_follow_ups():
+    from agent.assistant import check_service_scope
+
+    history = [{"role": "user", "content": "영업신고 하려면 뭐가 필요해?"},
+               {"role": "assistant", "content": "위생교육 수료증과 보건증, 임대차계약서가 필요해요."}]
+    decision = check_service_scope(openai_llm(), "그거 온라인으로도 돼?", history)
+    assert decision.allowed, decision.reason
+
+
+def test_scope_ai_network_error_allows_and_logs(monkeypatch):
+    """판별 API에 닿지 못하면(실제 클라이언트, 열려 있지 않은 주소) 허용하고, 오류를 로그와 누적 수에 남긴다."""
+    import logging
+
+    from agent import scope_gate
+
+    llm = openai_llm(base_url="http://127.0.0.1:9/v1")
+    lines = []
+    handler = logging.Handler()
+    handler.emit = lambda record: lines.append(record.getMessage())
+    scope_gate.logger.addHandler(handler)
+    try:
+        before = scope_gate.COUNTER.errors
+        decision = scope_gate.classify(llm, "오늘 날씨 어때?", [])
+    finally:
+        scope_gate.logger.removeHandler(handler)
+    assert (decision.allowed, decision.source) == (True, "ai_error")
+    assert scope_gate.COUNTER.errors == before + 1 and llm.cost.rows == []
+    assert any("result=allowed source=ai_error" in line and "error=APIConnectionError" in line for line in lines)
+
+
+def test_scope_ai_timeout_allows(monkeypatch):
+    from agent import scope_gate
+
+    monkeypatch.setattr(scope_gate, "TIMEOUT_SEC", 0.001)
+    decision = scope_gate.classify(openai_llm(), "오늘 날씨 어때?", [])
+    assert (decision.allowed, decision.source) == (True, "ai_error")
+
+
+def test_scope_ai_without_openai_client_allows():
+    from agent import scope_gate
+
+    assert scope_gate.classify(object(), "오늘 날씨 어때?", []).source == "ai_error"
+
+
+def test_real_scope_log_line_has_calls_and_tokens():
+    import logging
+
+    from agent import scope_gate
+
+    lines = []
+    handler = logging.Handler()
+    handler.emit = lambda record: lines.append(record.getMessage())
+    scope_gate.logger.addHandler(handler)
+    try:
+        before = scope_gate.COUNTER.calls
+        scope_gate.classify(openai_llm(), "삼성전자 주가 알려줘", [])
+    finally:
+        scope_gate.logger.removeHandler(handler)
+    line = lines[-1]
+    assert line.startswith("chat_scope_check result=blocked source=ai") and "model=gpt-4.1-mini" in line
+    assert f"total_calls={before + 1}" in line and "input_tokens=" in line and "output_tokens=" in line
+    assert "삼성전자" not in line  # 질문 원문은 로그에 남기지 않는다
