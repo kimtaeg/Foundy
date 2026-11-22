@@ -99,6 +99,12 @@ def report(client, base, headers):
     return body, {i["item_id"]: i for g in body["groups"] for i in g["items"]}
 
 
+def assert_fire_card_without_area(fire):
+    """r-06 은 소방(다중이용업소) 카드다. 이 가게는 영업장 면적이 없어 판단 불가로 만들어진다 (#178 always_show)."""
+    assert fire["check_id"] == "fire_safety" and fire["verdict"] == "unknown"
+    assert fire["title"] == "영업장 면적을 입력하면 다중이용업소 해당 여부를 알 수 있어요"
+
+
 @contextmanager
 def blocked(manager, monkeypatch):
     entered, release, finished = threading.Event(), threading.Event(), threading.Event()
@@ -131,8 +137,11 @@ def test_full_analysis_saved_and_readable(context):
     assert [e["event"] for e in done["events"]].count("done") == 1
     assert done["events"][-1]["data"]["run_id"] == rid
     body, cards = report(client, base, headers)
-    # 직원이 있는 가게라 #113의 근로계약 카드(r-07)가 붙는다. 면적을 모르면 소방 카드(r-06)는 만들지 않는다
-    assert body["run_id"] == rid and sorted(cards) == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-07"]
+    # 직원이 있는 가게라 #113의 근로계약 카드(r-07)가 붙는다.
+    # 소방 카드(r-06)는 #178부터 면적을 몰라도 판단 불가 카드로 항상 만든다 (always_show)
+    assert body["run_id"] == rid and sorted(cards) == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-06", "r-07"]
+    assert len(cards) == 7
+    assert_fire_card_without_area(cards["r-06"])
     assert cards["r-07"]["check_id"] == "labor_contract"
     assert cards["r-05"]["verdict"] == "unknown"
     assert client.get(base + "/dashboard", headers=headers).json()["last_run"]["run_id"] == rid
@@ -436,7 +445,9 @@ def test_first_analysis_creates_results_and_checklist(context):
         session.get(Store, sid).onboarded_at = None
     rid = start(context)
     assert wait(client, rid, headers)["status"] == "done"
-    assert sorted(report(client, base, headers)[1]) == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-07"]
+    cards = report(client, base, headers)[1]
+    assert sorted(cards) == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-06", "r-07"] and len(cards) == 7
+    assert_fire_card_without_area(cards["r-06"])  # 첫 분석에서도 소방 카드를 판단 불가로 만든다 (#178)
     assert client.get(base + "/checklist", headers=headers).json()["progress"] == {"done": 0, "total": 13}
 
 

@@ -103,10 +103,17 @@ def test_next_steps_order_and_limit():
     assert kinds[0] == "new" and steps[0].go == {"page": "checklist", "item_id": "x-0"}
     assert kinds == ["new", "decide", "do", "do", "do"]  # 표시 의무 확인까지 직접 할 일 3개가 먼저 온다.
     assert steps[kinds.index("decide")].sub.startswith("추천:")
-    # 직접 할 일은 위반건축물 문의·영업신고·표시 의무·근로계약(직원이 있어 #113부터 생김) 4개다. 그중 2개를 끝내면 2개가 남는다
-    assert sum(1 for i in items if i.user_action and i.verdict != "ok" and i.check_id != bu.check_id
-               and i.check_id != "trademark_similar") == 4
-    items = [i.model_copy(update={"action_status": "done"}) if i.check_id in ("labeling", "labor_contract") else i for i in items]
+    # 직접 할 일은 위반건축물 문의·영업신고·표시 의무·소방 확인·근로계약(직원이 있어 #113부터 생김) 5개다.
+    # 소방 카드는 #178부터 면적을 몰라도 판단 불가 카드로 항상 생기고, 할 일은 관할 소방서 문의다
+    direct = [i.check_id for i in items if i.user_action and i.verdict != "ok" and i.check_id != bu.check_id
+              and i.check_id != "trademark_similar"]
+    assert sorted(direct) == ["building_violation", "fire_safety", "labeling", "labor_contract", "permit_docs"]
+    fire = card(items, "fire_safety")
+    assert fire.verdict == "unknown" and fire.title == "영업장 면적을 입력하면 다중이용업소 해당 여부를 알 수 있어요"
+    assert fire.user_action.text == "관할 소방서에 다중이용업 해당 여부 문의하기"
+    # 그중 3개를 끝내면 2개가 남는다
+    done = ("labeling", "labor_contract", "fire_safety")
+    items = [i.model_copy(update={"action_status": "done"}) if i.check_id in done else i for i in items]
     steps = next_steps(PACK, items, cl, excl=bu.item_id)
     assert [s.kind for s in steps] == ["new", "decide", "do", "do", "task"]  # 직접 할 일이 줄면 체크리스트가 뒤에 온다.
     assert len(steps) == 5
