@@ -52,9 +52,9 @@ def test_s1_alcohol_on_type1_floor():
 def test_ids_unique_and_ordered_by_pack():
     res, _ = run()
     assert [i.check_id for i in res.items] == ["building_use", "trademark_similar", "building_violation",
-                                                 "permit_docs", "labeling", "labor_contract"]  # 직원이 있으니 근로계약 카드가 붙는다
-    # foundy 카드 번호는 규칙 묶음 순서가 정한다. 면적을 모르면 소방 카드(r-06)는 만들지 않고 번호만 건너뛴다.
-    assert [i.item_id for i in res.items] == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-07"]
+                                                 "permit_docs", "labeling", "fire_safety", "labor_contract"]  # 직원이 있으니 근로계약 카드가 붙는다
+    # 카드 번호는 규칙 묶음 순서가 정한다. 소방 카드는 면적을 몰라도 항상 만든다 (always_show)
+    assert [i.item_id for i in res.items] == ["r-01", "r-02", "r-03", "r-04", "r-05", "r-06", "r-07"]
 
 
 def test_permit_docs_card_is_judged_by_ai_from_law_text_with_verified_evidence():
@@ -104,8 +104,8 @@ def test_trademark_ai_item_never_high_and_has_rename_options():
 
 def test_clean_case_has_no_cards():
     res, _ = run(store(answers={"sells_alcohol": True}), FakeTools(uses=("제2종근린생활시설",), violation=False, similar=[]))
-    # 문제 카드(선택지)는 없다. 영업신고 서류 안내(규칙 카드)만 남는다
-    assert res.summary == {"high": 0, "low": 1, "unknown": 1, "ok": 3}
+    # 문제 카드(선택지)는 없다. 영업신고 서류 안내(규칙 카드)와 면적을 몰라 판단하지 못한 소방 카드가 남는다
+    assert res.summary == {"high": 0, "low": 1, "unknown": 2, "ok": 3}
     assert all(not i.options for i in res.items)
 
 
@@ -238,14 +238,15 @@ def test_resolved_address_codes_only_from_real_lookup():
     assert resolved_address_codes(real.model_copy(update={"data": {"address_codes": {"sigungu_cd": "11200"}}})) is None
 
 
-def test_fire_safety_card_only_when_area_makes_it_apply():
-    """면적을 모르면 소방 카드를 만들지 않고, 100㎡ 이상 2층이면 만든다. 1층은 예외 확인이 필요해 카드가 생긴다."""
-    assert "fire_safety" not in by_check(run()[0])
+def test_fire_safety_card_is_always_shown_and_judged_by_area():
+    """소방 카드는 면적과 상관없이 항상 만든다 (always_show). 면적 기준 판정은 실제 호출 테스트(test_discover)·실행으로 확인한다."""
+    assert "fire_safety" in by_check(run()[0])  # 면적 미입력
     big_second = by_check(run(store(area_sqm=120, address_detail="2층"))[0])
     assert "fire_safety" in big_second and big_second["fire_safety"].decided_by == "ai"
-    big_first = by_check(run(store(area_sqm=120, address_detail="1층"))[0])
-    assert "fire_safety" in big_first  # 예외(1층) 가능성은 확인 필요 → 카드로 안내
-    assert "fire_safety" not in by_check(run(store(area_sqm=60, address_detail="2층"))[0])
+    assert "fire_safety" in by_check(run(store(area_sqm=120, address_detail="1층"))[0])
+    small = run(store(area_sqm=60, address_detail="2층"))[0]
+    assert "fire_safety" in by_check(small) and "fire_safety" not in small.skipped_checks
+    assert not any(c.item_id == "o-fire" for c in small.checklist)  # 해당 없는 면적이면 소방 작업은 만들지 않는다
 
 
 def test_labor_card_is_skipped_without_employees():
