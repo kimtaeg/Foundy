@@ -22,6 +22,13 @@ from .test_loop import PACK, llm
 SECRET = "SECRET-KEY-1234567890"
 
 
+@pytest.fixture(autouse=True)
+def no_retry_wait(monkeypatch):
+    """일시 오류 재시도(#163)의 대기를 없앤다."""
+    from tools import retry
+    monkeypatch.setattr(retry.time, "sleep", lambda s: None)
+
+
 def settings(**kw):
     values = dict(kakao_rest_key=SECRET, building_api_key=SECRET, data_go_kr_key="", kipris_api_key=SECRET, law_oc=SECRET)
     values.update(kw)

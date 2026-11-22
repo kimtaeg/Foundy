@@ -12,6 +12,7 @@ from services.pack import get_pack
 from services.timeutil import now_utc, today_kst
 from rules import building_use
 from tools import address as address_tool
+from tools import retry
 from tools.failure import ProviderError, check_gateway
 from tools import kstartup
 
@@ -38,7 +39,7 @@ class Providers:
         self.client.close()
 
     def _get(self, url, **kwargs):
-        response = self.client.get(url, **kwargs)
+        response = retry.get(self.client, url, **kwargs)
         check_gateway(response, "DATA_GO_KR_GATEWAY_ERROR")
         response.raise_for_status()
         return response
