@@ -66,18 +66,17 @@ async function readChecklist(page) {
   })));
 }
 
-async function assertOpeningWeek(page, opening, dates) {
+async function assertOpeningTimeline(page, opening, today) {
   const card = region(page, '개업 일정');
-  const calendar = card.getByRole('figure', { name: '개업 주간 미니 캘린더', exact: true });
+  const calendar = card.getByRole('figure', { name: '개업 일정 타임라인', exact: true });
   await expect(calendar).toBeVisible();
   const days = calendar.locator('time[datetime]');
-  await expect(days).toHaveCount(7);
-  expect(await days.evaluateAll((elements) => elements.map((element) => element.getAttribute('datetime')))).toEqual(dates);
+  expect(await days.count()).toBeGreaterThan(7);
   await expect(calendar.locator(`time[datetime="${opening}"]`)).toHaveAttribute('aria-label', `개업일 ${opening}`);
   await expect(calendar.getByText('개업일', { exact: true })).toBeVisible();
-  await expect(calendar.locator('[aria-current="date"]')).toHaveCount(0);
+  if (today) await expect(calendar.locator(`time[datetime="${today}"]`)).toHaveText('오늘');
   await expect(card).toContainText(opening.replaceAll('-', '.'));
-  return { opening, dates };
+  return { opening, totalDays: await days.count() };
 }
 
 async function assertProgress(page, tasks) {
@@ -163,7 +162,7 @@ async function assertRingPaint(ring, { done, total, stages = [] }) {
 
 async function assertFits(page, width) {
   const bento = page.getByTestId('dashboard-bento');
-  await expect(bento.getByRole('region')).toHaveCount(5);
+  await expect(bento.locator('section[aria-label]')).toHaveCount(5);
   await expect(bento.getByRole('region', { name: '새 알림', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^알림, 읽지 않은 알림 \d+개$/ })).toBeVisible();
   for (const label of labels) await expect(region(page, label)).toBeVisible();
@@ -226,6 +225,16 @@ try {
     const { context, page, heavyRequests } = await openDashboard(name, width, height);
     try {
       await check(page, `${name}: opening fills the first row and five sections fit with navbar notifications`, () => assertFits(page, width));
+      await check(page, `${name}: opening date stays centered in the scrollable timeline`, async () => {
+        const viewport = region(page, '개업 일정').getByRole('region', { name: '날짜별 준비 일정, 좌우로 스크롤' });
+        const gap = await viewport.evaluate((element) => {
+          const opening = element.querySelector('time[aria-label^="개업일"]');
+          const area = element.getBoundingClientRect();
+          const day = opening.getBoundingClientRect();
+          return Math.abs((day.left + day.right - area.left - area.right) / 2);
+        });
+        expect(gap).toBeLessThan(2);
+      });
 
       if (name === 'desktop') {
         await check(page, 'completion ring and stages match the full checklist', async () => {
@@ -236,9 +245,28 @@ try {
           return assertProgress(page, tasks);
         });
 
-        await check(page, 'opening calendar shows the exact seven-day week and marks the opening date', () => assertOpeningWeek(page, '2027-03-02', [
-          '2027-02-28', '2027-03-01', '2027-03-02', '2027-03-03', '2027-03-04', '2027-03-05', '2027-03-06',
-        ]));
+        await check(page, 'opening timeline centers the opening date and scrolls through checklist events', async () => {
+          const details = await assertOpeningTimeline(page, '2027-03-02', '2026-11-21');
+          const calendar = region(page, '개업 일정').getByRole('figure', { name: '개업 일정 타임라인' });
+          const viewport = calendar.getByRole('region', { name: '날짜별 준비 일정, 좌우로 스크롤' });
+          const position = await viewport.evaluate((element) => {
+            const opening = element.querySelector('time[aria-label^="개업일"]');
+            const area = element.getBoundingClientRect();
+            const day = opening.getBoundingClientRect();
+            return { centerGap: Math.abs((day.left + day.right - area.left - area.right) / 2), before: element.scrollLeft, max: element.scrollWidth - element.clientWidth, scrollbar: getComputedStyle(element).scrollbarWidth };
+          });
+          expect(position.centerGap).toBeLessThan(2);
+          expect(position.before).toBeGreaterThan(0);
+          expect(position.max).toBeGreaterThan(position.before);
+          expect(position.scrollbar).toBe('none');
+          expect(await calendar.locator('span[title]').count()).toBeGreaterThan(0);
+          await viewport.evaluate((element) => { element.scrollLeft -= 400; });
+          expect(await viewport.evaluate((element) => element.scrollLeft)).toBeLessThan(position.before);
+          const firstEvent = calendar.locator('span[title]').first();
+          await firstEvent.scrollIntoViewIfNeeded();
+          await expect(firstEvent).toBeInViewport();
+          return details;
+        });
 
         await check(page, 'completed preview rows stay struck through after reload and can be unchecked', async () => {
           assert.ok(taskFixture, 'the checklist oracle is required');
@@ -446,13 +474,11 @@ try {
     return results;
   });
 
-  await check(page, 'API opening date renders the correct week across a year boundary without a provider', async () => {
+  await check(page, 'API opening date renders the timeline across a year boundary without a provider', async () => {
     await page.setContent(renderToStaticMarkup(React.createElement(DashboardView, {
       data: { ...resolvedDashboard, store: { ...resolvedDashboard.store, opening: '2027-01-01' } },
     })));
-    return assertOpeningWeek(page, '2027-01-01', [
-      '2026-12-27', '2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01', '2027-01-02',
-    ]);
+    return assertOpeningTimeline(page, '2027-01-01');
   });
 
   await check(page, 'invalid and unset opening dates show an unset countdown without a fabricated week', async () => {
@@ -462,7 +488,7 @@ try {
       })));
       const card = region(page, '개업 일정');
       await expect(card.getByText('미정', { exact: true })).toBeVisible();
-      await expect(card.getByRole('figure', { name: '개업 주간 미니 캘린더' })).toHaveCount(0);
+      await expect(card.getByRole('figure', { name: '개업 일정 타임라인' })).toHaveCount(0);
       await expect(card.locator('time[datetime]')).toHaveCount(0);
     }
   });
@@ -473,7 +499,7 @@ try {
         data: { ...resolvedDashboard, days },
       })));
       await expect(region(page, '개업 일정').getByText(label, { exact: true })).toBeVisible();
-      await expect(region(page, '개업 일정').getByRole('figure', { name: '개업 주간 미니 캘린더' })).toBeVisible();
+      await expect(region(page, '개업 일정').getByRole('figure', { name: '개업 일정 타임라인' })).toBeVisible();
     }
   });
 

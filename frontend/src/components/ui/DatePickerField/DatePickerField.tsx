@@ -35,6 +35,7 @@ export function DatePickerField({
       ? parsed
       : undefined;
   const year = selected?.getFullYear() ?? new Date().getFullYear();
+  const [displayMonth, setDisplayMonth] = useState<Date>(() => selected ?? new Date());
   const dateText = selected ? draft.current : "0000-00-00";
 
   function closeCalendar() {
@@ -45,6 +46,7 @@ export function DatePickerField({
   function selectDate(date: Date) {
     const next = iso(date);
     setDraft({ initial: value, current: next });
+    setDisplayMonth(date);
     if (input.current) {
       // Keep the native form value in sync with the calendar selection.
       input.current.value = next;
@@ -123,7 +125,10 @@ export function DatePickerField({
         popover="auto"
         role="dialog"
         aria-label={label + " 날짜 선택"}
-        onToggle={(event) => setOpen(event.newState === "open")}
+        onToggle={(event) => {
+          if (event.newState === "open") setDisplayMonth(selected ?? new Date());
+          setOpen(event.newState === "open");
+        }}
         className={`fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-xl border border-solid border-neutral-200 bg-white p-2 text-neutral-900 shadow-lg sm:p-3 ${open ? "" : "invisible"}`}
       >
         {open && (
@@ -131,7 +136,8 @@ export function DatePickerField({
             mode="single"
             required
             selected={selected}
-            defaultMonth={selected}
+            month={displayMonth}
+            onMonthChange={setDisplayMonth}
             autoFocus
             captionLayout="dropdown"
             startMonth={new Date(Math.min(1900, year), 0)}

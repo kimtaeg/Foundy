@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createSourceRuntime } from './helpers/source-runtime.mjs';
 
 const { load } = createSourceRuntime();
-const { buildDashboardPreparation, buildDashboardSchedule, buildOpeningWeek, countDashboardReports, buildPreparationRingSegments, preparationStageColor } = load('@/lib/dashboard');
+const { buildDashboardPreparation, buildDashboardSchedule, buildOpeningWeek, buildOpeningTimeline, countDashboardReports, buildPreparationRingSegments, preparationStageColor } = load('@/lib/dashboard');
 const results = [];
 function test(name, action) {
   action();
@@ -232,6 +232,23 @@ test('opening week dates do not change with the process time zone or daylight sa
     if (originalTimeZone === undefined) delete process.env.TZ;
     else process.env.TZ = originalTimeZone;
   }
+});
+
+test('opening timeline groups checklist dates, retains today, and limits distant entries', () => {
+  const scheduled = [
+    task('early', '계약 전', '2027-01-05'),
+    task('same-date', '계약 전', '2027-01-05', true),
+    task('after', '개업 후', '2027-03-09'),
+    task('distant', '개업 후', '2030-03-09'),
+  ];
+  const timeline = buildOpeningTimeline('2027-03-02', scheduled, '2027-01-14');
+  assert.equal(timeline[0].date, '2027-01-05');
+  assert.equal(timeline.at(-1).date, '2027-03-09');
+  assert.deepEqual(timeline.find((day) => day.date === '2027-01-05').tasks.map((item) => item.id), ['early', 'same-date']);
+  assert.equal(timeline.find((day) => day.date === '2027-01-14').isToday, true);
+  assert.equal(timeline.find((day) => day.date === '2027-03-02').isOpening, true);
+  assert.ok(timeline.every((day) => day.tasks.every((item) => item.id !== 'distant')));
+  assert.deepEqual(buildOpeningTimeline('2027-02-30', scheduled, '2027-01-14'), []);
 });
 
 console.log(JSON.stringify({ passed: results.length, results }, null, 2));

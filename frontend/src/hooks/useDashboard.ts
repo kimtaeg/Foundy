@@ -32,6 +32,7 @@ export function useDashboard(): DashboardViewData | null {
     days: context.diffDays(context.D(context.S.opening), today),
     decisions: context.pendingDecisions(),
     ...preparation,
+    timelineTasks: tasks,
     actions,
     reportCounts: undecided ? undefined : countDashboardReports(cards, (card) => context.ev(card)),
     asOf: iso(today),

@@ -22,8 +22,8 @@ const classes = {
   chevron: "size-4 fill-current",
   dropdowns: "flex items-center justify-center gap-1",
   dropdown_root:
-    "relative inline-flex min-h-11 items-center rounded-md px-1.5 hover:bg-neutral-50 focus-within:outline-2 focus-within:outline-foundy-primary",
-  dropdown: "absolute inset-0 z-10 size-full cursor-pointer opacity-0",
+    "relative inline-flex min-h-11 items-center rounded-md hover:bg-neutral-50 focus-within:outline-2 focus-within:outline-foundy-primary [&>span]:hidden",
+  dropdown: "min-h-11 cursor-pointer rounded-md border-0 bg-transparent px-1.5 text-base font-semibold text-neutral-900 outline-none",
   month_grid: "w-full table-fixed border-collapse",
   weekday: "h-8 p-0 text-center text-[13px] font-medium text-neutral-600",
   day: "group p-0.5 text-center",
