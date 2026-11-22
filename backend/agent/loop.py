@@ -76,7 +76,17 @@ def _with_reason(message: str, res: ToolResult) -> str:
 def _status(res: ToolResult) -> str:
     if not res.ok:
         return "failed"
-    return "fallback" if (res.from_mock or res.from_cache) else "done"
+    # 기한 안의 저장된 조회 결과를 재사용한 것은 정상 완료다. 실패해서 대체했거나 예시 자료를 썼을 때만 fallback
+    return "fallback" if (res.from_mock or res.substituted) else "done"
+
+
+def _origin(res: ToolResult) -> str:
+    """단계 메시지에 붙이는 자료 출처."""
+    if res.from_mock:
+        return " · 예시 자료"
+    if res.from_cache:
+        return " · 저장된 조회 결과로 대체" if res.substituted else " · 저장된 조회 결과"
+    return ""
 
 
 def _data_ev(res: ToolResult, value: str) -> Evidence:
@@ -156,7 +166,7 @@ def run_analysis(
         step("building", "running", "건축물대장 조회 중")
         b = _safe("건축물대장", tools.building, store)
         step("building", _status(b), _with_reason(
-             ("캐시·예시 건축물 자료 사용" if b.from_cache or b.from_mock else "건축물대장 조회 완료")
+             ("예시 건축물 자료 사용" if b.from_mock else f"건축물대장 조회 완료{_origin(b)}")
              if b.ok else "건축물대장 조회 실패", b), source=b.source)
     elif "law" in selected and hasattr(tools, "cached_building"):
         b = _safe("건축물대장 캐시", tools.cached_building, store)
@@ -177,8 +187,7 @@ def run_analysis(
             # 그걸로 "겹치는 상표가 없다"고 판정하면 거짓 안심이 되므로 조회 실패로 두고 판단 불가로 판정하게 한다
             t = ToolResult(ok=False, source=t.source, error="REAL_TRADEMARK_UNAVAILABLE", from_mock=True, reason=t.reason)
         n_sim = len((t.data or {}).get("similar", [])) if t.ok else 0
-        origin = " · 예시 자료" if t.from_mock else (" · 저장된 조회 결과" if t.from_cache else "")
-        step("trademark", _status(t), _with_reason(f"비슷한 상표 {n_sim}건{origin}" if t.ok else "상표 조회 실패", t),
+        step("trademark", _status(t), _with_reason(f"비슷한 상표 {n_sim}건{_origin(t)}" if t.ok else "상표 조회 실패", t),
              source=t.source)
 
     # 2. 규칙 판정 + AI 판정 (점검 항목 순서는 규칙 묶음의 순서)

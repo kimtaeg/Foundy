@@ -100,7 +100,7 @@ class AnalysisTools:
         fallback = cached if cached is not None else self._mock(source, check_id)
         outcome = "cache" if cached is not None else ("mock" if fallback.ok else "failed")
         log_failure(source, failure, (time.monotonic() - started) * 1000, outcome)
-        return fallback.model_copy(update={"reason": user_reason(source, failure)})
+        return fallback.model_copy(update={"reason": user_reason(source, failure), "substituted": True})
 
     @staticmethod
     def _building_params(store):
