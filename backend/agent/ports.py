@@ -29,6 +29,8 @@ class ToolResult(BaseModel):
     from_cache: bool = False
     from_mock: bool = False
     error: str | None = None
+    # 실제 조회가 실패해 저장된 결과·예시 자료로 대체했거나 실패했을 때, 화면에 붙이는 짧은 원인
+    reason: str | None = None
 
 
 class StoreInput(BaseModel):

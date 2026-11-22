@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import hashlib
 import json
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ from config import get_settings
 from db.models import ApiCache
 from db.session import transaction
 from services.timeutil import now_utc
+from tools.failure import classify, log_failure, user_reason
 
 MOCK = Path(__file__).resolve().parents[1] / "mocks" / "demo" / "seoyeon_inputs.json"
 
@@ -72,9 +74,12 @@ class AnalysisTools:
         cached = self._cached(key, fresh=True)
         if cached is not None:
             return cached
+        started = time.monotonic()
+        failure = None
         try:
             result = fetch()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - 어떤 실패든 저장된 결과·예시 자료로 대체한다
+            failure = classify(exc)
             result = ToolResult(ok=False, source=source, error="외부 조회 실패")
         if result.ok:
             # 모의·오래된 대체 결과를 새 실제 조회 결과로 캐시에 덮어쓰지 않는다.
@@ -89,8 +94,13 @@ class AnalysisTools:
                         "payload": stmt.excluded.payload, "fetched_at": stmt.excluded.fetched_at,
                         "expires_at": stmt.excluded.expires_at}))
             return result
+        # 예외 없이 실패 결과를 돌려준 경우(예: 조문 지정 미확인)도 같은 방식으로 분류한다
+        failure = failure or classify(ValueError(result.error or "PROVIDER_ERROR"))
         cached = self._cached(key)
-        return cached if cached is not None else self._mock(source, check_id)
+        fallback = cached if cached is not None else self._mock(source, check_id)
+        outcome = "cache" if cached is not None else ("mock" if fallback.ok else "failed")
+        log_failure(source, failure, (time.monotonic() - started) * 1000, outcome)
+        return fallback.model_copy(update={"reason": user_reason(source, failure)})
 
     @staticmethod
     def _building_params(store):
@@ -126,9 +136,11 @@ class AnalysisTools:
         return self._law_rag
 
     def _stored_law(self, check_id, store):
+        started = time.monotonic()
         try:
             return self._rag().articles_for(check_id, store)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - 저장된 법령을 못 읽으면 공식 API 조회로 넘어간다
+            log_failure("law_rag", classify(exc), (time.monotonic() - started) * 1000, "official_api")
             return None
 
     def _official_law(self, check_id):
