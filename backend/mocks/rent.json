@@ -1,5 +1,5 @@
 {
-  "_note": "예시 계정·USE_MOCK=true 전용 예시 값. 실제 통계가 아니다. 형식은 tools/rent.lookup 결과와 같다.",
+  "_note": "예시 계정·USE_MOCK=true 전용 예시 값. 실제 통계가 아니다. 형식은 tools/rent.lookup 결과와 같다 (floors = 층별 임대료, 천원/㎡).",
   "ok": true,
   "source": "한국부동산원 상업용부동산 임대동향조사",
   "data": {
@@ -11,6 +11,10 @@
     "period": "예시 분기",
     "period_id": "example",
     "building_type": "소규모 상가",
-    "source": "한국부동산원 상업용부동산 임대동향조사"
+    "source": "한국부동산원 상업용부동산 임대동향조사",
+    "floors": {
+      "area": {"1층": 60.0, "2층": 30.0, "지하1층": 33.0},
+      "top": {"name": "서울", "1층": 50.0}
+    }
   }
 }

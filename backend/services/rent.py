@@ -2,6 +2,9 @@
 
 저장하지 않고 요청마다 계산한다. 실제 통계를 못 불러오면(키 오류·결과 없음·호출 실패) 비교하지 않고 안내만 한다.
 지어낸 평균값은 쓰지 않는다. 예시 계정·USE_MOCK=true 에서만 mocks/rent.json 예시 값을 쓰고 is_example 로 표시한다.
+
+층별 비교 (#187): 같은 지역의 1층·2층·지하1층과 상위(시도, 시도 자체면 전국) 1층 평균을 rows 로 보여 주고,
+가게 층에 맞는 통계 층과 비교한다. 층별 표만 실패하면 지역별(1층) 값 1행으로 비교한다. 문장(readings)은 규칙으로 만든다.
 """
 
 from __future__ import annotations
@@ -18,6 +21,8 @@ MOCK = Path(__file__).resolve().parents[1] / "mocks" / "rent.json"
 UNAVAILABLE = "임대료 통계를 아직 불러올 수 없어요"
 BASIS_AREA = "임대가능면적(전용+공용) 기준"
 BASIS_FLOOR = "1층 기준"
+STATISTIC = "평균(면적 가중)"
+FLOORS_UNAVAILABLE = "층별 통계를 불러오지 못했어요"
 
 
 def _address_text(store: Any) -> str:
@@ -44,6 +49,36 @@ def statistics(store: Any, tools) -> tuple[dict | None, bool, str | None]:
     return res.data, False, None
 
 
+def _floor_values(found: dict) -> tuple[dict[str, float], dict | None, bool]:
+    """(이 지역 층별 값(천원/㎡), 상위 1층 평균, 층별 표를 읽었는지). 1층은 지역별 임대료 값을 쓴다 (통계상 같은 값)."""
+    floors = found.get("floors")
+    values = {calc.FIRST_FLOOR: found["rent_thousand_krw_per_sqm"]}
+    if not floors:
+        return values, None, False
+    values.update({k: v for k, v in (floors.get("area") or {}).items() if k != calc.FIRST_FLOOR and v is not None})
+    top = floors.get("top") or {}
+    return values, (top if top.get(calc.FIRST_FLOOR) is not None else None), True
+
+
+def _rows(found: dict, values: dict[str, float], top: dict | None, compared: str, matched: bool,
+          area: float | None) -> list[dict]:
+    """같은 지역 1층·2층·지하1층(값이 있는 층만) + 상위(시도, 시도 자체면 전국) 1층 평균."""
+    name = found["area_name"].split(">")[-1]
+    rows = []
+    for floor in calc.STAT_FLOORS:
+        if floor not in values:
+            continue
+        won = calc.krw_per_sqm(values[floor])
+        rows.append({"label": f"{name} {floor}", "krw_per_sqm": won,
+                     "monthly_for_my_area_krw": calc.monthly_for_area(won, area),
+                     "is_my_floor": matched and floor == compared})
+    if top:
+        won = calc.krw_per_sqm(top[calc.FIRST_FLOOR])
+        rows.append({"label": f"{top['name']} 1층 평균", "krw_per_sqm": won,
+                     "monthly_for_my_area_krw": calc.monthly_for_area(won, area), "is_my_floor": False})
+    return rows
+
+
 def view(store: Any, tools, *, monthly_rent: int | None, deposit: int | None, area: float | None) -> dict:
     detail = parse_detail(store.address_detail)
     store_area = float(store.area_sqm) if getattr(store, "area_sqm", None) else None
@@ -56,27 +91,55 @@ def view(store: Any, tools, *, monthly_rent: int | None, deposit: int | None, ar
     found, example, reason = statistics(store, tools)
     out: dict = {
         "status": "ready", "is_example": example, "message": None, "reason": None, "missing": [],
-        "inputs": inputs, "average": None, "comparison": None, "notes": [],
+        "inputs": inputs, "headline": None, "comparison": None, "rows": None, "readings": [], "notes": [],
         "basis": {"rent": "월세 + 보증금 환산(전환율)", "area": BASIS_AREA, "floor": BASIS_FLOOR},
+        "source": None, "average": None,
     }
     if found is None:
         out.update(status="unavailable", message=UNAVAILABLE, reason=reason)
         return out
+
+    # 비교할 층: 가게 층의 통계가 있으면 그 층, 없으면(3층 이상·값 없음·층별 표 실패·층 모름) 1층
+    values, top, floors_ok = _floor_values(found)
+    wanted = calc.wanted_floor(detail["floor"], detail["underground"])
+    matched = wanted is not None and wanted in values
+    compared = wanted if matched else calc.FIRST_FLOOR
+    compared_won = calc.krw_per_sqm(values[compared])
+
     out["average"] = _average(found)
+    out["source"] = {"name": found["source"], "period": found["period"],
+                     "conversion_rate_pct": round(found["conversion_rate_pct"], 2)}
     out["basis"]["rent"] = f"월세 + 보증금 × 전환율 {round(found['conversion_rate_pct'], 2):g}% ÷ 12"
+    out["basis"]["floor"] = f"{compared} 기준"
+    out["headline"] = {
+        "area_name": found["area_name"], "area_level": found["level"], "building_type": found["building_type"],
+        "floor_label": compared, "krw_per_sqm": compared_won,
+        "monthly_for_my_area_krw": calc.monthly_for_area(compared_won, use_area), "statistic": STATISTIC,
+    }
+    out["rows"] = _rows(found, values, top, compared, matched, use_area)
+
     if found["level"] != "상권":
         out["notes"].append(f"이 주소의 상권 통계가 없어 {found['area_name'].replace('>', ' ')} {found['level']} 평균과 비교했어요.")
+    store_floor = calc.store_floor_label(detail["floor"], detail["underground"])
+    if not floors_ok:
+        out["notes"].append(FLOORS_UNAVAILABLE)
+    elif store_floor and not matched and store_floor != calc.FIRST_FLOOR:
+        out["notes"].append(f"{store_floor} 통계가 없어 1층 평균과 비교했어요. 1층이 아니면 보통 이보다 낮아요.")
+
     if monthly_rent is None:
         out["missing"].append("monthly_rent")
     if not use_area:
         out["missing"].append("area")
     if out["missing"]:
         out["status"] = "need_input"
+        out["readings"] = calc.readings(found["level"], compared, None, None)
         return out
-    out["comparison"] = calc.compare(monthly_rent, deposit or 0, use_area,
-                                     found["conversion_rate_pct"], found["rent_thousand_krw_per_sqm"])
+    comparison = calc.compare(monthly_rent, deposit or 0, use_area, found["conversion_rate_pct"], values[compared])
+    out["comparison"] = {**comparison, "compared_floor": compared}
+    out["readings"] = calc.readings(found["level"], compared, comparison["diff_pct"], comparison["level"])
     if not area:
         out["notes"].append("마이페이지의 영업장 면적으로 계산했어요. 통계는 전용+공용 면적 기준이라, 전용면적이면 실제보다 높게 나올 수 있어요. 계약서의 임대면적을 넣으면 더 정확해요.")
-    if detail["underground"] or (detail["floor"] and detail["floor"] != "1"):
+    # 층별로 비교하지 못했을 때만 (층별 표 실패) 예전 1층 기준 안내를 남긴다
+    if not floors_ok and (detail["underground"] or (detail["floor"] and detail["floor"] != "1")):
         out["notes"].append("통계는 1층 기준이라 2층·지하는 보통 이보다 낮아요.")
     return out

@@ -998,11 +998,13 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 
 ## 10. 임대료 비교 (상권 분석) [구현: 한국부동산원 R-ONE]
 
-상권 분석 "현장 확인" 탭의 임대료 비교 카드가 쓴다. 사장님이 넣은 월세·보증금(·임대면적)을 한국부동산원 상업용부동산 임대동향조사의 **같은 상권 소규모 상가 ㎡당 임대료**와 비교한다. **저장하지 않고** 요청마다 계산한다. (주변 가게 메뉴·가격 비교는 공개 데이터가 없어 제외했다.)
+상권 분석 "현장 확인" 탭의 임대료 비교 카드가 쓴다. 사장님이 넣은 월세·보증금(·임대면적)을 한국부동산원 상업용부동산 임대동향조사의 **같은 상권 소규모 상가 ㎡당 임대료**와 비교한다. 같은 상권의 **층별(1층·2층·지하1층) 비교표**와 결과를 **읽는 법** 문장을 함께 준다(#187). **저장하지 않고** 요청마다 계산한다. (주변 가게 메뉴·가격 비교는 공개 데이터가 없어 제외했다.)
 
 ### `GET /api/stores/{store_id}/rent`
 
 쿼리 (모두 선택): `monthly_rent` 월세(원, 0 이상) · `deposit` 보증금(원, 0 이상, 없으면 0) · `area` 임대면적(㎡, 0 초과, 계약서의 전용+공용. 없으면 가게의 영업장 면적 `area_sqm`). 범위를 벗어나면 `400 INVALID_INPUT`, 남의 가게는 `403`.
+
+`ready` (1층 가게, `?monthly_rent=2500000&deposit=30000000&area=40`, 2026년 3분기 실제 값):
 
 ```json
 {
@@ -1012,24 +1014,51 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
   "reason": null,
   "missing": [],
   "inputs": { "monthly_rent_krw": 2500000, "deposit_krw": 30000000, "area_sqm": 40, "area_source": "query", "floor": "1", "underground": false },
-  "average": { "area_name": "서울>기타>뚝섬", "level": "상권", "krw_per_sqm": 67381, "conversion_rate_pct": 6.47,
-               "period": "2026년 3분기", "building_type": "소규모 상가", "source": "한국부동산원 상업용부동산 임대동향조사" },
+  "headline": { "area_name": "서울>기타>뚝섬", "area_level": "상권", "building_type": "소규모 상가", "floor_label": "1층",
+                "krw_per_sqm": 67381, "monthly_for_my_area_krw": 2695240, "statistic": "평균(면적 가중)" },
   "comparison": { "converted_monthly_krw": 2661750, "deposit_monthly_krw": 161750, "mine_krw_per_sqm": 66544,
-                  "average_krw_per_sqm": 67381, "diff_pct": -1.2, "level": "similar" },
+                  "average_krw_per_sqm": 67381, "diff_pct": -1.2, "level": "similar", "compared_floor": "1층" },
+  "rows": [
+    { "label": "뚝섬 1층", "krw_per_sqm": 67381, "monthly_for_my_area_krw": 2695240, "is_my_floor": true },
+    { "label": "뚝섬 2층", "krw_per_sqm": 33327, "monthly_for_my_area_krw": 1333080, "is_my_floor": false },
+    { "label": "뚝섬 지하1층", "krw_per_sqm": 37807, "monthly_for_my_area_krw": 1512280, "is_my_floor": false },
+    { "label": "서울 1층 평균", "krw_per_sqm": 53081, "monthly_for_my_area_krw": 2123240, "is_my_floor": false }
+  ],
+  "readings": [
+    "상권 1층 평균과 비슷해요 (-1.2%). 통계는 실제 계약가가 아니라 조사된 시장임대료 추정치예요.",
+    "계약 전 확인: 관리비 별도 여부, 권리금(통계에 포함되지 않음), 계약서 임대면적이 전용+공용 기준인지"
+  ],
+  "notes": [],
   "basis": { "rent": "월세 + 보증금 × 전환율 6.47% ÷ 12", "area": "임대가능면적(전용+공용) 기준", "floor": "1층 기준" },
-  "notes": []
+  "source": { "name": "한국부동산원 상업용부동산 임대동향조사", "period": "2026년 3분기", "conversion_rate_pct": 6.47 },
+  "average": { "area_name": "서울>기타>뚝섬", "level": "상권", "krw_per_sqm": 67381, "conversion_rate_pct": 6.47,
+               "period": "2026년 3분기", "building_type": "소규모 상가", "source": "한국부동산원 상업용부동산 임대동향조사" }
 }
 ```
 
-- `status`: `ready`(비교함) · `need_input`(`missing`에 `monthly_rent`·`area`. 평균 `average`는 함께 준다) · `unavailable`(통계를 못 불러옴. `average`·`comparison`은 null, `message`는 "임대료 통계를 아직 불러올 수 없어요").
-- **통계 기준 (한국부동산원 통계 설명):** 임대료 = 환산임대료 = (보증금 × 전환율 / 12) + 월세, 관리비·부가세 제외. 임대가능면적(전용면적+공용면적)으로 나눈 ㎡당 값. 상가는 **1층 기준**. R-ONE 단위는 `천원/㎡`(월)이고 응답은 원/㎡로 바꾼다.
-- **내 값도 같은 기준으로 계산한다** (`calc/rent.py`): 환산 월세 = 월세 + 보증금 × (같은 상권·같은 분기 전환율) / 12, ㎡당 = 환산 월세 / 면적. 차이 `diff_pct` = (내 값 − 평균) / 평균 × 100. `level`: ±10% 이내 `similar`, 넘으면 `high`·`low`. 숫자는 계산 함수가 만들고 AI는 쓰지 않는다.
-- **안내 `notes`:** 영업장 면적으로 계산했으면 "전용면적이면 실제보다 높게 나올 수 있어요", 1층이 아니면 "통계는 1층 기준이라 2층·지하는 보통 더 낮아요", 상권 통계가 없어 권역·시도로 넓혔으면 그 사실.
+- `status`:
+  - `ready`: 비교함.
+  - `need_input`: `missing`에 `monthly_rent`·`area`. `headline`·`rows`·`source`·`average`는 함께 주고 `comparison`은 null, 면적이 없으면 `monthly_for_my_area_krw`는 null, `readings`는 계약 전 확인 1줄만.
+  - `unavailable`: 통계를 못 불러옴. `headline`·`comparison`·`rows`·`source`·`average`는 null, `readings`는 `[]`, `message`는 "임대료 통계를 아직 불러올 수 없어요", `reason`은 실패 원인.
+- **새 필드 (#187):**
+  - `headline`: 비교 기준 한 줄. `floor_label`은 비교한 통계 층, `krw_per_sqm`은 그 층 평균(원/㎡), `monthly_for_my_area_krw`는 그 값 × 사용 면적(반올림, 면적 없으면 null), `statistic`은 "평균(면적 가중)"(중앙값이 아니다).
+  - `comparison.compared_floor`: 비교한 통계 층 (`1층`·`2층`·`지하1층`). `average_krw_per_sqm`도 이 층 값이다.
+  - `rows`: 비교표. 순서는 찾은 지역의 1층 → 2층 → 지하1층(값이 없는 층은 뺀다) → 상위 1층 평균. 상위는 찾은 지역의 시도(예: 뚝섬 → "서울 1층 평균")이고, 찾은 지역이 시도 자체면 "전국 1층 평균"이다. `label`은 지역 마지막 이름 + 층(예: "뚝섬 2층", 권역이면 "영등포신촌 1층"). `krw_per_sqm`은 R-ONE 원값(천원/㎡) × 1000 반올림, `monthly_for_my_area_krw`는 그 값 × 사용 면적. `is_my_floor`는 가게 층의 통계와 비교한 행만 true (3층 이상처럼 1층으로 대신 비교했으면 모두 false).
+  - `readings`: 규칙 문장 (AI를 쓰지 않고, 입지·노출 같은 이유를 짓지 않는다).
+    1. 구간 문장 + " 통계는 실제 계약가가 아니라 조사된 시장임대료 추정치예요." `similar`면 "{범위} {층} 평균과 비슷해요 (-1.2%).", `high`·`low`면 "{범위} {층} 평균보다 17.9% 높아요/낮아요." 범위는 찾은 단계(상권·권역·시도).
+    2. 항상 "계약 전 확인: 관리비 별도 여부, 권리금(통계에 포함되지 않음), 계약서 임대면적이 전용+공용 기준인지".
+  - `source`: 출처 이름·기준 분기·전환율(%).
+  - `average`는 그대로 둔다 (찾은 지역의 1층 평균).
+- **층 매칭 규칙:** 가게 층(`address_detail`을 `rules.building_use.parse_detail`로 읽음)이 1층이면 `1층`, 2층이면 `2층`, 지하(층수 무관)면 `지하1층` 통계와 비교한다. 3층 이상이거나 그 층 값이 없으면 `1층`과 비교하고 `notes`에 "{층} 통계가 없어 1층 평균과 비교했어요. 1층이 아니면 보통 이보다 낮아요."를 붙인다. 층을 모르면 `1층`과 비교한다. `basis.floor`는 "{비교한 층} 기준"이다. 전환율은 층과 무관하게 같은 지역·같은 분기 값이다.
+- **통계 기준 (한국부동산원 통계 설명):** 임대료 = 환산임대료 = (보증금 × 전환율 / 12) + 월세, 관리비·부가세 제외. 임대가능면적(전용면적+공용면적)으로 나눈 ㎡당 값, 면적 가중 평균(Σ임대료 / Σ면적). 지역별 임대료는 **1층 기준**이고 층별 표의 1층 값과 같다. R-ONE 단위는 `천원/㎡`(월)이고 응답은 원/㎡로 바꾼다.
+- **내 값도 같은 기준으로 계산한다** (`calc/rent.py`): 환산 월세 = 월세 + 보증금 × (같은 상권·같은 분기 전환율) / 12, ㎡당 = 환산 월세 / 면적. 차이 `diff_pct` = (내 값 − 비교 층 평균) / 비교 층 평균 × 100. `level`: ±10% 이내 `similar`, 넘으면 `high`·`low`. 숫자와 문장은 계산 함수가 만들고 AI는 쓰지 않는다.
+- **안내 `notes`:** 영업장 면적으로 계산했으면 "전용면적이면 실제보다 높게 나올 수 있어요", 상권 통계가 없어 권역·시도로 넓혔으면 그 사실, 가게 층 통계가 없어 1층과 비교했으면 위 문장. 층별 표를 못 불러왔으면 "층별 통계를 불러오지 못했어요"이고, 이때 1층이 아닌 가게는 예전 안내 "통계는 1층 기준이라 2층·지하는 보통 이보다 낮아요"도 붙는다(층별로 비교했으면 붙이지 않는다).
 - **상권 찾기:** `rules/rent_areas.yaml`에서 가게 주소(도로명 + 지번 지역)로 상권 → 권역 → 시도 순으로 찾는다. 같은 상권이라도 통계표마다 `CLS_ID`가 달라서 **상권 이름(`CLS_FULLNM`)으로** 맞춘다. 성수동은 통계상 `서울>기타>뚝섬`이다. 전환율이 없는 단계는 같은 기준으로 비교할 수 없어 건너뛴다.
-- **조회 (`tools/rent.py`):** R-ONE `https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do` (`KEY`=`REB_API_KEY`, 분기 `QY`). 통계표는 최신 표부터 본다: 소규모 상가 임대료 `T269273143698159`(2026년3분기~) → `T248223134698125`(2024년3분기~), 전환율 `T265023143785924` → `T246253134905233`. 1,000건씩 끝까지 받는다. 결과는 `api_cache`(`source='rent'`, 7일)에 둔다. 인증키 오류(`ERROR-290`)·결과 없음(`INFO-200`)·호출 실패는 외부 API 실패 로그(`external_api_failure tool=rent`)에 남는다.
+- **조회 (`tools/rent.py`):** R-ONE `https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do` (`KEY`=`REB_API_KEY`, 분기 `QY`). 통계표는 최신 표부터 본다: 소규모 상가 임대료 `T269273143698159`(2026년3분기~) → `T248223134698125`(2024년3분기~), 전환율 `T265023143785924` → `T246253134905233`. 1,000건씩 끝까지 받는다. 결과는 `api_cache`(`source='rent'`, 7일, 층별을 담은 `schema: 2`)에 둔다. 인증키 오류(`ERROR-290`)·결과 없음(`INFO-200`)·호출 실패는 외부 API 실패 로그(`external_api_failure tool=rent`)에 남는다.
+- **층별 표 (`tools/rent.floor_rents`):** 층별임대료 및 층별효용비율_소규모 상가 `T265443143777773`(2026년3분기~) → `T246233134891629`(2024년3분기~). 지역별 임대료와 **같은 분기**부터 받고, 그 분기 row가 있는 첫 표를 쓴다 (이전 분기 표는 13,000건이 넘어 처음부터 받지 않는다). row는 지역이 그룹(`GRP_NM`·`GRP_FULLNM`), 층이 분류(`CLS_NM`: 1층·2층·지하1층), 항목이 `ITM_NM`(임대료 천원/㎡ · 효용비율 %)이고 임대료만 쓴다. 지역은 경로(`GRP_FULLNM`, 실제 응답에서 모든 row에 있음)로 맞추고, 경로가 없으면 시도 단위만 이름(`GRP_NM`)으로 맞춘다. 층별 표만 실패하면 지역별(1층) 비교는 그대로 하고 `rows`는 지역별 값 1행, 실패는 `external_api_failure tool=rent_floor outcome=skipped`로 남는다.
 - **실패하면 비교하지 않는다:** 키 오류·결과 없음·호출 실패, 그리고 저장된 결과·모의 응답으로 대체된 경우(`substituted`)도 `unavailable`이다. **지어낸 평균값은 쓰지 않는다.**
-- **예시 값:** 예시 계정(`is_demo`)과 `USE_MOCK=true`에서만 `mocks/rent.json` 예시 값을 쓰고 `is_example: true`다. 화면은 "예시 · 실제 통계 아님" 배지를 붙인다.
-- 화면은 카드 아래에 비교 기준(`basis`)과 출처·기준 분기·상가 유형·상권 이름을 작게 적는다.
+- **예시 값:** 예시 계정(`is_demo`)과 `USE_MOCK=true`에서만 `mocks/rent.json` 예시 값(층별 예시 포함)을 쓰고 `is_example: true`다. 화면은 "예시 · 실제 통계 아님" 배지를 붙인다.
+- 화면은 카드 아래에 비교 기준(`basis`)과 출처·기준 분기·상가 유형·상권 이름(`source`·`headline`)을 작게 적는다.
 
 ---
 
