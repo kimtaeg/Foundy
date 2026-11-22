@@ -14,7 +14,7 @@ export function BusinessQuestionsStep({ store, answers, analysisFailed }: Busine
 
   return (
     <section aria-labelledby="business-questions-title" className="min-w-0">
-      <h2 id="business-questions-title" tabIndex={-1} className={stepTitle}>어떤 조건으로 운영하시나요?</h2>
+      <h2 id="business-questions-title" tabIndex={-1} className={stepTitle}>어떤 조건으로 운영하실 계획인가요?</h2>
       <p className="mb-0 mt-1 text-sm leading-6 text-neutral-600">영업 조건에 맞춰 신고 절차와 준비 항목을 안내해 드려요.</p>
       {analysisFailed && (
         <p role="status" className="mb-0 mt-4 border-0 border-l-2 border-solid border-amber-500 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-900">
