@@ -260,9 +260,14 @@ try {
           expect(position.max).toBeGreaterThan(position.before);
           expect(position.scrollbar).toBe('none');
           expect(await calendar.locator('span[title]').count()).toBeGreaterThan(0);
+          const firstEvent = calendar.locator('span[title]').first();
+          await expect(firstEvent).toHaveClass(/text-sm/);
+          // Checklist events share the opening label's shape in gray; only the opening day stays primary.
+          await expect(firstEvent).toHaveClass(/font-semibold/);
+          await expect(firstEvent).toHaveClass(/text-neutral-500/);
+          await expect(firstEvent.locator('span[aria-hidden="true"]')).toHaveClass(/bg-neutral-400/);
           await viewport.evaluate((element) => { element.scrollLeft -= 400; });
           expect(await viewport.evaluate((element) => element.scrollLeft)).toBeLessThan(position.before);
-          const firstEvent = calendar.locator('span[title]').first();
           await firstEvent.scrollIntoViewIfNeeded();
           await expect(firstEvent).toBeInViewport();
           return details;

@@ -35,5 +35,6 @@ export * from "./PopulationPreviewChart";
 export * from "./PopulationChartTooltip";
 export * from "./OpeningWeekCalendar";
 export * from "./OpeningWeekCalendarDay";
+export * from "./OpeningTimelineEvent";
 export * from "./DashboardSectionHeader";
 export * from "./DashboardSectionDivider";

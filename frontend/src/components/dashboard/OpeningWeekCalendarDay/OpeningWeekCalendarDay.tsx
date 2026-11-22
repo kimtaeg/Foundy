@@ -1,4 +1,5 @@
 import type { Ref } from "react";
+import { OpeningTimelineEvent } from "@/components/dashboard/OpeningTimelineEvent";
 import type { OpeningTimelineDay } from "@/types/dashboard";
 
 export interface OpeningWeekCalendarDayProps {
@@ -21,16 +22,12 @@ export function OpeningWeekCalendarDay({ day, openingRef }: OpeningWeekCalendarD
           {day.isToday ? "오늘" : <><span>{day.day}일</span><span>({day.weekday})</span></>}
         </time>
       </div>
-      <div className="flex h-20 min-w-0 flex-col items-center gap-1 px-2 pt-2 text-center">
+      <div className="flex h-20 min-w-0 flex-col items-center gap-1 px-4 pt-2 text-center">
         {day.isOpening && (
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-foundy-primary-ink">
-            <span aria-hidden="true" className="size-2 rounded-full bg-foundy-primary motion-safe:animate-pulse" />개업일
-          </span>
+          <OpeningTimelineEvent label="개업일" />
         )}
         {shownTasks.map((task) => (
-          <span key={task.id} title={task.task} className={`block w-full truncate text-xs leading-5 ${task.done ? "text-neutral-500 line-through" : "text-neutral-700"}`}>
-            {task.task}
-          </span>
+          <OpeningTimelineEvent key={task.id} tone="neutral" label={task.task} title={task.task} completed={task.done} />
         ))}
         {extraCount > 0 && <span className="text-xs font-medium text-foundy-primary-ink">+{extraCount}개 일정</span>}
       </div>
