@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import alerts, auth, chat, checklist, demo, documents, errors, grants, health, laws, me, runs, stores
+from api import alerts, auth, chat, checklist, demo, documents, errors, grants, health, laws, me, rent, runs, stores
 from config import get_settings
 from db.session import transaction
 from services.analysis import AnalysisManager, expire_stale
@@ -59,5 +59,5 @@ app.add_middleware(
 )
 
 for router in (health.router, demo.router, auth.router, me.router, stores.register_router, stores.router,
-               checklist.router, documents.router, alerts.router, runs.router, laws.router, laws.store_router, grants.router, chat.router):
+               checklist.router, documents.router, alerts.router, runs.router, laws.router, laws.store_router, grants.router, chat.router, rent.router):
     app.include_router(router)

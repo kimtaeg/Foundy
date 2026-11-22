@@ -79,7 +79,8 @@
 | GET | `/api/stores/{store_id}/chat/suggestions` | 상황별 추천 질문 | 시간되면 |
 | GET | `/api/stores/{store_id}/grants` | 지원사업 (자격 판정, 포스터, 필터) | 시간되면 |
 | GET | `/api/stores/{store_id}/map` | 상권 분석: 지도 마커·상권 요약·경쟁 강도 | 서버 API 없음 (프론트가 카카오맵 JS SDK로 직접 조회) |
-| GET | `/api/stores/{store_id}/market` | 상권 분석: 가격대 분포·평균 임대료 | **제외** (공개 가격 데이터 없음, 10장) |
+| GET | `/api/stores/{store_id}/market` | 상권 분석: 가격대 분포 | **제외** (공개 가격 데이터 없음) |
+| GET | `/api/stores/{store_id}/rent` | 임대료 비교 (한국부동산원 임대동향조사, 저장 안 함) | 구현 (10장) |
 | POST | `/api/stores/{store_id}/refresh` | 다시 조회 → 바뀐 것만 알림 | 시간되면 |
 | POST | `/internal/refresh` | 예약 재조회 (토큰 보호) | 로드맵 |
 
@@ -995,14 +996,40 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 - 지도 SDK가 로드되지 않으면 프론트는 지도 없이 `summary`와 목록만 보여 준다.
 - 주소를 바꾸면(`PATCH /stores`) `impacts`에 `market`이 들어가고 이 화면도 다시 계산된다.
 
-## 10. 가격대·메뉴 (상권 분석) [제외]
+## 10. 임대료 비교 (상권 분석) [구현: 한국부동산원 R-ONE]
 
-가격 비교(내 아메리카노 가격을 주변 가격 분포와 비교)는 **화면과 API 모두 제외**했다 (2026-11-22).
+상권 분석 "현장 확인" 탭의 임대료 비교 카드가 쓴다. 사장님이 넣은 월세·보증금(·임대면적)을 한국부동산원 상업용부동산 임대동향조사의 **같은 상권 소규모 상가 ㎡당 임대료**와 비교한다. **저장하지 않고** 요청마다 계산한다. (주변 가게 메뉴·가격 비교는 공개 데이터가 없어 제외했다.)
 
-- 주변 가게의 메뉴·가격은 카카오·네이버 공식 API에 없고, 화면을 긁어 오는 방식은 약관 위반 소지가 있어 쓰지 않는다.
-- 서울 열린데이터광장 `ListPriceModelStoreProductService`(가격안정 모범업소 품목·가격, 매월 갱신)를 확인했다. 아메리카노는 서울 전체 62곳(1,000~3,800원, 중앙값 2,500원)뿐이고 **시세보다 싸게 파는 업소만 모은 표본**이라 시세 비교에 쓰지 않는다.
-- 다시 붙인다면 사장님이 주변 점포에서 직접 확인한 가격을 기록하는 방식(현장 조사 입력)을 우선 검토한다. 숫자는 계산 도구가 만들고 AI는 만들지 않는다.
-- 상권 분석의 "현장 확인" 탭에는 현장 확인 목록만 남았다.
+### `GET /api/stores/{store_id}/rent`
+
+쿼리 (모두 선택): `monthly_rent` 월세(원, 0 이상) · `deposit` 보증금(원, 0 이상, 없으면 0) · `area` 임대면적(㎡, 0 초과, 계약서의 전용+공용. 없으면 가게의 영업장 면적 `area_sqm`). 범위를 벗어나면 `400 INVALID_INPUT`, 남의 가게는 `403`.
+
+```json
+{
+  "status": "ready",
+  "is_example": false,
+  "message": null,
+  "reason": null,
+  "missing": [],
+  "inputs": { "monthly_rent_krw": 2500000, "deposit_krw": 30000000, "area_sqm": 40, "area_source": "query", "floor": "1", "underground": false },
+  "average": { "area_name": "서울>기타>뚝섬", "level": "상권", "krw_per_sqm": 67381, "conversion_rate_pct": 6.47,
+               "period": "2026년 3분기", "building_type": "소규모 상가", "source": "한국부동산원 상업용부동산 임대동향조사" },
+  "comparison": { "converted_monthly_krw": 2661750, "deposit_monthly_krw": 161750, "mine_krw_per_sqm": 66544,
+                  "average_krw_per_sqm": 67381, "diff_pct": -1.2, "level": "similar" },
+  "basis": { "rent": "월세 + 보증금 × 전환율 6.47% ÷ 12", "area": "임대가능면적(전용+공용) 기준", "floor": "1층 기준" },
+  "notes": []
+}
+```
+
+- `status`: `ready`(비교함) · `need_input`(`missing`에 `monthly_rent`·`area`. 평균 `average`는 함께 준다) · `unavailable`(통계를 못 불러옴. `average`·`comparison`은 null, `message`는 "임대료 통계를 아직 불러올 수 없어요").
+- **통계 기준 (한국부동산원 통계 설명):** 임대료 = 환산임대료 = (보증금 × 전환율 / 12) + 월세, 관리비·부가세 제외. 임대가능면적(전용면적+공용면적)으로 나눈 ㎡당 값. 상가는 **1층 기준**. R-ONE 단위는 `천원/㎡`(월)이고 응답은 원/㎡로 바꾼다.
+- **내 값도 같은 기준으로 계산한다** (`calc/rent.py`): 환산 월세 = 월세 + 보증금 × (같은 상권·같은 분기 전환율) / 12, ㎡당 = 환산 월세 / 면적. 차이 `diff_pct` = (내 값 − 평균) / 평균 × 100. `level`: ±10% 이내 `similar`, 넘으면 `high`·`low`. 숫자는 계산 함수가 만들고 AI는 쓰지 않는다.
+- **안내 `notes`:** 영업장 면적으로 계산했으면 "전용면적이면 실제보다 높게 나올 수 있어요", 1층이 아니면 "통계는 1층 기준이라 2층·지하는 보통 더 낮아요", 상권 통계가 없어 권역·시도로 넓혔으면 그 사실.
+- **상권 찾기:** `rules/rent_areas.yaml`에서 가게 주소(도로명 + 지번 지역)로 상권 → 권역 → 시도 순으로 찾는다. 같은 상권이라도 통계표마다 `CLS_ID`가 달라서 **상권 이름(`CLS_FULLNM`)으로** 맞춘다. 성수동은 통계상 `서울>기타>뚝섬`이다. 전환율이 없는 단계는 같은 기준으로 비교할 수 없어 건너뛴다.
+- **조회 (`tools/rent.py`):** R-ONE `https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do` (`KEY`=`REB_API_KEY`, 분기 `QY`). 통계표는 최신 표부터 본다: 소규모 상가 임대료 `T269273143698159`(2026년3분기~) → `T248223134698125`(2024년3분기~), 전환율 `T265023143785924` → `T246253134905233`. 1,000건씩 끝까지 받는다. 결과는 `api_cache`(`source='rent'`, 7일)에 둔다. 인증키 오류(`ERROR-290`)·결과 없음(`INFO-200`)·호출 실패는 외부 API 실패 로그(`external_api_failure tool=rent`)에 남는다.
+- **실패하면 비교하지 않는다:** 키 오류·결과 없음·호출 실패, 그리고 저장된 결과·모의 응답으로 대체된 경우(`substituted`)도 `unavailable`이다. **지어낸 평균값은 쓰지 않는다.**
+- **예시 값:** 예시 계정(`is_demo`)과 `USE_MOCK=true`에서만 `mocks/rent.json` 예시 값을 쓰고 `is_example: true`다. 화면은 "예시 · 실제 통계 아님" 배지를 붙인다.
+- 화면은 카드 아래에 비교 기준(`basis`)과 출처·기준 분기·상가 유형·상권 이름을 작게 적는다.
 
 ---
 
