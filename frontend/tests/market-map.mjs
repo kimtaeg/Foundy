@@ -192,8 +192,9 @@ try {
         await panel.getByRole('combobox', { name: '그래프에서 분석 시간 선택' }).selectOption('avg');
         await expect(legendOf(page)).toContainText('공개시간 평균');
         await panel.getByRole('button', { name: '요약', exact: true }).click();
-        await expect(panel.getByRole('figure', { name: '표시된 점포의 업종 비중' })).toContainText('15곳');
-        await expect(panel.getByRole('figure', { name: '표시된 점포의 업종 비중' })).toContainText('8곳');
+        const composition = panel.getByRole('figure', { name: '표시된 점포의 업종 비중' });
+        await expect(composition.getByRole('listitem').filter({ hasText: '카페' })).toContainText(/[1-9]\d*곳/);
+        await expect(composition.getByRole('listitem').filter({ hasText: '음식점' })).toContainText(/[1-9]\d*곳/);
       });
       await check('zoom controls change the actual map scale and retain roads', async () => {
         await page.getByRole('button', { name: '지도 확대', exact: true }).click();

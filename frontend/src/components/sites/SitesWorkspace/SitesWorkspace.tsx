@@ -13,9 +13,10 @@ import { PricePositionCard } from "@/components/sites/PricePositionCard";
 import { PopulationReport } from "@/components/sites/PopulationReport";
 import { PopulationSummaryCard } from "@/components/sites/PopulationSummaryCard";
 import { StrategyCard } from "@/components/sites/StrategyCard";
+import { useNearbyShops } from "@/hooks/useNearbyShops";
 import { usePopulationInsights } from "@/hooks/usePopulationInsights";
 import type { HourSel } from "@/types/foot-traffic";
-import type { MarketCategory, MarketPoint, SitesDataServices, SitesViewData } from "@/types/market";
+import type { MarketCategory, MarketPoint, NearbyShopsAvailability, SitesDataServices, SitesViewData } from "@/types/market";
 
 const FootTrafficMap = dynamic(
   () =>
@@ -26,6 +27,8 @@ const FootTrafficMap = dynamic(
   },
 );
 
+const NO_SHOPS: SitesViewData["shops"] = [];
+
 export interface SitesWorkspaceProps extends SitesDataServices {
   data: SitesViewData;
 }
@@ -33,6 +36,7 @@ export interface SitesWorkspaceProps extends SitesDataServices {
 export function SitesWorkspace({
   data,
   appKey,
+  nearbyShopsSource,
   footTrafficData,
   footTrafficSource,
   footTrafficLoading,
@@ -53,9 +57,13 @@ export function SitesWorkspace({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [time, setTime] = useState<{ hour: HourSel; lastHour: number }>({ hour: "avg", lastHour: 12 });
   const toggleButton = useRef<HTMLButtonElement>(null);
+  const [mapAvailability, setMapAvailability] = useState<NearbyShopsAvailability>("loading");
+  const nearby = useNearbyShops(nearbyShopsSource, appKey ? mapAvailability : "unavailable", center, radius);
+  const shops = nearbyShopsSource ? nearby.data?.shops ?? NO_SHOPS : data.shops;
+  const shopStatus = nearbyShopsSource ? nearby.status : "ready";
   const analysis = useMemo(
-    () => analyzeMarket(data.shops, center, radius, category),
-    [data.shops, center, radius, category],
+    () => analyzeMarket(shops, center, radius, category),
+    [shops, center, radius, category],
   );
   const selectedShop = analysis.nearby.find((shop) => shop.id === selectedShopId);
   const loadedPopulation = usePopulationInsights({
@@ -90,6 +98,7 @@ export function SitesWorkspace({
       <Suspense fallback={<FootTrafficMapSkeleton />}>
         <FootTrafficMap
           appKey={appKey}
+          onNearbyAvailabilityChange={setMapAvailability}
           dataset={footTrafficData}
           dataSource={footTrafficSource}
           loading={footTrafficLoading}
@@ -137,7 +146,7 @@ export function SitesWorkspace({
           <>
             <PopulationSummaryCard data={population.data} loading={population.loading} error={population.error} onRetry={population.retry} />
             <Suspense fallback={<SectionSkeleton appearance="plain" variant="card" label="상권 요약" />}>
-              <MarketSummaryCard analysis={analysis} />
+              <MarketSummaryCard analysis={analysis} status={shopStatus} truncated={nearby.data?.truncated} onRetry={nearby.retry} />
             </Suspense>
             <Suspense fallback={<SectionSkeleton appearance="plain" variant="chart" label="주변 경쟁" />}>
               <CompetitionCard analysis={analysis} />
@@ -152,6 +161,9 @@ export function SitesWorkspace({
           <Suspense fallback={<SectionSkeleton appearance="plain" variant="list" label="주변 점포" />}>
             <NearbyShopsCard
               shops={analysis.nearby}
+              status={shopStatus}
+              truncated={nearby.data?.truncated}
+              onRetry={nearby.retry}
               selectedShop={selectedShop}
               onSelect={setSelectedShopId}
             />
