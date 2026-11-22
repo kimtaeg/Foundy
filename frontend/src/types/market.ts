@@ -61,6 +61,14 @@ export interface MarketPoint {
   lat: number;
   lng: number;
 }
+export type NearbyShopsAvailability = "loading" | "ready" | "location" | "unavailable";
+export type NearbyShopsStatus = NearbyShopsAvailability | "error";
+export interface NearbyShopsResult {
+  shops: Shop[];
+  truncated: boolean;
+}
+export type NearbyShopsSource = (center: MarketPoint, radius: number) => Promise<NearbyShopsResult>;
+
 export type MarketCategory = "all" | "카페" | "음식점";
 export type MarketPanelTab = "summary" | "population" | "shops" | "planning";
 export interface MarketAnalysis {
@@ -89,6 +97,7 @@ export interface SitesViewData {
 
 export interface SitesDataServices {
   appKey?: string;
+  nearbyShopsSource?: NearbyShopsSource;
   footTrafficData?: FootTrafficDataset;
   footTrafficSource?: FootTrafficDataSource;
   footTrafficLoading?: boolean;

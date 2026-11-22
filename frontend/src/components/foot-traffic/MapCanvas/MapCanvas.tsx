@@ -5,7 +5,7 @@ import { Circle, CustomOverlayMap, Map, useKakaoLoader } from "react-kakao-maps-
 import { useFootTrafficLocation } from "@/hooks/useFootTrafficLocation";
 import { useFootTrafficResize } from "@/hooks/useFootTrafficResize";
 import { toLevel, type CellStat, type HourSel, type LatLng, type PopulationCuts, type PopulationRoad } from "@/lib/foot-traffic";
-import type { Shop } from "@/types/market";
+import type { NearbyShopsAvailability, Shop } from "@/types/market";
 import { MapAvailability } from "../MapAvailability";
 import { PopulationTooltip } from "../PopulationTooltip";
 import { RoadPopulationLayer } from "../RoadPopulationLayer";
@@ -25,6 +25,7 @@ export interface MapCanvasProps {
   shops: Shop[];
   selectedShopId: string | null;
   address?: string;
+  onNearbyAvailabilityChange?: (availability: NearbyShopsAvailability) => void;
   onSelectShop: (id: string) => void;
   onCenterChange: (center: LatLng) => void;
   onLevelChange: (level: number) => void;
@@ -52,8 +53,10 @@ export function MapCanvas(props: MapCanvasProps) {
   }, [onLevelChange]);
   useFootTrafficResize(map, props.center);
   const ready = !loading && !error;
-  const { region, addressStatus, selectCenter } = useFootTrafficLocation(ready, props.center, props.address, props.onCenterChange);
-  const { onRegionChange, onAddressStatusChange } = props;
+  const { region, addressStatus, locationAvailability, selectCenter } = useFootTrafficLocation(ready, props.center, props.address, props.onCenterChange);
+  const { onRegionChange, onAddressStatusChange, onNearbyAvailabilityChange } = props;
+  const availability = error || (loading && timedOut) ? "unavailable" : loading ? "loading" : locationAvailability;
+  useEffect(() => { onNearbyAvailabilityChange?.(availability); }, [availability, onNearbyAvailabilityChange]);
   useEffect(() => { onRegionChange(region); }, [region, onRegionChange]);
   useEffect(() => { onAddressStatusChange(addressStatus); }, [addressStatus, onAddressStatusChange]);
   useEffect(() => {
