@@ -1,4 +1,4 @@
-"""임대료 비교 (#181): R-ONE 응답 해석·상권 매칭·계산·실패 안내·예시 계정·API.
+"""임대료 비교 (#181, 층별 비교 #187): R-ONE 응답 해석·상권 매칭·계산·실패 안내·예시 계정·API.
 
 가짜 응답은 실제로 받은 R-ONE row 형식이다. 실제 호출 테스트는 REB_API_KEY 가 있을 때만 돈다.
 """
@@ -48,6 +48,28 @@ CONV_ROWS = [row(CONV, 500002, "서울", "전환율", 7.04270096463023, "%"),
              row(CONV, 500003, "부산", "전환율", 6.93, "%")]
 
 
+def frow(full, floor, item, value, period_id="202603", desc="2026년 3분기", table=rent_tool.FLOOR_TABLES[0]):
+    """실제 층별 표 row 와 같은 키 (2026-11-22 실제 응답: 지역은 GRP, 층은 CLS, GRP_FULLNM 은 항상 있음)."""
+    return {"STATBL_ID": table, "DTACYCLE_CD": "QY", "WRTTIME_IDTFR_ID": period_id, "GRP_ID": 60067,
+            "GRP_NM": full.split(">")[-1], "CLS_ID": 50002, "CLS_NM": floor, "ITM_ID": 100001, "ITM_NM": item,
+            "DTA_VAL": value, "UI_NM": "천원/㎡" if item == "임대료" else "%", "GRP_FULLNM": full,
+            "CLS_FULLNM": floor, "ITM_FULLNM": item, "WRTTIME_DESC": desc}
+
+
+# 2026년 3분기 실제 값 (천원/㎡)
+FLOOR_ROWS = [
+    frow("서울>기타>뚝섬", "1층", "임대료", 67.3810040247753), frow("서울>기타>뚝섬", "2층", "임대료", 33.3267594922903),
+    frow("서울>기타>뚝섬", "지하1층", "임대료", 37.8065151653991), frow("서울>기타>뚝섬", "2층", "효용비율", 49.5),
+    frow("서울>영등포신촌>동교/연남", "1층", "임대료", 56.7722174571259),
+    frow("서울>영등포신촌>동교/연남", "2층", "임대료", 32.1944172854513),
+    frow("서울>영등포신촌>동교/연남", "지하1층", "임대료", 38.1761079769892),
+    frow("서울", "1층", "임대료", 53.0809830247017), frow("서울", "2층", "임대료", 27.2338468240708),
+    frow("서울", "지하1층", "임대료", 19.9494174550593),
+    frow("전국", "1층", "임대료", 20.6655085298445), frow("전국", "2층", "임대료", 11.1565199854517),
+    frow("전국", "지하1층", "임대료", None),
+]
+
+
 def ok_payload(rows):
     return {"SttsApiTblData": [{"head": [{"list_total_count": len(rows)},
                                          {"RESULT": {"CODE": "INFO-000", "MESSAGE": "정상 처리되었습니다."}}]},
@@ -58,10 +80,15 @@ def reb_client(handler):
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
-def tables(rent_rows=RENT_ROWS, conv_rows=CONV_ROWS):
+def tables(rent_rows=RENT_ROWS, conv_rows=CONV_ROWS, floor_rows=FLOOR_ROWS):
     def handler(request):
         table = request.url.params["STATBL_ID"]
-        rows = rent_rows if table in rent_tool.RENT_TABLES else conv_rows
+        if table in rent_tool.FLOOR_TABLES:
+            if isinstance(floor_rows, Exception):
+                raise floor_rows
+            rows = floor_rows
+        else:
+            rows = rent_rows if table in rent_tool.RENT_TABLES else conv_rows
         if not rows:
             return httpx.Response(200, json={"RESULT": {"CODE": "INFO-200", "MESSAGE": "해당하는 데이터가 없습니다."}})
         return httpx.Response(200, json=ok_payload(rows))
@@ -209,13 +236,13 @@ def test_failure_shows_notice_only_without_made_up_average(real_mode, result):
 
 
 def test_real_statistics_compare_with_basis_and_notes(real_mode):
-    v = service.view(store(address_detail="2층"), Tools(REAL), monthly_rent=2_500_000, deposit=30_000_000, area=None)
+    v = service.view(store(), Tools(REAL), monthly_rent=2_500_000, deposit=30_000_000, area=None)
     assert v["status"] == "ready" and v["is_example"] is False
     assert v["average"]["area_name"] == "서울>기타>뚝섬" and v["average"]["krw_per_sqm"] == 67_381
     assert v["average"]["period"] == "2026년 3분기" and v["average"]["source"] == rent_tool.SOURCE
     assert v["basis"] == {"rent": "월세 + 보증금 × 전환율 6.47% ÷ 12", "area": "임대가능면적(전용+공용) 기준", "floor": "1층 기준"}
     assert v["comparison"]["mine_krw_per_sqm"] == 66_544
-    assert any("영업장 면적" in n for n in v["notes"]) and any("1층 기준" in n for n in v["notes"])
+    assert any("영업장 면적" in n for n in v["notes"]) and not any("1층 기준이라" in n for n in v["notes"])
 
 
 def test_query_area_overrides_store_area_and_drops_area_note(real_mode):
@@ -244,6 +271,171 @@ def test_use_mock_uses_example_values(monkeypatch):
     assert v["is_example"] is True
 
 
+# ── 층별 비교 (#187) ──
+
+def test_floor_rents_reads_area_floors_and_top_1f_only_rent_item():
+    f = rent_tool.floor_rents(reb_client(tables()), "k", "서울>기타>뚝섬", "202603")
+    assert f["area"] == {"1층": 67.3810040247753, "2층": 33.3267594922903, "지하1층": 37.8065151653991}  # 효용비율 제외
+    assert f["top"] == {"name": "서울", "1층": 53.0809830247017}
+
+
+def test_floor_rents_for_sido_uses_nation_and_drops_missing_floor():
+    f = rent_tool.floor_rents(reb_client(tables()), "k", "서울", "202603")
+    assert f["top"] == {"name": "전국", "1층": 20.6655085298445}
+    nation = rent_tool.floor_rents(reb_client(tables()), "k", "전국", "202603")
+    assert "지하1층" not in nation["area"]  # 값이 없는(null) 층은 넣지 않는다
+
+
+def test_floor_rows_without_full_path_match_sido_by_name_only():
+    rows = [{**r, "GRP_FULLNM": None} for r in FLOOR_ROWS]
+    assert rent_tool.floor_rents(reb_client(tables(floor_rows=rows)), "k", "서울", "202603")["area"]["2층"] == 27.2338468240708
+    assert rent_tool.floor_rents(reb_client(tables(floor_rows=rows)), "k", "서울>기타>뚝섬", "202603")["area"] == {}
+
+
+def test_lookup_reads_floor_table_from_same_period_and_falls_back_to_previous_table():
+    seen = []
+    old = [frow(r["GRP_FULLNM"], r["CLS_NM"], r["ITM_NM"], r["DTA_VAL"], table=rent_tool.FLOOR_TABLES[1]) for r in FLOOR_ROWS]
+
+    def handler(request):
+        table = request.url.params["STATBL_ID"]
+        if table in rent_tool.FLOOR_TABLES:
+            seen.append((table, request.url.params["START_WRTTIME"]))
+            if table == rent_tool.FLOOR_TABLES[0]:  # 새 표에 그 분기가 없으면 이전 표를 본다
+                return httpx.Response(200, json=ok_payload([frow("서울>기타>뚝섬", "2층", "임대료", 1.0, period_id="202606")]))
+            return httpx.Response(200, json=ok_payload(old))
+        return tables()(request)
+    found = rent_tool.lookup(reb_client(handler), "k", "서울 성동구 성수동1가", 2025)
+    assert seen == [(rent_tool.FLOOR_TABLES[0], "202603"), (rent_tool.FLOOR_TABLES[1], "202603")]
+    assert found["floors"]["area"]["2층"] == 33.3267594922903
+
+
+@pytest.mark.parametrize("failure", [httpx.ConnectError("down"), None])
+def test_floor_table_failure_keeps_regional_lookup(failure):
+    if failure is None:  # 제공자 오류 응답
+        def handler(request):
+            if request.url.params["STATBL_ID"] in rent_tool.FLOOR_TABLES:
+                return httpx.Response(200, json={"RESULT": {"CODE": "ERROR-500", "MESSAGE": "서버 오류"}})
+            return tables()(request)
+        client = reb_client(handler)
+    else:
+        client = reb_client(tables(floor_rows=failure))
+    found = rent_tool.lookup(client, "k", "서울 성동구 성수동1가", 2025)
+    assert found["rent_thousand_krw_per_sqm"] == 67.3810040247753 and found["floors"] is None
+
+
+@pytest.mark.parametrize("detail,underground,wanted", [
+    ("1", False, "1층"), ("2", False, "2층"), ("1", True, "지하1층"), ("2", True, "지하1층"),
+    ("3", False, None), (None, False, None)])
+def test_wanted_floor(detail, underground, wanted):
+    assert calc.wanted_floor(detail, underground) == wanted
+
+
+def test_monthly_for_area_and_readings():
+    assert calc.monthly_for_area(67_381, 40) == 2_695_240 and calc.monthly_for_area(67_381, None) is None
+    note = " 통계는 실제 계약가가 아니라 조사된 시장임대료 추정치예요."
+    assert calc.readings("상권", "1층", -1.2, "similar")[0] == "상권 1층 평균과 비슷해요 (-1.2%)." + note
+    assert calc.readings("권역", "2층", 3.0, "similar")[0] == "권역 2층 평균과 비슷해요 (+3.0%)." + note
+    assert calc.readings("시도", "지하1층", 17.94, "high")[0] == "시도 지하1층 평균보다 17.9% 높아요." + note
+    assert calc.readings("상권", "1층", -25.0, "low")[0] == "상권 1층 평균보다 25.0% 낮아요." + note
+    assert calc.readings("상권", "1층", None, None) == [calc.CONTRACT_CHECK]
+    assert calc.readings("상권", "1층", 1.0, "similar")[1] == calc.CONTRACT_CHECK
+
+
+def floor_real(address="서울 성동구 성수동1가", **kw):
+    return ToolResult(ok=True, source=rent_tool.SOURCE, data=rent_tool.lookup(reb_client(tables(**kw)), "k", address, 2025))
+
+
+def test_first_floor_store_matches_contract_example(real_mode):
+    v = service.view(store(), Tools(floor_real()), monthly_rent=2_500_000, deposit=30_000_000, area=40)
+    assert v["headline"] == {"area_name": "서울>기타>뚝섬", "area_level": "상권", "building_type": "소규모 상가",
+                             "floor_label": "1층", "krw_per_sqm": 67_381, "monthly_for_my_area_krw": 2_695_240,
+                             "statistic": "평균(면적 가중)"}
+    assert v["comparison"] == {"converted_monthly_krw": 2_661_750, "deposit_monthly_krw": 161_750,
+                               "mine_krw_per_sqm": 66_544, "average_krw_per_sqm": 67_381, "diff_pct": -1.2,
+                               "level": "similar", "compared_floor": "1층"}
+    assert v["rows"] == [
+        {"label": "뚝섬 1층", "krw_per_sqm": 67_381, "monthly_for_my_area_krw": 2_695_240, "is_my_floor": True},
+        {"label": "뚝섬 2층", "krw_per_sqm": 33_327, "monthly_for_my_area_krw": 1_333_080, "is_my_floor": False},
+        {"label": "뚝섬 지하1층", "krw_per_sqm": 37_807, "monthly_for_my_area_krw": 1_512_280, "is_my_floor": False},
+        {"label": "서울 1층 평균", "krw_per_sqm": 53_081, "monthly_for_my_area_krw": 2_123_240, "is_my_floor": False}]
+    assert v["readings"] == [
+        "상권 1층 평균과 비슷해요 (-1.2%). 통계는 실제 계약가가 아니라 조사된 시장임대료 추정치예요.", calc.CONTRACT_CHECK]
+    assert v["notes"] == [] and v["basis"]["floor"] == "1층 기준"
+    assert v["source"] == {"name": rent_tool.SOURCE, "period": "2026년 3분기", "conversion_rate_pct": 6.47}
+    assert v["average"]["krw_per_sqm"] == 67_381  # 기존 필드는 그대로 (1층 지역 평균)
+
+
+def test_second_floor_store_compares_with_second_floor(real_mode):
+    v = service.view(store(address_detail="2층 201호"), Tools(floor_real()), monthly_rent=2_500_000,
+                     deposit=30_000_000, area=40)
+    assert v["comparison"]["compared_floor"] == "2층" and v["comparison"]["average_krw_per_sqm"] == 33_327
+    assert v["comparison"]["level"] == "high" and v["comparison"]["diff_pct"] == 99.7
+    assert v["headline"]["floor_label"] == "2층" and v["headline"]["monthly_for_my_area_krw"] == 1_333_080
+    assert [r["is_my_floor"] for r in v["rows"]] == [False, True, False, False]
+    assert v["readings"][0].startswith("상권 2층 평균보다 99.7% 높아요.")
+    assert v["basis"]["floor"] == "2층 기준" and v["notes"] == []
+
+
+def test_basement_store_compares_with_basement_first_floor(real_mode):
+    v = service.view(store(address_detail="지하2층"), Tools(floor_real()), monthly_rent=1_000_000, deposit=0, area=40)
+    assert v["comparison"]["compared_floor"] == "지하1층" and v["rows"][2]["is_my_floor"] is True
+
+
+def test_third_floor_store_falls_back_to_first_floor_with_note(real_mode):
+    v = service.view(store(address_detail="3층"), Tools(floor_real()), monthly_rent=2_500_000, deposit=0, area=40)
+    assert v["comparison"]["compared_floor"] == "1층" and v["basis"]["floor"] == "1층 기준"
+    assert not any(r["is_my_floor"] for r in v["rows"])
+    assert v["notes"] == ["3층 통계가 없어 1층 평균과 비교했어요. 1층이 아니면 보통 이보다 낮아요."]
+
+
+def test_missing_floor_value_falls_back_and_drops_row(real_mode):
+    rows = [r for r in FLOOR_ROWS if not (r["GRP_NM"] == "뚝섬" and r["CLS_NM"] in ("2층", "지하1층"))]
+    v = service.view(store(address_detail="2층"), Tools(floor_real(floor_rows=rows)), monthly_rent=2_500_000,
+                     deposit=0, area=40)
+    assert [r["label"] for r in v["rows"]] == ["뚝섬 1층", "서울 1층 평균"]
+    assert v["comparison"]["compared_floor"] == "1층"
+    assert v["notes"] == ["2층 통계가 없어 1층 평균과 비교했어요. 1층이 아니면 보통 이보다 낮아요."]
+
+
+def test_sido_level_area_ends_with_nation_row(real_mode):
+    v = service.view(store(address="서울특별시 강동구 천호대로 1005", region="서울 강동구 천호동"), Tools(
+        floor_real("서울특별시 강동구 천호대로 1005")), monthly_rent=2_500_000, deposit=0, area=40)
+    assert [(r["label"], r["krw_per_sqm"]) for r in v["rows"]] == [
+        ("서울 1층", 53_081), ("서울 2층", 27_234), ("서울 지하1층", 19_949), ("전국 1층 평균", 20_666)]
+    assert v["headline"]["area_level"] == "시도" and v["readings"][0].startswith("시도 1층 평균")
+
+
+def test_floor_table_failure_compares_first_floor_with_single_row(real_mode):
+    v = service.view(store(address_detail="2층"), Tools(floor_real(floor_rows=httpx.ConnectError("down"))),
+                     monthly_rent=2_500_000, deposit=30_000_000, area=40)
+    assert v["status"] == "ready" and v["comparison"]["compared_floor"] == "1층"
+    assert [r["label"] for r in v["rows"]] == ["뚝섬 1층"] and v["rows"][0]["is_my_floor"] is False
+    assert v["notes"] == ["층별 통계를 불러오지 못했어요", "통계는 1층 기준이라 2층·지하는 보통 이보다 낮아요."]
+
+
+def test_need_input_shape(real_mode):
+    v = service.view(store(area_sqm=None), Tools(floor_real()), monthly_rent=2_500_000, deposit=None, area=None)
+    assert v["status"] == "need_input" and v["missing"] == ["area"] and v["comparison"] is None
+    assert v["headline"]["monthly_for_my_area_krw"] is None and v["headline"]["krw_per_sqm"] == 67_381
+    assert all(r["monthly_for_my_area_krw"] is None for r in v["rows"]) and len(v["rows"]) == 4
+    assert v["readings"] == [calc.CONTRACT_CHECK] and v["notes"] == []
+    assert v["source"]["period"] == "2026년 3분기"
+
+
+def test_unavailable_shape(real_mode):
+    v = service.view(store(), Tools(ToolResult(ok=False, source="x", error="외부 조회 실패", reason="임대료 통계 서비스 인증에 실패했어요")),
+                     monthly_rent=2_500_000, deposit=30_000_000, area=40)
+    assert v["status"] == "unavailable" and v["reason"] == "임대료 통계 서비스 인증에 실패했어요"
+    assert (v["headline"], v["comparison"], v["rows"], v["readings"], v["source"], v["average"]) == (None, None, None, [], None, None)
+    assert v["basis"] == {"rent": "월세 + 보증금 환산(전환율)", "area": "임대가능면적(전용+공용) 기준", "floor": "1층 기준"}
+
+
+def test_example_account_includes_example_floor_rows(real_mode):
+    v = service.view(store(is_demo=True, address_detail="2층"), Tools(None), monthly_rent=2_000_000, deposit=0, area=40)
+    assert v["is_example"] is True and v["comparison"]["compared_floor"] == "2층"
+    assert [r["label"] for r in v["rows"]] == ["뚝섬 1층", "뚝섬 2층", "뚝섬 지하1층", "서울 1층 평균"]
+
+
 # ── API ──
 
 def test_api_validates_and_returns_view(monkeypatch):
@@ -270,3 +462,7 @@ def test_real_reb_lookup_for_seongsu():
     res = p.rent("서울특별시 성동구 아차산로 17 서울 성동구 성수동1가")
     assert res.ok and res.data["area_name"] == "서울>기타>뚝섬" and res.data["unit"] == "천원/㎡"
     assert 10 < res.data["rent_thousand_krw_per_sqm"] < 300 and 3 < res.data["conversion_rate_pct"] < 15
+    floors = res.data["floors"]
+    assert floors and floors["top"]["name"] == "서울" and floors["top"]["1층"] > 0
+    assert set(floors["area"]) >= {"1층", "2층"}
+    assert abs(floors["area"]["1층"] - res.data["rent_thousand_krw_per_sqm"]) < 0.01  # 층별 1층 = 지역별 임대료

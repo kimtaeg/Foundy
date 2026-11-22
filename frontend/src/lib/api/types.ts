@@ -445,7 +445,31 @@ export interface ApiRent {
     average_krw_per_sqm: number;
     diff_pct: number | null;
     level: "low" | "similar" | "high" | null;
+    /** 비교한 층 (headline.floor_label 과 같음). 옛 응답에는 없다 */
+    compared_floor?: string | null;
   } | null;
+  /** 상단 큰 숫자. 옛 응답에는 없다 */
+  headline?: ApiRentHeadline | null;
+  /** 같은 상권 층별 비교표. 옛 응답에는 없다 */
+  rows?: ApiRentRow[] | null;
+  /** "이 숫자 읽는 법" 문장 (코드가 만든 규칙 문장) */
+  readings?: string[];
+  source?: { name: string; period: string; conversion_rate_pct: number } | null;
   basis: { rent: string; area: string; floor: string };
   notes: string[];
+}
+export interface ApiRentHeadline {
+  area_name: string;
+  area_level: "상권" | "권역" | "시도";
+  building_type: string;
+  floor_label: string;
+  krw_per_sqm: number;
+  monthly_for_my_area_krw: number | null;
+  statistic: string;
+}
+export interface ApiRentRow {
+  label: string;
+  krw_per_sqm: number;
+  monthly_for_my_area_krw: number | null;
+  is_my_floor: boolean;
 }
