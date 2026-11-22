@@ -22,6 +22,11 @@ async function readHistory(api: ReturnType<typeof createChatApi>, storeId: strin
   return { sessionId, messages: history.map((message) => toChatMessage(message)) };
 }
 
+/** 화면이 알고 있는 마지막 서버 메시지 id. 다른 기기에서 대화가 늘었는지 비교하는 데 쓴다 */
+function serverTail(messages: ChatMessageModel[]) {
+  return messages.findLast((message) => message.id)?.id;
+}
+
 export function useServerChat(
   { token, storeId }: ApiSession & { storeId: string },
   open: boolean,
@@ -39,6 +44,9 @@ export function useServerChat(
   const turn = useRef<AbortController | null>(null);
   const consumedLaunch = useRef<number | undefined>(undefined);
   const retryable = useRef(new Map<ChatProcessing, ChatQuestion>());
+  const turnCount = useRef(0);
+  const refreshing = useRef(false);
+  const wasOpen = useRef(open);
   const focus = dismissedLaunch === launch?.id ? undefined : launch?.focus;
 
   useEffect(() => {
@@ -59,6 +67,37 @@ export function useServerChat(
     return () => { active = false; };
   }, [api, storeId, open, history, error]);
 
+  // 같은 계정을 다른 기기·탭에서 쓰면 서버 기록이 늘어난다. 다시 열거나 탭이 다시 보일 때 서버 기록을 읽고,
+  // 화면이 아는 마지막 서버 메시지와 다를 때만 바꾼다 (같으면 '다시 요청' 같은 화면 상태를 그대로 둔다).
+  const refresh = useCallback(() => {
+    if (!history || turn.current || refreshing.current) return;
+    const started = turnCount.current;
+    refreshing.current = true;
+    void readHistory(api, storeId).then((latest) => {
+      if (turn.current || turnCount.current !== started) return; // 그사이 질문을 보냈으면 이 결과는 버린다
+      setHistory((current) => (current && serverTail(current.messages) !== serverTail(latest.messages) ? latest : current));
+    }, () => {
+      // 다시 읽기에 실패하면 지금 보이는 기록을 그대로 둔다
+    }).finally(() => {
+      refreshing.current = false;
+    });
+  }, [api, storeId, history]);
+
+  useEffect(() => {
+    const opened = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (opened && history) refresh();
+  }, [open, history, refresh]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [open, refresh]);
+
   useEffect(() => () => {
     const current = turn.current;
     turn.current = null;
@@ -70,6 +109,7 @@ export function useServerChat(
     if (!text || !history || turn.current) return false;
     const controller = new AbortController();
     turn.current = controller;
+    turnCount.current += 1;
     setDraft("");
     setBusy(true);
     setHistory((current) => current && { ...current, messages: [...current.messages, { role: "u", text }] });

@@ -34,8 +34,9 @@ function externalUrl(url: string | null) {
 }
 
 export function toChatMessage(message: ApiChatMessage, processing?: ChatProcessing): ChatMessageModel {
-  if (message.role === "user") return { role: "u", text: message.content.split(focusSeparator)[0] };
+  if (message.role === "user") return { id: message.message_id, role: "u", text: message.content.split(focusSeparator)[0] };
   return {
+    id: message.message_id,
     role: "a",
     text: stripRefs(message.content),
     cites: message.citations.map((source) => {
