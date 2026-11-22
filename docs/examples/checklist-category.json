@@ -1,5 +1,7 @@
 {
   "opening_date": "2027-03-02",
+  "as_of": "2026-11-19",
+  "has_employees": false,
   "progress": {
     "done": 0,
     "total": 1
@@ -35,6 +37,7 @@
               }
             }
           ],
+          "document_names": ["서류 안내 예시"],
           "agency": "관할 기관 확인 필요",
           "source": "report",
           "report_item_id": "r-01",

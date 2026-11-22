@@ -73,14 +73,16 @@ def keyword_search(session: Session, keywords: list[str], names: list[str], limi
 
 def pinned_chunks(session: Session, pins: list[dict]) -> list[Hit]:
     """규칙이 지정한 조문({law_name, label})의 조각을 모두 가져온다."""
-    hits: list[Hit] = []
-    for pin in pins:
-        rows = session.execute(
-            text(f"SELECT {_COLUMNS} FROM law_embeddings e JOIN law_articles a ON a.id = e.article_id "
-                 "JOIN laws l ON l.id = a.law_id WHERE l.is_current AND l.name = :name AND a.label = :label "
-                 "ORDER BY e.chunk_no"), {"name": pin["law_name"], "label": pin["label"]}).all()
-        hits += [_hit(r, "pinned") for r in rows]
-    return hits
+    if not pins:
+        return []
+    rows = session.execute(
+        text(f"SELECT {_COLUMNS} "
+             "FROM unnest(CAST(:names AS text[]), CAST(:labels AS text[])) WITH ORDINALITY AS p(name, label, position) "
+             "JOIN laws l ON l.name = p.name AND l.is_current "
+             "JOIN law_articles a ON a.law_id = l.id AND a.label = p.label "
+             "JOIN law_embeddings e ON e.article_id = a.id ORDER BY p.position, e.chunk_no"),
+        {"names": [pin["law_name"] for pin in pins], "labels": [pin["label"] for pin in pins]}).all()
+    return [_hit(row, "pinned") for row in rows]
 
 
 def search(session: Session, *, query: str, keywords: list[str], names: list[str], embedder=None,

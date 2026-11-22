@@ -1,5 +1,6 @@
 """가게·대시보드·점검 리포트 (API 명세서 3·5·6장)."""
 
+from dataclasses import replace
 from decimal import Decimal
 from datetime import date
 from typing import Any, Literal
@@ -10,14 +11,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.deps import current_user, owned_store
-from api.errors import invalid_input, item_not_found
-from db.models import Alert, ChangeLog, ReportItem, Run, Store, User
+from api.errors import invalid_input, item_not_found, store_not_found
+from db.models import ChangeLog, ReportItem, Store, User
 from db.session import get_db
 from rules.engine import impact_of
 from services import cards as card_service
-from services import documents as document_service
+from services import dashboard as dashboard_service
 from services import serializers
 from services import store_register
+from services import store_setup
 from services import store_update
 from services.analysis import lock_store, reanalysis_scope, start_run
 from services.pack import get_pack
@@ -40,11 +42,12 @@ class StoreCreate(BaseModel):
     opening_date: date
     owner_birth_year: int | None = Field(default=None, ge=1900, le=2100)
     area_sqm: float | None = Field(default=None, gt=0, le=100000)  # 영업장 면적(㎡). 입력하지 않으면 면적 기준 규정은 확인 필요
+    fixed_questions: bool = False
 
 
 @register_router.post("", status_code=status.HTTP_201_CREATED)
 def create_store(body: StoreCreate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
-    values = body.model_dump()
+    values = body.model_dump(exclude={"fixed_questions"})
     for key in ("name", "business_type_input", "address", "address_detail"):
         values[key] = values[key].strip()
     for key, label in (("name", "가게 이름"), ("address", "주소")):
@@ -52,7 +55,7 @@ def create_store(body: StoreCreate, user: User = Depends(current_user), db: Sess
             raise invalid_input(f"{label}을(를) 비울 수 없습니다.")
     if values.get("area_sqm") is not None:
         values["area_sqm"] = Decimal(str(values["area_sqm"])).quantize(Decimal("0.01"))
-    return store_register.register(db, user, values)
+    return store_register.register(db, user, values, fixed_questions=body.fixed_questions)
 
 
 class AnswersValues(BaseModel):
@@ -84,11 +87,6 @@ def save_answers(body: AnswersBody, store: Store = Depends(owned_store), db: Ses
     return store_register.save_answers(db, store, values)
 
 
-def latest_run(db: Session, store: Store) -> Run | None:
-    return db.scalar(select(Run).where(Run.store_id == store.id, Run.status == "done")
-                     .order_by(Run.finished_at.desc().nulls_last(), Run.created_at.desc()).limit(1))
-
-
 def get_card(db: Session, store: Store, item_id: str) -> ReportItem:
     card = db.scalar(select(ReportItem).where(ReportItem.store_id == store.id, ReportItem.item_key == item_id))
     if card is None:
@@ -98,25 +96,19 @@ def get_card(db: Session, store: Store, item_id: str) -> ReportItem:
 
 @router.get("")
 def get_store(store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
-    cards, _ = card_service.load_state(db, store)
-    return serializers.store(get_pack(store), store, cards)
+    return serializers.store(get_pack(store), store, card_service.load_cards(db, store))
 
 
 @router.get("/dashboard")
 def dashboard(store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
-    cards, items = card_service.load_state(db, store)
-    alerts = list(db.scalars(select(Alert).where(Alert.store_id == store.id)))
-    pack = get_pack(store)
-    # 서류 진행률은 서류 상태로 센다. 읽기만 하고 동기화는 서류함 조회·분석 저장이 한다 (동시 요청이 겹치지 않게)
-    requirements = document_service.read_requirements(db, store)
-    return serializers.dashboard(pack, store, cards, items, alerts, latest_run(db, store), requirements)
+    return dashboard_service.view(db, store)
 
 
 @router.get("/report")
 def report(stage: Literal["계약 전", "개업 전", "운영 중"] | None = Query(default=None),
            store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
-    cards, items = card_service.load_state(db, store)
-    return serializers.report(get_pack(store), store, cards, items, latest_run(db, store), stage)
+    cards, items, run = card_service.load_report_state(db, store, dashboard_service.latest_run_query(store.id))
+    return serializers.report(get_pack(store), store, cards, items, run, stage)
 
 
 class ChooseBody(BaseModel):
@@ -127,13 +119,22 @@ class ChooseBody(BaseModel):
 def choose(item_id: str, body: ChooseBody, request: Request, store: Store = Depends(owned_store),
            db: Session = Depends(get_db)) -> dict:
     card = get_card(db, store, item_id)
-    pack = get_pack(store)
     try:
         card_service.validate_option(card, body.option_id)
     except card_service.InvalidInput as exc:
         raise invalid_input(str(exc)) from exc
     store = lock_store(db, store)  # 분석 중이면 409이고 아무것도 저장하지 않는다
-    result = card_service.choose(db, pack, store, card, body.option_id)
+    # 잠금을 기다리는 동안 다른 요청이 선택지를 갱신했을 수 있다.
+    db.expire(card)
+    cards, items = card_service.load_state(db, store)
+    card = next((row for row in cards if row.item_key == item_id), None)
+    if card is None:
+        raise item_not_found()
+    pack = get_pack(store)
+    try:
+        result = card_service.choose(db, pack, store, card, body.option_id, cards, items)
+    except card_service.InvalidInput as exc:
+        raise invalid_input(str(exc)) from exc
     # 이전 선택을 비우기 전 ↔ 새 선택 적용 후 유효 값이 바뀐 값만 영향 표로 재분석 범위를 정한다
     scope = reanalysis_scope(impact_of(pack, result.changed_fields)["run"])
     response = {
@@ -148,10 +149,12 @@ def choose(item_id: str, body: ChooseBody, request: Request, store: Store = Depe
         # 최종 값은 서버가 실제로 새 run을 만들었는지다 (선택지 apply.needs_reanalyze 는 AI가 붙인 안내일 뿐)
         "needs_reanalyze": False,
         "run_id": None,
+        "report_update": serializers.report_sections(pack, store, cards, items),
+        "alerts_update": {"removed_ids": result.removed_alert_ids, "added": None},
     }
     if scope:
         # 선택 내용과 새 run을 같은 트랜잭션으로 커밋한다. 실패하면 예외로 끝나고 선택도 저장되지 않는다
-        response["run_id"] = str(start_run(db, store, request.app.state.analysis_manager, scope))
+        response["run_id"] = str(start_run(db, store, request.app.state.analysis_manager, scope, cards=cards))
     else:
         db.commit()
     response["needs_reanalyze"] = response["run_id"] is not None
@@ -165,11 +168,23 @@ class ActionBody(BaseModel):
 
 @router.post("/report/items/{item_id}/action")
 def action(item_id: str, body: ActionBody, store: Store = Depends(owned_store), db: Session = Depends(get_db)) -> dict:
-    card = get_card(db, store, item_id)
-    auto_checked, steps = card_service.set_action(db, get_pack(store), store, card, body.status, body.reply)
+    # 여러 카드에 연결된 체크리스트의 자동 완료를 같은 가게 안에서 순서대로 계산한다.
+    store = db.scalar(select(Store).where(Store.id == store.id).with_for_update()
+                      .execution_options(populate_existing=True))
+    if store is None:
+        raise store_not_found()
+    cards, items = card_service.load_state(db, store)
+    card = next((row for row in cards if row.item_key == item_id), None)
+    if card is None:
+        raise item_not_found()
+    pack = get_pack(store)
+    result = card_service.set_action(db, pack, store, card, body.status, body.reply, cards, items)
     db.commit()
     return {"item_id": card.item_key, "action_status": card.action_status, "action_reply": card.action_reply,
-            "auto_checked": auto_checked, "next_steps": steps}
+            "auto_checked": result.auto_checked, "next_steps": result.next_steps,
+            "alerts_update": {"removed_ids": result.removed_alert_ids,
+                              "added": serializers.alert(result.alert) if result.alert is not None else None},
+            "report_update": serializers.report_sections(pack, store, cards, items)}
 
 
 # ---------- 마이페이지: 가게 정보 수정 (API 명세서 3장, DB 명세서 4-5) ----------
@@ -235,20 +250,38 @@ def update_store(body: StorePatch, request: Request, dry_run: bool = Query(defau
     values = _patch_values(body, pack)  # 미리보기·저장 공통. 분석 중 확인(409)보다 먼저 입력을 검증한다
     if not dry_run:
         store = lock_store(db, store)  # 분석 중이면 409이고 아무것도 저장하지 않는다
+    if store.onboarded_at is None:
+        plan = store_update.plan_update(pack, store, [], [], values)
+        if not plan.changes:
+            raise invalid_input("바뀐 값이 없습니다.")
+        plan = replace(plan, impacts=[], scope=[], recomputed=[])
+        if not dry_run:
+            store_update.apply_profile_fields(pack, store, [], plan)
+        setup = store_setup.status_for_store(db, store)
+        response = {**store_update.plan_response(store, plan, dry_run=dry_run), "setup": setup}
+        if not dry_run:
+            db.commit()
+            response["store"] = serializers.store(pack, store, [])
+        return response
     cards, items = card_service.load_state(db, store)
     plan = store_update.plan_update(pack, store, cards, items, values)
     if not plan.changes:
         raise invalid_input("바뀐 값이 없습니다.")
-    response = store_update.plan_response(store, plan, dry_run=dry_run)
+    response = {**store_update.plan_response(store, plan, dry_run=dry_run), "setup": store_setup.setup_status(store)}
     if dry_run:
         return response  # 미리보기는 DB를 바꾸지 않는다
-    store_update.apply_update(db, pack, store, cards, items, plan)
+    alert, removed_alert_ids = store_update.apply_update(db, pack, store, cards, items, plan)
     if plan.scope:
         # 변경 내용과 새 run을 같은 트랜잭션으로 커밋한다 (runs.trigger = user)
-        response["run_id"] = str(start_run(db, store, request.app.state.analysis_manager, plan.scope))
+        response["run_id"] = str(start_run(db, store, request.app.state.analysis_manager, plan.scope, cards=cards))
     else:
         db.commit()
     response["needs_reanalyze"] = response["run_id"] is not None  # 실제로 새 run을 만들었는지
+    response["store"] = serializers.store(pack, store, cards)
+    response["alert"] = serializers.alert(alert)
+    response["removed_alert_ids"] = removed_alert_ids
+    if plan.fields == ["opening_date"]:
+        response["checklist_dates"] = store_update.checklist_dates(items)
     return response
 
 

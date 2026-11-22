@@ -64,8 +64,14 @@ def test_opening_date_only_recalculates_dates_without_analysis(context):
     body = res.json()
     assert body["impacts"] == ["dates"] and body["recomputed"] == ["checklist"]
     assert body["needs_reanalyze"] is False and body["run_id"] is None and body["reset_items"] == []
+    assert body["store"] == client.get(base, headers=headers).json()
+    assert body["store"]["opening_date"] == new_date.isoformat()
     assert run_count(base) == before_runs and tools.calls == []
     new = checklist(client, base, headers)
+    for dates in body["checklist_dates"]["items"]:
+        if dates["item_id"] in new:
+            item = new[dates["item_id"]]
+            assert dates == {field: item[field] for field in dates}
     for key, item in old.items():
         assert date.fromisoformat(new[key]["due_date"]) - date.fromisoformat(item["due_date"]) == timedelta(days=30)
         assert new[key]["done"] == item["done"]
@@ -193,9 +199,13 @@ def test_changes_history_and_change_alerts_keep_latest_ten(context):
     client, base, headers, *_ = context
     store = client.get(base, headers=headers).json()
     start = date.fromisoformat(store["opening_date"])
+    alert_ids = []
     for n in range(1, 12):
         res = client.patch(base, headers=headers, json={"opening_date": (start + timedelta(days=n)).isoformat()})
         assert res.status_code == 200
+        payload = res.json()
+        assert payload["removed_alert_ids"] == (alert_ids[:1] if n == 11 else [])
+        alert_ids.append(payload["alert"]["alert_id"])
     items = client.get(base + "/changes", headers=headers).json()["items"]
     assert len(items) == 10
     assert items[0]["lines"][0].endswith((start + timedelta(days=11)).isoformat())  # 최신순
@@ -204,6 +214,7 @@ def test_changes_history_and_change_alerts_keep_latest_ten(context):
     alerts = client.get(base + "/alerts", headers=headers, params={"type": "change"}).json()["items"]
     assert len(alerts) == 10 and alerts[0]["cta"]["page"] == "mypage"
     assert alerts[0]["title"] == "가게 정보를 바꿔 다시 반영했어요"
+    assert alerts[0] == payload["alert"]
 
 
 # ---------- 카드 선택 변경과 재분석 ----------

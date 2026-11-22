@@ -18,9 +18,10 @@ from agent.ports import StoreInput
 from agent.questions import select_questions
 from api.errors import ApiError, invalid_input
 from config import get_settings
-from db.models import Run, Store, User
+from db.models import Store, User
 from rules.engine import business_type_reason, pending_questions
 from services.pack import business_type, get_pack
+from services.store_setup import latest_run_state, setup_status
 from services.timeutil import now_utc
 from tools.address import AddressResult, resolve_address
 
@@ -81,6 +82,7 @@ def remaining_questions(pack: dict, store: Store) -> list[dict]:
 
 
 def register(session: Session, user: User, values: dict[str, Any], *,
+             fixed_questions: bool = False,
              resolver: Callable[[str], AddressResult] | None = None) -> dict:
     """가게를 저장하고 되묻기 질문을 돌려준다. 계정당 1개 (409 STORE_EXISTS)."""
     pack = get_pack()
@@ -108,20 +110,21 @@ def register(session: Session, user: User, values: dict[str, Any], *,
     except IntegrityError as exc:  # 같은 계정의 동시 등록 (user_id UNIQUE)
         session.rollback()
         raise store_exists() from exc
-    questions = _questions_for_registration(pack, store)
+    questions = remaining_questions(pack, store) if fixed_questions else _questions_for_registration(pack, store)
     session.commit()
     resolved = None
     if result.status == "resolved":
         resolved = {"road": result.road, "jibun": result.jibun, "codes": result.codes, "coord": result.coord}
     return {"store_id": str(store.id), "address_status": result.status, "address_resolved": resolved,
-            "questions": questions}
+            "questions": questions, "setup": setup_status(store)}
 
 
 def save_answers(session: Session, store: Store, answers: dict[str, Any]) -> dict:
     """보낸 답만 저장한다. 분석 중이면 409, 첫 분석을 마친 뒤에는 마이페이지 안내와 함께 400."""
     store = session.scalar(select(Store).where(Store.id == store.id).with_for_update()
                            .execution_options(populate_existing=True))
-    if session.scalar(select(Run.id).where(Run.store_id == store.id, Run.status.in_(ACTIVE))):
+    run_id, run_status = latest_run_state(session, store)
+    if run_status in ACTIVE:
         raise ApiError(409, "RUN_IN_PROGRESS", "이미 분석이 실행 중입니다.")
     if store.onboarded_at is not None:
         raise invalid_input("첫 설정이 끝난 가게입니다. 답변 변경은 마이페이지에서 해 주세요.")
@@ -131,7 +134,8 @@ def save_answers(session: Session, store: Store, answers: dict[str, Any]) -> dic
     current = _answers(store)
     store.business_type = business_type(pack, current["sells_alcohol"])
     store.updated_at = now_utc()
+    setup = setup_status(store, run_id, run_status)
     session.commit()
     return {"store_id": str(store.id), "answers": current, "business_type": store.business_type,
             "business_type_reason": business_type_reason(pack, current),
-            "questions": remaining_questions(pack, store)}
+            "questions": remaining_questions(pack, store), "setup": setup}

@@ -252,3 +252,4 @@ class GrantsResult(BaseModel):
     items: list[GrantMatch] = Field(default_factory=list)
     excluded_count: int = 0  # 조건이 명확히 맞지 않아 뺀 공고
     closed_count: int = 0  # 마감이 지나 뺀 공고
+    extraction_failed: bool = Field(default=False, exclude=True)

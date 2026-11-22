@@ -179,7 +179,10 @@ def run_analysis(
     law_ids = ["building_use", "permit_docs", *law_card_ids]
     laws = {cid: ToolResult(ok=False, source="국가법령정보", error="미실행") for cid in law_ids}
     if "law" in selected:
-        laws = {cid: _safe("국가법령정보", tools.law, cid, store) for cid in laws}
+        batch_laws = getattr(tools, "laws_for", None)
+        laws = batch_laws(laws, store) if batch_laws else {
+            cid: _safe("국가법령정보", tools.law, cid, store) for cid in laws
+        }
         law_statuses = [_status(r) for r in laws.values()]
         law_status = "failed" if all(s == "failed" for s in law_statuses) else (
             "fallback" if any(s != "done" for s in law_statuses) else "done")

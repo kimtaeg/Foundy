@@ -13,4 +13,5 @@ router = APIRouter()
 def create_demo() -> dict:
     with transaction() as session:
         created = seed_demo(session)
-    return {"access_token": issue_token(created["user"]["user_id"]), **created, "cached": True}
+    return {"access_token": issue_token(created["user"]["user_id"]), **created, "cached": True,
+            "setup": {"status": "ready", "missing_fields": [], "run_id": created["run_id"]}}

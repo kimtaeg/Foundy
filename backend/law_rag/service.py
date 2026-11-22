@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 from datetime import timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from agent.ports import ToolResult
-from db.models import ApplicabilityRule, Law
+from db.models import ApplicabilityRule, Law, LawArticle, LawEmbedding
 from db.session import transaction
 from law_rag import retriever
 from rules.applicability import floor_from_detail
@@ -18,6 +18,10 @@ from services.timeutil import now_utc
 logger = logging.getLogger(__name__)
 
 SOURCE = "국가법령정보센터 (저장된 조문 검색)"
+
+
+def _current_laws(names: list[str]):
+    return select(Law.id).where(Law.is_current, Law.name.in_(names))
 
 
 class LawRag:
@@ -30,15 +34,15 @@ class LawRag:
 
     def has_data(self, names: list[str]) -> bool:
         with transaction() as session:
-            return bool(session.scalar(
-                select(func.count()).select_from(Law).where(Law.is_current, Law.name.in_(names))))
+            return bool(session.scalar(select(_current_laws(names).exists())))
 
     def _query(self, spec: dict, store) -> str:
         answers = (getattr(store, "answers", None) or {}) if store is not None else {}
         area = getattr(store, "area_sqm", None) if store is not None else None
-        business_type = derive_business_type(self.pack, answers) or "음식점"
         floor = floor_from_detail(getattr(store, "address_detail", None)) if store is not None else None
-        text = spec["query"].format(business_type=business_type)
+        text = spec["query"]
+        if "{business_type}" in text:
+            text = text.format(business_type=derive_business_type(self.pack, answers) or "음식점")
         extras = [f"영업장 면적 {float(area):g}제곱미터"] if area else []
         if floor is not None:
             extras.append(f"{abs(floor)}층" if floor > 0 else f"지하 {abs(floor)}층")
@@ -51,13 +55,26 @@ class LawRag:
     def articles_for(self, check_id: str, store=None) -> ToolResult | None:
         """저장된 법령에서 근거 조문을 찾는다. 설정이 없거나 저장된 법령이 없으면 None (호출한 쪽이 기존 방식으로 대체)."""
         spec = self.spec(check_id)
-        if not spec or not self.has_data(spec["laws"]):
+        if not spec:
             return None
         try:
             with transaction() as session:
+                current = _current_laws(spec["laws"])
+                embedder = self.embedder
+                if embedder is None:
+                    if not session.scalar(select(current.exists())):
+                        return None
+                else:
+                    indexed = (current.join(LawArticle).join(LawEmbedding).where(
+                        LawEmbedding.embedding.is_not(None), LawEmbedding.model == embedder.model))
+                    available, has_vectors = session.execute(select(current.exists(), indexed.exists())).one()
+                    if not available:
+                        return None
+                    if not has_vectors:
+                        embedder = None
                 hits = retriever.search(
                     session, query=self._query(spec, store), keywords=spec.get("keywords", []), names=spec["laws"],
-                    embedder=self.embedder, pins=spec.get("pins"), top_k=spec.get("top_k", 6))
+                    embedder=embedder, pins=spec.get("pins"), top_k=spec.get("top_k", 6))
         except Exception as exc:
             logger.warning("조문 검색 실패(%s): %s", check_id, type(exc).__name__)
             return ToolResult(ok=False, source=SOURCE, error="조문 검색 실패")

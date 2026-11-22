@@ -5,6 +5,13 @@
       "type": "string",
       "format": "date"
     },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "has_employees": {
+      "type": "boolean"
+    },
     "progress": {
       "type": "object",
       "properties": {

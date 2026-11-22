@@ -30,6 +30,8 @@ class Providers:
         self.settings = settings or get_settings()
         self.client = client or httpx.Client(timeout=10, follow_redirects=False)
         self.references = references if references is not None else get_pack().get("law_references", {})
+        self._law_versions: dict[tuple[str, str], tuple[str, str]] = {}
+        self._law_articles: dict[tuple[str, str, str, str, int], dict] = {}
 
     def close(self):
         self.client.close()
@@ -177,64 +179,78 @@ class Providers:
         return ToolResult(ok=True, source="KIPRIS Plus 상표 명칭검색(제43류 등록)", fetched_at=now_utc(),
                           data={"similar": list(candidates.values()), "search_scope": "name", "query": name})
 
+    def _law_version(self, name: str, today: str) -> tuple[str, str]:
+        key = (name, today)
+        if key in self._law_versions:
+            return self._law_versions[key]
+        payload = self._get(f"{LAW_BASE}/lawSearch.do", params={"OC": self.settings.law_oc,
+            "target": "eflaw", "type": "JSON", "query": name, "nw": "3", "display": "100"}).json()
+        root = payload["LawSearch"]
+        if int(root["totalCnt"]) > 100:
+            raise ValueError("LAW_SEARCH_INCOMPLETE")
+        matches = [r for r in _rows(root.get("law")) if r.get("법령명한글") == name
+                   and r.get("현행연혁코드") == "현행"]
+        if len(matches) != 1:
+            raise ValueError("LAW_NOT_UNIQUE")
+        law = matches[0]
+        mst, effective = str(law["법령일련번호"]), str(law["시행일자"])
+        if not mst.isdigit():
+            raise ValueError("INVALID_LAW_ID")
+        if not re.fullmatch(r"\d{8}", effective):
+            raise ValueError("INVALID_LAW_DATE")
+        if effective > today:
+            raise ValueError("LAW_NOT_EFFECTIVE")
+        self._law_versions[key] = (mst, effective)
+        return mst, effective
+
+    def _law_article(self, ref: dict, today: str) -> dict:
+        name, kind, number = ref["law_name"], ref.get("kind", "article"), int(ref["number"])
+        mst, effective = self._law_version(name, today)
+        key = (name, mst, effective, kind, number)
+        if key in self._law_articles:
+            return self._law_articles[key].copy()
+        params = {"OC": self.settings.law_oc, "target": "eflaw", "type": "JSON", "MST": mst, "efYd": effective}
+        if kind == "article":
+            params["JO"] = f"{number:04d}00"
+        body = self._get(f"{LAW_BASE}/lawService.do", params=params).json()["법령"]
+        if body["기본정보"]["법령명_한글"] != name:
+            raise ValueError("LAW_MISMATCH")
+        if str(body["기본정보"].get("시행일자")) != effective:
+            raise ValueError("LAW_VERSION_MISMATCH")
+        group = "별표" if kind == "annex" else "조문"
+        units = [r for r in _rows(body.get(group, {}).get(group + "단위"))
+                 if int(r.get(group + "번호", -1)) == number
+                 and r.get(group + "구분", r.get("조문여부")) == group]
+        if len(units) != 1:
+            raise ValueError("LAW_REFERENCE_MISSING")
+        parts = []
+
+        def collect(value):
+            if isinstance(value, str):
+                parts.append(value)
+            elif isinstance(value, list):
+                for entry in value:
+                    collect(entry)
+            elif isinstance(value, dict):
+                for field, entry in value.items():
+                    if field.endswith("내용") or field in {"항", "호", "목"}:
+                        collect(entry)
+
+        collect(units[0])
+        text = "\n".join(parts).strip()
+        if not text:
+            raise ValueError("LAW_TEXT_MISSING")
+        article = {"law_name": name, "article": f"별표 {number}" if kind == "annex" else f"제{number}조",
+                   "text": text, "url": f"https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq={mst}"}
+        self._law_articles[key] = article
+        return article.copy()
+
     def law(self, check_id, store=None):
         refs = self.references.get(check_id)
         if not refs:
             return ToolResult(ok=False, source="국가법령정보", error="LAW_REFERENCE_UNCONFIRMED")
         if not self.settings.law_oc:
             raise ValueError("MISSING_LAW_OC")
-        articles = []
-        for ref in refs:
-            name = ref["law_name"]
-            payload = self._get(f"{LAW_BASE}/lawSearch.do", params={"OC": self.settings.law_oc,
-                "target": "eflaw", "type": "JSON", "query": name, "nw": "3", "display": "100"}).json()
-            root = payload["LawSearch"]
-            if int(root["totalCnt"]) > 100:
-                raise ValueError("LAW_SEARCH_INCOMPLETE")
-            matches = [r for r in _rows(root.get("law")) if r.get("법령명한글") == name
-                       and r.get("현행연혁코드") == "현행"]
-            if len(matches) != 1:
-                raise ValueError("LAW_NOT_UNIQUE")
-            law = matches[0]
-            if not str(law["법령일련번호"]).isdigit():
-                raise ValueError("INVALID_LAW_ID")
-            effective = str(law["시행일자"])
-            if not re.fullmatch(r"\d{8}", effective):
-                raise ValueError("INVALID_LAW_DATE")
-            if effective > today_kst().strftime("%Y%m%d"):
-                raise ValueError("LAW_NOT_EFFECTIVE")
-            params = {"OC": self.settings.law_oc, "target": "eflaw", "type": "JSON",
-                      "MST": law["법령일련번호"], "efYd": effective}
-            kind = ref.get("kind", "article")
-            number = int(ref["number"])
-            if kind == "article":
-                params["JO"] = f"{number:04d}00"
-            body = self._get(f"{LAW_BASE}/lawService.do", params=params).json()["법령"]
-            if body["기본정보"]["법령명_한글"] != name:
-                raise ValueError("LAW_MISMATCH")
-            if str(body["기본정보"].get("시행일자")) != effective:
-                raise ValueError("LAW_VERSION_MISMATCH")
-            group = "별표" if kind == "annex" else "조문"
-            units = [r for r in _rows(body.get(group, {}).get(group + "단위"))
-                     if int(r.get(group + "번호", -1)) == number
-                     and r.get(group + "구분", r.get("조문여부")) == group]
-            if len(units) != 1:
-                raise ValueError("LAW_REFERENCE_MISSING")
-            parts = []
-            def collect(value):
-                if isinstance(value, str):
-                    parts.append(value)
-                elif isinstance(value, list):
-                    for v in value:
-                        collect(v)
-                elif isinstance(value, dict):
-                    for k, v in value.items():
-                        if k.endswith("내용") or k in {"항", "호", "목"}:
-                            collect(v)
-            collect(units[0])
-            text = "\n".join(parts).strip()
-            if not text:
-                raise ValueError("LAW_TEXT_MISSING")
-            articles.append({"law_name": name, "article": f"별표 {number}" if kind == "annex" else f"제{number}조",
-                             "text": text, "url": f"https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq={law['법령일련번호']}"})
+        today = today_kst().strftime("%Y%m%d")
+        articles = [self._law_article(ref, today) for ref in refs]
         return ToolResult(ok=True, source="국가법령정보센터", fetched_at=now_utc(), data={"articles": articles})

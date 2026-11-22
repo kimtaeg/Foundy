@@ -609,6 +609,8 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 
 쿼리: `stage` (선택: `계약 전`, `개업 전`, `운영 중`)
 
+`next_steps[]`는 리포트의 미완료 결정·직접 할 일과 기한이 가까운 체크리스트를 정렬한 NextStep 목록이다. 링크는 `go.page`와 `go.item_id`를 사용한다.
+
 ```json
 {
   "store_id": "8f2c...",
@@ -764,6 +766,8 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 ```json
 {
   "opening_date": "2027-03-02",
+  "as_of": "2026-11-21",
+  "has_employees": false,
   "progress": { "done": 2, "total": 9 },
   "groups": [
     {
@@ -778,6 +782,7 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
           "documents": [
             { "doc_id": "bldg", "name": "건축물대장 (일반·집합)", "agency": "정부24 · 세움터", "guide": "정부24에서 “건축물대장 열람/발급”을 검색하거나, 세움터의 건축물대장 발급·열람 메뉴에서 주소로 조회해요", "links": [ { "label": "정부24", "url": "https://www.gov.kr/" }, { "label": "세움터 (건축행정시스템)", "url": "https://www.eais.go.kr/" } ] }
           ],
+          "document_names": ["건축물대장 (일반·집합)"],
           "agency": "관할 구청 건축과",
           "source": "rule",
           "report_item_ids": ["r-01", "r-03"],
@@ -831,6 +836,8 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 - `group_label`: `계약 전 | 개업 4주 전 | 개업 직전 | 개업 후`. 기본 항목은 규칙 묶음에 적힌 고정 값이다. 지원사업 마감 항목(`source: grant`)만 `dday`로 나눈다 (≤ -29 계약 전, -28~-15 개업 4주 전, -14~-1 개업 직전, 0 이상 개업 후). `view=category`이면 `groups`가 `category` 기준으로 묶이고 `group_label`은 항목 안에 남는다.
 - `category`: `영업 인허가 | 세무 | 고용 | 건물·시설 | 간판·광고 | 표시 의무 | 정책`
 - `source`: `rule`(규칙 묶음 기본 항목) | `report`(점검 리포트에서 파생) | `grant`(지원사업 마감)
+- `as_of`는 응답을 생성한 한국 시각 기준 날짜다. `has_employees`는 적용된 영업 조건의 직원 고용 여부다.
+- `document_names[]`는 해당 작업에 연결된 관리 서류의 표시 이름 목록이다.
 - 날짜(`due_date`, `dday`)는 규칙 묶음의 `offset_days` 값과 개업일로 **계산 도구**가 계산한다. AI는 날짜를 직접 계산하지 않는다.
 - 조건에 맞지 않는 카테고리(예: 직원 없음 → 고용)는 `hidden_categories`로 내려주고 프론트는 숨긴다.
 - 점검 리포트 항목과 같은 일인 체크리스트 항목은 `report_item_ids[]`로 연결하고 `auto_checked`(자동 체크 여부)를 내려준다. 연결 관계는 규칙 묶음(`checklist`의 `report_links`)에 둔다. 예) 건물 확인·임대차 계약 검토 ↔ 건물 용도 점검 + 위반건축물 점검, 영업신고 서류 준비 ↔ 영업신고 서류 점검.

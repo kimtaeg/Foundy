@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from api.deps import owned_store
@@ -58,9 +58,9 @@ def patch_alert(alert_id: str, body: AlertPatch, store: Store = Depends(owned_st
         aid = uuid.UUID(alert_id)
     except ValueError:
         raise item_not_found() from None
-    alert = db.scalar(select(Alert).where(Alert.id == aid, Alert.store_id == store.id))
+    alert = db.scalar(update(Alert).where(Alert.id == aid, Alert.store_id == store.id)
+                      .values(read=body.read).returning(Alert))
     if alert is None:
         raise item_not_found()
-    alert.read = body.read
     db.commit()
     return serializers.alert(alert)

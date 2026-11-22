@@ -2,28 +2,28 @@
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.deps import current_user
-from api.errors import invalid_input
-from db.models import Store, User
+from api.deps import SignedToken, signed_token
+from api.errors import invalid_input, unauthorized
 from db.session import get_db
-from services import serializers
+from services.store_setup import account_identity, identity_query
 from services.timeutil import now_utc
 
 router = APIRouter()
 NAME_MAX = 30
 
 
-def _me(db: Session, user: User) -> dict:
-    store_id = db.scalar(select(Store.id).where(Store.user_id == user.id))
-    return {"user": serializers.user(user), "store_id": str(store_id) if store_id else None}
+def identity_record(token: SignedToken = Depends(signed_token), db: Session = Depends(get_db)):
+    result = db.execute(identity_query().where(token.user_filter())).one_or_none()
+    if result is None:
+        raise unauthorized()
+    return result
 
 
 @router.get("/api/me")
-def me(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
-    return _me(db, user)
+def me(identity=Depends(identity_record)) -> dict:
+    return account_identity(*identity)
 
 
 class MePatch(BaseModel):
@@ -33,11 +33,12 @@ class MePatch(BaseModel):
 
 
 @router.patch("/api/me")
-def update_me(body: MePatch, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+def update_me(body: MePatch, identity=Depends(identity_record), db: Session = Depends(get_db)) -> dict:
     """계정 표시 이름만 바꾼다. 가게 이름·점검 결과에는 영향이 없다."""
     name = body.name.strip()
     if not name:
         raise invalid_input("이름을 비울 수 없습니다.")
+    user = identity[0]
     user.name, user.updated_at = name, now_utc()
     db.commit()
-    return _me(db, user)
+    return account_identity(*identity)

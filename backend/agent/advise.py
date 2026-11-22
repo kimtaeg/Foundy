@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from rules.engine import contact_of
 
+from .analysis_cache import accept_response
 from .llm import LLM, LLMError
 from .ports import StoreInput
 from .prompts import advise as prompt
@@ -185,6 +186,7 @@ def advise_item(
 
     summaries = {s.option_id: s.summary.strip() for s in d.option_summaries if s.summary.strip()}
     options = [o.model_copy(update={"summary": summaries.get(o.option_id, o.summary)}) for o in options]
+    option_ids = {o.option_id for o in options}
     options, extra_ids = add_ai_options(options, d.extra_options)
 
     recommendation = None
@@ -196,6 +198,9 @@ def advise_item(
         type=d.user_action_type, text=d.user_action_text.strip(),
         est_minutes=max(1, min(d.user_action_est_minutes, 120)),
     )
+    if (recommendation and recommendation.reason and user_action.text and d.consequence.strip()
+            and summaries.keys() <= option_ids and len(extra_ids) == len(d.extra_options)):
+        accept_response(llm, d)
     return item.model_copy(update={
         "consequence": d.consequence.strip(), "options": options, "recommendation": recommendation,
         "contact": contact, "user_action": user_action,

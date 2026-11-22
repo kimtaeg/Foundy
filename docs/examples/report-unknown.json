@@ -46,6 +46,17 @@
       ]
     }
   ],
+  "next_steps": [
+    {
+      "kind": "do",
+      "title": "관할 기관 확인",
+      "sub": "",
+      "go": {
+        "page": "report",
+        "item_id": "r-01"
+      }
+    }
+  ],
   "disclaimer": "예시 데이터이며 법률 자문이 아닌 사전 점검입니다.",
   "is_example": true,
   "example_notice": "형식 검증용 합성 데이터입니다. 실제 API·기관 확인 결과가 아닙니다."

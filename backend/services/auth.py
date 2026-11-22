@@ -43,7 +43,7 @@ def issue_token(user_id: str) -> str:
 
 
 def decode_token(token: str) -> dict | None:
-    """서명·만료가 유효하면 클레임, 아니면 None. 폐기 여부는 보지 않는다 (is_revoked)."""
+    """서명·만료가 유효하면 클레임, 아니면 None. 폐기 여부는 DB에서 별도로 확인한다."""
     try:
         return jwt.decode(token, _secret(), algorithms=[ALGORITHM], options={"require": ["sub", "exp"]})
     except jwt.PyJWTError:
@@ -63,8 +63,8 @@ def token_key(token: str, claims: dict) -> str:
     return "sha256:" + hashlib.sha256(token.encode()).hexdigest()
 
 
-def is_revoked(session: Session, token: str, claims: dict) -> bool:
-    return session.scalar(select(RevokedToken.token_key).where(RevokedToken.token_key == token_key(token, claims))) is not None
+def revoked_token_exists(token: str, claims: dict):
+    return select(RevokedToken.token_key).where(RevokedToken.token_key == token_key(token, claims)).exists()
 
 
 def revoke(session: Session, token: str, claims: dict, user_id: uuid.UUID) -> None:

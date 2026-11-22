@@ -44,13 +44,21 @@ law_rag:
       query: "{business_type} 영업신고 서류 위생교육 건강진단 시설기준"
       keywords: [영업신고, 위생교육, 건강진단, 시설기준]
       pins:
+        - { law_name: 식품위생법, label: 제36조 }
         - { law_name: 식품위생법, label: 제37조 }
-      top_k: 6
+        - { law_name: 식품위생법, label: 제40조 }
+        - { law_name: 식품위생법, label: 제41조 }
+        - { law_name: 식품위생법 시행령, label: 제25조 }
+        - { law_name: 식품위생법 시행규칙, label: 제42조 }
+        - { law_name: 식품위생법 시행규칙, label: 제49조 }
+      top_k: 3
     labeling:
       laws: [농수산물의 원산지 표시 등에 관한 법률, 식품 등의 표시ㆍ광고에 관한 법률, 식품위생법]
       query: "음식점 원산지 표시 의무 메뉴판 게시"
       keywords: [원산지, 표시]
-      top_k: 5
+      pins:
+        - { law_name: 농수산물의 원산지 표시 등에 관한 법률, label: 제5조 }
+      top_k: 4
     fire_safety:
       laws: [다중이용업소의 안전관리에 관한 특별법, 다중이용업소의 안전관리에 관한 특별법 시행령]
       query: "휴게음식점 일반음식점 영업장 바닥면적 다중이용업 안전시설 완비증명서"
@@ -60,7 +68,10 @@ law_rag:
       laws: [근로기준법, 최저임금법]
       query: "직원 근로계약서 근로조건 명시 최저임금 서면 교부"
       keywords: [근로계약, 근로조건, 서면, 최저임금]
-      top_k: 5
+      pins:
+        - { law_name: 근로기준법, label: 제17조 }
+        - { law_name: 최저임금법, label: 제6조 }
+      top_k: 3
 
 # 적용 조건 규칙. 코드가 가게 정보로 판정한다 (applies 적용 · not_applicable 미적용 · needs_check 확인 필요).
 # conditions 키: business_type · area_sqm · floor · has_employees · sells_alcohol · uses_terrace · does_delivery

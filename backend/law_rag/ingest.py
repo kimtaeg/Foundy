@@ -20,7 +20,7 @@ from db.session import transaction
 from law_rag.changes import apply_parsed, refresh
 from law_rag.chunker import embed_text
 from law_rag.collector import LawCollector
-from law_rag.embedder import make_embedder
+from law_rag.embedder import BATCH, make_embedder, validate_vectors
 from law_rag.parser import parse_law
 from law_rag.service import sync_rules
 from rules.engine import load_pack
@@ -54,11 +54,14 @@ def reembed(embedder) -> int:
             rows = session.execute(
                 select(LawEmbedding, LawArticle, Law).join(LawArticle, LawArticle.id == LawEmbedding.article_id)
                 .join(Law, Law.id == LawArticle.law_id)
-                .where(or_(LawEmbedding.embedding.is_(None), LawEmbedding.model != embedder.model)).limit(50)).all()
+                .where(or_(LawEmbedding.embedding.is_(None), LawEmbedding.model != embedder.model))
+                .order_by(LawEmbedding.article_id, LawEmbedding.chunk_no)
+                .limit(BATCH).with_for_update(of=LawEmbedding)).all()
             if not rows:
                 return filled
             vectors = embedder.embed_documents([embed_text(l.name, a.label, a.title, e.content) for e, a, l in rows])
-            for (e, _, _), vector in zip(rows, vectors):
+            validate_vectors(vectors, len(rows))
+            for (e, _, _), vector in zip(rows, vectors, strict=True):
                 e.embedding, e.model = vector, embedder.model
                 filled += 1
         print(f"  임베딩 {filled}개 완료", flush=True)
