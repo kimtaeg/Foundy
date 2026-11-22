@@ -12,6 +12,7 @@ from services.pack import get_pack
 from services.timeutil import now_utc, today_kst
 from rules import building_use
 from tools import address as address_tool
+from tools import rent as rent_tool
 from tools import retry
 from tools.failure import ProviderError, check_gateway
 from tools import kstartup
@@ -123,6 +124,15 @@ class Providers:
         grants, counts = kstartup.select(rows, store.address, today_kst())
         return ToolResult(ok=True, source=kstartup.SOURCE, fetched_at=now_utc(),
                           data={"grants": grants, "screened": counts, "total": len(rows)})
+
+    def rent(self, address: str):
+        """주소에 맞는 소규모 상가 ㎡당 임대료와 전환율 (한국부동산원 R-ONE). 못 찾으면 ok=False."""
+        if not getattr(self.settings, "reb_api_key", ""):
+            raise ValueError("MISSING_REB_API_KEY")
+        found = rent_tool.lookup(self.client, self.settings.reb_api_key, address, today_kst().year - 1)
+        if found is None:
+            return ToolResult(ok=False, source=rent_tool.SOURCE, error="RENT_AREA_NOT_FOUND")
+        return ToolResult(ok=True, source=rent_tool.SOURCE, fetched_at=now_utc(), data=found)
 
     def trademark(self, name):
         if not self.settings.kipris_api_key:

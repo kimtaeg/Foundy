@@ -20,6 +20,8 @@ import type {
   ApiDocumentState,
   ApiSetup,
   ApiStore,
+  ApiRent,
+  ApiRentQuery,
 } from "@/lib/api/types";
 
 const SESSION_KEY = "foundy-api-session";
@@ -133,6 +135,12 @@ export function createStoreApi(session: ApiSession) {
     documents: () => call<ApiDocuments>("/documents"),
     grants: () => call<ApiGrants>("/grants"),
     refreshGrants: () => call<ApiGrants>("/grants/refresh", "POST"),
+    rent: (query: ApiRentQuery = {}) => {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== null) params.set(key, String(value));
+      const search = params.toString();
+      return call<ApiRent>(`/rent${search ? `?${search}` : ""}`);
+    },
     choose: (itemId: string, optionId: string) =>
       call<ApiReportMutationUpdate & { applied_changes: string[]; added_checklist: string[]; run_id: string | null }>(
         `/report/items/${itemId}/choose`,

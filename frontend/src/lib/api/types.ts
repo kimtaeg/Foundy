@@ -408,3 +408,44 @@ export interface ApiChangeLog {
   reset_items: { item_id: string; title: string; chosen_label?: string | null }[];
   lines: string[];
 }
+
+/** GET /api/stores/{id}/rent — 한국부동산원 임대동향조사 기준 임대료 비교 (저장하지 않음) */
+export interface ApiRentQuery {
+  monthly_rent?: number;
+  deposit?: number;
+  area?: number;
+}
+export interface ApiRent {
+  status: "ready" | "need_input" | "unavailable";
+  is_example: boolean;
+  message: string | null;
+  reason: string | null;
+  missing: ("monthly_rent" | "area")[];
+  inputs: {
+    monthly_rent_krw: number | null;
+    deposit_krw: number;
+    area_sqm: number | null;
+    area_source: "query" | "store" | null;
+    floor: string | null;
+    underground: boolean;
+  };
+  average: {
+    area_name: string;
+    level: "상권" | "권역" | "시도";
+    krw_per_sqm: number;
+    conversion_rate_pct: number;
+    period: string;
+    building_type: string;
+    source: string;
+  } | null;
+  comparison: {
+    converted_monthly_krw: number;
+    deposit_monthly_krw: number;
+    mine_krw_per_sqm: number;
+    average_krw_per_sqm: number;
+    diff_pct: number | null;
+    level: "low" | "similar" | "high" | null;
+  } | null;
+  basis: { rent: string; area: string; floor: string };
+  notes: string[];
+}
