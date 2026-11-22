@@ -27,9 +27,9 @@ export function useProfile(pending?: PendingSave): ProfileViewModel | null {
       onboarded,
       draft: form ? {
         name: form.name, type: form.type, address: form.address, detail: form.detail, opening: form.opening,
-        birth: form.birth, funds: form.funds, region: store?.region ?? "", location: "decided",
+        birth: form.birth, area: form.area, funds: form.funds, region: store?.region ?? "", location: "decided",
         alcohol: !!form.alcohol, employees: !!form.employees, terrace: !!form.terrace,
-      } : { ...EMPTY_STORE, birth: "", funds: "" },
+      } : { ...EMPTY_STORE, birth: "", area: "", funds: "" },
       answers: form ? { alcohol: form.alcohol, employees: form.employees, terrace: form.terrace } : undefined,
       profile: {
         name: field === "accountName" && typeof value === "string" ? value : me.user.name,

@@ -29,6 +29,7 @@ function profileFields(store: Store) {
     address_detail: store.detail,
     opening_date: store.opening,
     owner_birth_year: store.birth,
+    area_sqm: store.area,
   };
 }
 
@@ -69,9 +70,10 @@ export function createServerOnboarding(controls: RegistrationControls) {
           rememberSetup(session.token, setup, session.storeId);
         }
       } else {
-        const { owner_birth_year, ...required } = profile;
+        const { owner_birth_year, area_sqm, ...required } = profile;
         const { store_id, setup } = await createAccountApi(session).registerStore({
           ...required, fixed_questions: true, ...(owner_birth_year !== null ? { owner_birth_year } : {}),
+          ...(area_sqm !== null ? { area_sqm } : {}),
         });
         if (!controls.active(session.token)) return;
         rememberSetup(session.token, setup, store_id);

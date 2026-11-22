@@ -5,6 +5,8 @@ export interface Store {
   detail: string;
   opening: string;
   birth: number | null;
+  /** 영업장 면적(㎡). 모르면 null */
+  area: number | null;
   location: "decided" | "undecided";
   region: string;
   alcohol: boolean;
