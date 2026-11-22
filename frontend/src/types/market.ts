@@ -48,7 +48,7 @@ export interface NearbyShopsResult {
 export type NearbyShopsSource = (center: MarketPoint, radius: number) => Promise<NearbyShopsResult>;
 
 export type MarketCategory = "all" | "카페" | "음식점";
-export type MarketPanelTab = "summary" | "population" | "shops" | "planning";
+export type MarketPanelTab = "summary" | "population" | "shops" | "rent";
 export interface MarketAnalysis {
   nearby: Shop[];
   count: number;

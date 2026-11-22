@@ -20,7 +20,8 @@ export interface MarketAnalysisPanelProps {
   summary: ReactNode;
   population: ReactNode;
   shops: ReactNode;
-  planning: ReactNode;
+  /** 임대료 비교 탭 내용 (업종 칩 없이 전체 기준) */
+  rent: ReactNode;
 }
 export function MarketAnalysisPanel({
   open,
@@ -32,7 +33,7 @@ export function MarketAnalysisPanel({
   summary,
   population,
   shops,
-  planning,
+  rent,
 }: MarketAnalysisPanelProps) {
   const [tab, setTab] = useState<MarketPanelTab>("summary");
   const panel = useRef<HTMLElement>(null);
@@ -61,7 +62,8 @@ export function MarketAnalysisPanel({
         <MarketPanelTabs value={tab} onChange={setTab} />
       </div>
       <div key={tab} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-5 sm:px-5">
-        {tab !== "population" && (
+        {/* 업종 칩은 업종별로 달라지는 요약·주변 점포 탭에만 둔다 (생활인구·임대료 비교는 업종과 무관) */}
+        {tab !== "population" && tab !== "rent" && (
           <div className="mb-5">
             <MarketCategoryFilter value={category} onChange={onCategoryChange} />
           </div>
@@ -70,7 +72,7 @@ export function MarketAnalysisPanel({
           {tab === "summary" && summary}
           {tab === "population" && population}
           {tab === "shops" && shops}
-          {tab === "planning" && planning}
+          {tab === "rent" && rent}
         </div>
       </div>
     </aside>
