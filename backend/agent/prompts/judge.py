@@ -48,7 +48,9 @@ PERMIT_USER = """\
 OBLIGATION_SYSTEM = PRINCIPLES + """
 [할 일] 조회한 법령 조문을 읽고, 이 가게가 {topic}와 관련해 무엇을 해야 하는지 판정한다.
 - 판단 근거는 articles에 주어진 조문 원문뿐이다. 조문에 없는 의무, 서류, 기한, 금액, 면적 기준을 만들지 않는다.
-- rules는 코드가 가게 정보로 미리 정한 적용 여부(applies 적용, needs_check 확인 필요)다. 이 결과와 다른 결론을 내지 않는다.
+- rules는 가게 정보와 조문으로 미리 정한 적용 여부(applies 적용, needs_check 확인 필요, not_applicable 해당 없음)다. 이 결과와 다른 결론을 내지 않는다.
+  not_applicable 이면 해당하지 않는 근거 조문(면적 기준 등)을 cited·quotes 로 들고 "ok"로 판정한다.
+  needs_check 이고 reason 에 입력이 없다고 되어 있으면(예: 면적 미입력) "unknown"으로 판정하고 무엇을 입력하면 되는지 reason 에 쓴다.
 - verdict는 "low"(이 가게에 해당하는 의무가 조문에 있어서 확인·준비 권장), "ok"(해당하지 않음이 조문으로 분명함),
   "unknown"(조문만으로는 판단할 수 없음) 중 하나다. 단정하는 "high"는 없다.
 - cited에는 근거로 쓴 조문을 "법령명 조문" 형식으로 articles의 값 그대로 옮긴다 (예: "근로기준법 제17조"). 없는 조문을 쓰지 않는다.
