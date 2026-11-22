@@ -1,17 +1,24 @@
 import { DonutChart, HorizontalBarChart } from "@/components/charts";
 import { MarketEmptyState } from "@/components/sites/MarketEmptyState";
 import { MarketPanelCard } from "@/components/sites/MarketPanelCard";
-import type { MarketAnalysis } from "@/types/market";
+import type { MarketAnalysis, NearbyShopsStatus } from "@/types/market";
 
-export interface MarketSummaryCardProps { analysis: MarketAnalysis }
+export interface MarketSummaryCardProps {
+  analysis: MarketAnalysis;
+  status?: NearbyShopsStatus;
+  truncated?: boolean;
+  onRetry?: () => void;
+}
 
-export function MarketSummaryCard({ analysis }: MarketSummaryCardProps) {
+export function MarketSummaryCard({ analysis, status = "ready", truncated, onRetry }: MarketSummaryCardProps) {
   const categories = [...new Set(analysis.nearby.map((shop) => shop.cat))].map((label) => ({
     label,
     value: analysis.nearby.filter((shop) => shop.cat === label).length,
   }));
   return (
-    <MarketPanelCard title="반경 안 점포 구성" description="카카오 지도에서 찾은 반경 안 카페·음식점을 업종별로 집계해요.">
+    <MarketPanelCard title="반경 안 점포 구성" description={truncated
+      ? "카카오 조회 범위 내에서 업종별로 가까운 점포를 집계해요."
+      : "선택한 위치의 반경과 업종에 해당하는 점포를 집계해요."}>
       {analysis.count ? (
         <div className="space-y-5">
           <dl className="m-0 grid grid-cols-2 gap-4 mb-4">
@@ -34,7 +41,7 @@ export function MarketSummaryCard({ analysis }: MarketSummaryCardProps) {
             {analysis.composition.length > 5 && <p className="mb-0 mt-2 text-sm text-neutral-600">총 {analysis.composition.length}개 분류 중 점포 수가 많은 5개를 표시해요.</p>}
           </div>
         </div>
-      ) : <MarketEmptyState status={analysis.status} />}
+      ) : <MarketEmptyState status={status} onRetry={onRetry} />}
     </MarketPanelCard>
   );
 }

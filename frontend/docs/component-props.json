@@ -2574,6 +2574,12 @@
         "callback": false
       },
       {
+        "name": "onNearbyAvailabilityChange",
+        "optional": true,
+        "type": "((availability: NearbyShopsAvailability) => void) | undefined",
+        "callback": true
+      },
+      {
         "name": "settingsOpen",
         "optional": false,
         "type": "boolean",
@@ -2601,12 +2607,6 @@
         "name": "onHourChange",
         "optional": false,
         "type": "(hour: HourSel) => void",
-        "callback": true
-      },
-      {
-        "name": "onNearbyShopsChange",
-        "optional": true,
-        "type": "((state: NearbyShopsState) => void) | undefined",
         "callback": true
       }
     ]
@@ -2724,6 +2724,12 @@
         "callback": false
       },
       {
+        "name": "onNearbyAvailabilityChange",
+        "optional": true,
+        "type": "((availability: NearbyShopsAvailability) => void) | undefined",
+        "callback": true
+      },
+      {
         "name": "onSelectShop",
         "optional": false,
         "type": "(id: string) => void",
@@ -2751,12 +2757,6 @@
         "name": "onAddressStatusChange",
         "optional": false,
         "type": "(status: string) => void",
-        "callback": true
-      },
-      {
-        "name": "onNearbyShopsChange",
-        "optional": true,
-        "type": "((state: NearbyShopsState) => void) | undefined",
         "callback": true
       }
     ]
@@ -3674,7 +3674,7 @@
       {
         "name": "status",
         "optional": true,
-        "type": "\"ready\" | \"empty\" | \"unavailable\" | undefined",
+        "type": "\"ready\" | \"unavailable\" | \"empty\" | undefined",
         "callback": false
       }
     ]
@@ -8304,7 +8304,7 @@
       {
         "name": "field",
         "optional": false,
-        "type": "\"name\" | \"type\" | \"address\" | \"detail\" | \"opening\" | \"region\" | \"birth\" | \"funds\" | \"accountName\"",
+        "type": "\"name\" | \"type\" | \"address\" | \"detail\" | \"opening\" | \"region\" | \"birth\" | \"area\" | \"funds\" | \"accountName\"",
         "callback": false
       },
       {
@@ -10051,6 +10051,12 @@
         "optional": true,
         "type": "NearbyShopsStatus | undefined",
         "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
       }
     ]
   },
@@ -10173,6 +10179,24 @@
         "optional": false,
         "type": "MarketAnalysis",
         "callback": false
+      },
+      {
+        "name": "status",
+        "optional": true,
+        "type": "NearbyShopsStatus | undefined",
+        "callback": false
+      },
+      {
+        "name": "truncated",
+        "optional": true,
+        "type": "boolean | undefined",
+        "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
       }
     ]
   },
@@ -10191,18 +10215,6 @@
         "callback": false
       },
       {
-        "name": "selectedShop",
-        "optional": true,
-        "type": "Shop | undefined",
-        "callback": false
-      },
-      {
-        "name": "onSelect",
-        "optional": false,
-        "type": "(id: string) => void",
-        "callback": true
-      },
-      {
         "name": "status",
         "optional": true,
         "type": "NearbyShopsStatus | undefined",
@@ -10213,6 +10225,24 @@
         "optional": true,
         "type": "boolean | undefined",
         "callback": false
+      },
+      {
+        "name": "onRetry",
+        "optional": true,
+        "type": "(() => void) | undefined",
+        "callback": true
+      },
+      {
+        "name": "selectedShop",
+        "optional": true,
+        "type": "Shop | undefined",
+        "callback": false
+      },
+      {
+        "name": "onSelect",
+        "optional": false,
+        "type": "(id: string) => void",
+        "callback": true
       }
     ]
   },
@@ -10475,6 +10505,12 @@
         "callback": false
       },
       {
+        "name": "nearbyShopsSource",
+        "optional": true,
+        "type": "import(\"./src/types/market\").NearbyShopsSource | undefined",
+        "callback": true
+      },
+      {
         "name": "footTrafficData",
         "optional": true,
         "type": "import(\"./src/types/foot-traffic\").FootTrafficDataset | undefined",
@@ -10555,6 +10591,12 @@
         "optional": true,
         "type": "string | undefined",
         "callback": false
+      },
+      {
+        "name": "nearbyShopsSource",
+        "optional": true,
+        "type": "import(\"./src/types/market\").NearbyShopsSource | undefined",
+        "callback": true
       },
       {
         "name": "footTrafficData",

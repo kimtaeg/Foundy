@@ -203,7 +203,7 @@ const sitesData = {
 const { SitesView } = load('@/components/sites/SitesView');
 
 // 주변 점포는 브라우저의 카카오 지도 SDK로만 조회한다. 서버 렌더링·지도 키 없음에서는 조회할 수 없다고 알린다
-const NO_KEY = '지도 키가 설정되지 않아';
+const NO_KEY = '주변 점포를 조회할 수 없어요';
 await test('sites: JSON props render the analysis without a provider or browser SDK', () => {
   const html = render(SitesView, { data: json(sitesData), populationInsights: { data: null } });
   assert.ok(html.includes(NO_KEY));
@@ -232,7 +232,7 @@ await test('sites: missing and pending page data display the page skeleton befor
 
 await test('sites: empty shop and population data display empty states instead of page loading', () => {
   const html = render(SitesView, { data: sitesData, populationInsights: { data: null } });
-  assert.ok(html.includes('주변 점포를 불러올 수 없어요'));
+  assert.ok(html.includes(NO_KEY));
   assert.ok(html.includes('자료 없음'));
   assert.ok(!html.includes('상권 분석을 불러오는 중'));
   assert.ok(!html.includes('생활인구 요약을 불러오는 중'));

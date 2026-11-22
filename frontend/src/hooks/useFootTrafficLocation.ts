@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { NearbyShopsAvailability } from "@/types/market";
 import type { LatLng } from "@/types/foot-traffic";
 
 /** Resolve store address once, and label the user's independently selected analysis point. */
@@ -12,8 +13,8 @@ export function useFootTrafficLocation(
 ) {
   const [region, setRegion] = useState("");
   const [addressStatus, setAddressStatus] = useState("");
-  // 분석 위치가 정해졌는지: 찾을 주소가 없거나, 주소 검색이 끝났거나(실패 포함), 사용자가 위치를 골랐을 때
-  const [resolved, setResolved] = useState(!address?.trim());
+  const [addressLookup, setAddressLookup] = useState<{ address: string; status: "ready" | "location" }>();
+  const locationAvailability: NearbyShopsAvailability = !address?.trim() ? "ready" : addressLookup?.address === address ? addressLookup.status : "loading";
   const changeRef = useRef(onCenterChange);
   const request = useRef(0);
   useEffect(() => { changeRef.current = onCenterChange; }, [onCenterChange]);
@@ -23,23 +24,32 @@ export function useFootTrafficLocation(
     let current = true;
     const version = ++request.current;
     setAddressStatus("가게 주소를 찾고 있어요.");
+    const finish = (message: string, point?: LatLng) => {
+      if (!current || request.current !== version) return;
+      current = false;
+      window.clearTimeout(timer);
+      setAddressLookup({ address, status: point ? "ready" : "location" });
+      setAddressStatus(message);
+      if (point) changeRef.current(point);
+    };
+    const timer = window.setTimeout(() => finish("주소 검색이 지연되고 있어요. 지도에서 분석 위치를 선택해 주세요."), 8000);
     const geocoder = new kakao.maps.services.Geocoder();
     geocoder.addressSearch(address, (result, status) => {
-      if (!current || request.current !== version) return;
-      setResolved(true);
       if (status !== kakao.maps.services.Status.OK || !result[0]) {
-        setAddressStatus("가게 주소를 찾지 못했어요. 지도에서 분석 위치를 선택해 주세요.");
+        finish("가게 주소를 찾지 못했어요. 지도에서 분석 위치를 선택해 주세요.");
         return;
       }
       const point = { lat: Number(result[0].y), lng: Number(result[0].x) };
       if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
-        setAddressStatus("주소 좌표를 확인할 수 없어요. 지도에서 위치를 선택해 주세요.");
+        finish("주소 좌표를 확인할 수 없어요. 지도에서 위치를 선택해 주세요.");
         return;
       }
-      setAddressStatus("");
-      changeRef.current(point);
+      finish("", point);
     });
-    return () => { current = false; };
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
   }, [ready, address]);
 
   useEffect(() => {
@@ -58,9 +68,9 @@ export function useFootTrafficLocation(
 
   const selectCenter = (point: LatLng) => {
     request.current++;
+    if (address) setAddressLookup({ address, status: "ready" });
     setAddressStatus("");
-    setResolved(true);
     changeRef.current(point);
   };
-  return { region, addressStatus, selectCenter, resolved };
+  return { region, addressStatus, locationAvailability, selectCenter };
 }

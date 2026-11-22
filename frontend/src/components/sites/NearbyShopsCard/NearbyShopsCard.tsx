@@ -6,18 +6,19 @@ import type { NearbyShopsStatus, Shop } from "@/types/market";
 
 export interface NearbyShopsCardProps {
   shops: Shop[];
+  status?: NearbyShopsStatus;
+  truncated?: boolean;
+  onRetry?: () => void;
   selectedShop?: Shop;
   onSelect: (id: string) => void;
-  /** 카카오 지도 조회 상태 */
-  status?: NearbyShopsStatus;
-  /** 점포가 많아 가까운 일부만 받았을 때 true */
-  truncated?: boolean;
 }
-export function NearbyShopsCard({ shops, selectedShop, onSelect, status = "ready", truncated = false }: NearbyShopsCardProps) {
+export function NearbyShopsCard({ shops, status = "ready", truncated, onRetry, selectedShop, onSelect }: NearbyShopsCardProps) {
   return (
     <MarketPanelCard
-      title={`주변 점포 ${shops.length}곳`}
-      description={`카카오 지도 기준, 지도 중심에서 가까운 순서예요.${truncated ? " 점포가 많아 가까운 곳부터 일부만 보여 줘요." : ""} 점포를 누르면 지도에서도 선택됩니다.`}
+      title={status === "ready" ? `주변 점포 ${shops.length}곳` : "주변 점포"}
+      description={truncated
+        ? "카카오 조회 범위 내에서 가까운 점포를 표시해요."
+        : "지도 중심에서 가까운 순서예요. 점포를 누르면 지도에서도 선택됩니다."}
     >
       {shops.length ? (
         <div className="min-w-0">
@@ -35,7 +36,7 @@ export function NearbyShopsCard({ shops, selectedShop, onSelect, status = "ready
           </ul>
         </div>
       ) : (
-        <MarketEmptyState status={status} />
+        <MarketEmptyState status={status} onRetry={onRetry} />
       )}
     </MarketPanelCard>
   );

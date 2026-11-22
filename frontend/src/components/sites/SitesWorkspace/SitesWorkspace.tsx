@@ -12,11 +12,10 @@ import { NearbyShopsCard } from "@/components/sites/NearbyShopsCard";
 import { PopulationReport } from "@/components/sites/PopulationReport";
 import { PopulationSummaryCard } from "@/components/sites/PopulationSummaryCard";
 import { StrategyCard } from "@/components/sites/StrategyCard";
+import { useNearbyShops } from "@/hooks/useNearbyShops";
 import { usePopulationInsights } from "@/hooks/usePopulationInsights";
 import type { HourSel } from "@/types/foot-traffic";
-import type { MarketCategory, MarketPoint, NearbyShopsState, SitesDataServices, SitesViewData } from "@/types/market";
-
-const NO_KEY: NearbyShopsState = { status: "unavailable", shops: [], truncated: false };
+import type { MarketCategory, MarketPoint, NearbyShopsAvailability, Shop, SitesDataServices, SitesViewData } from "@/types/market";
 
 const FootTrafficMap = dynamic(
   () =>
@@ -27,6 +26,8 @@ const FootTrafficMap = dynamic(
   },
 );
 
+const NO_SHOPS: Shop[] = [];
+
 export interface SitesWorkspaceProps extends SitesDataServices {
   data: SitesViewData;
 }
@@ -34,6 +35,7 @@ export interface SitesWorkspaceProps extends SitesDataServices {
 export function SitesWorkspace({
   data,
   appKey,
+  nearbyShopsSource,
   footTrafficData,
   footTrafficSource,
   footTrafficLoading,
@@ -53,16 +55,14 @@ export function SitesWorkspace({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [time, setTime] = useState<{ hour: HourSel; lastHour: number }>({ hour: "avg", lastHour: 12 });
   const toggleButton = useRef<HTMLButtonElement>(null);
-  // 주변 점포는 카카오 지도에서 조회한 실제 점포만 쓴다. 지도 키가 없으면 조회할 수 없다고 알린다
-  const [live, setLive] = useState<NearbyShopsState>({ status: "idle", shops: [], truncated: false });
-  const nearby = appKey ? live : NO_KEY;
+  const [mapAvailability, setMapAvailability] = useState<NearbyShopsAvailability>("loading");
+  const nearby = useNearbyShops(nearbyShopsSource, appKey ? mapAvailability : "unavailable", center, radius);
+  // 주변 점포는 카카오 지도 조회 결과만 쓴다. 조회할 수 없으면(지도 키 없음) 예시 점포로 채우지 않고 안내한다
+  const shops = nearbyShopsSource ? nearby.data?.shops ?? NO_SHOPS : NO_SHOPS;
+  const shopStatus = nearbyShopsSource ? nearby.status : "unavailable";
   const analysis = useMemo(
-    () => ({
-      ...analyzeMarket(nearby.shops, center, radius, category),
-      status: nearby.status,
-      truncated: nearby.truncated,
-    }),
-    [nearby, center, radius, category],
+    () => analyzeMarket(shops, center, radius, category),
+    [shops, center, radius, category],
   );
   const selectedShop = analysis.nearby.find((shop) => shop.id === selectedShopId);
   const loadedPopulation = usePopulationInsights({
@@ -97,6 +97,7 @@ export function SitesWorkspace({
       <Suspense fallback={<FootTrafficMapSkeleton />}>
         <FootTrafficMap
           appKey={appKey}
+          onNearbyAvailabilityChange={setMapAvailability}
           dataset={footTrafficData}
           dataSource={footTrafficSource}
           loading={footTrafficLoading}
@@ -113,7 +114,6 @@ export function SitesWorkspace({
           selectedShopId={selectedShop?.id ?? null}
           onSelectShop={setSelectedShopId}
           address={data.addressResolved ? undefined : data.address}
-          onNearbyShopsChange={setLive}
           settingsOpen={settingsOpen}
           onSettingsOpenChange={(open) => {
             setSettingsOpen(open);
@@ -145,7 +145,7 @@ export function SitesWorkspace({
           <>
             <PopulationSummaryCard data={population.data} loading={population.loading} error={population.error} onRetry={population.retry} />
             <Suspense fallback={<SectionSkeleton appearance="plain" variant="card" label="상권 요약" />}>
-              <MarketSummaryCard analysis={analysis} />
+              <MarketSummaryCard analysis={analysis} status={shopStatus} truncated={nearby.data?.truncated} onRetry={nearby.retry} />
             </Suspense>
             <Suspense fallback={<SectionSkeleton appearance="plain" variant="chart" label="주변 경쟁" />}>
               <CompetitionCard analysis={analysis} />
@@ -160,10 +160,11 @@ export function SitesWorkspace({
           <Suspense fallback={<SectionSkeleton appearance="plain" variant="list" label="주변 점포" />}>
             <NearbyShopsCard
               shops={analysis.nearby}
+              status={shopStatus}
+              truncated={nearby.data?.truncated}
+              onRetry={nearby.retry}
               selectedShop={selectedShop}
               onSelect={setSelectedShopId}
-              status={analysis.status}
-              truncated={analysis.truncated}
             />
           </Suspense>
         }

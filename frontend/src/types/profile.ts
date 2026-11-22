@@ -1,9 +1,10 @@
 import type { Store } from "./store";
 export type StoreDraft = Omit<
   Store,
-  "mainManual" | "onboarded" | "birth" | "funds" | "location"
+  "mainManual" | "onboarded" | "birth" | "area" | "funds" | "location"
 > & {
   birth: number | string;
+  area: number | string;
   funds: number | string;
   location: string;
 };

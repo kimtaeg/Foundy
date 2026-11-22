@@ -10,18 +10,7 @@ export interface Shop {
   lat: number;
   sub: string;
   cat: string;
-  /** true 면 예시 점포, false 면 카카오 지도에서 조회한 실제 점포 */
   ex: boolean;
-  /** 카카오맵 장소 페이지 (실제 점포만) */
-  url?: string;
-}
-/** 주변 점포 조회 상태. idle: 시작 전, loading: 조회 중, ready: 조회됨, error: 조회 실패, unavailable: 지도 키 없음 */
-export type NearbyShopsStatus = "idle" | "loading" | "ready" | "error" | "unavailable";
-export interface NearbyShopsState {
-  status: NearbyShopsStatus;
-  shops: Shop[];
-  /** 카카오가 한 번에 주는 양(그룹당 45곳)보다 실제 점포가 더 많아 가까운 일부만 받았을 때 true */
-  truncated: boolean;
 }
 export interface MarketSelection {
   sel: string | null;
@@ -49,6 +38,14 @@ export interface MarketPoint {
   lat: number;
   lng: number;
 }
+export type NearbyShopsAvailability = "loading" | "ready" | "location" | "unavailable";
+export type NearbyShopsStatus = NearbyShopsAvailability | "error";
+export interface NearbyShopsResult {
+  shops: Shop[];
+  truncated: boolean;
+}
+export type NearbyShopsSource = (center: MarketPoint, radius: number) => Promise<NearbyShopsResult>;
+
 export type MarketCategory = "all" | "카페" | "음식점";
 export type MarketPanelTab = "summary" | "population" | "shops" | "planning";
 export interface MarketAnalysis {
@@ -61,10 +58,6 @@ export interface MarketAnalysis {
   dessertCount: number;
   composition: ChartRow[];
   distanceRows: ChartRow[];
-  /** 카카오 지도 주변 점포 조회 상태 */
-  status?: NearbyShopsStatus;
-  /** 가까운 일부만 받았는지 (점포가 그룹당 45곳보다 많음) */
-  truncated?: boolean;
 }
 
 /** Serializable page data; event handlers and request functions are separate props. */
@@ -77,6 +70,7 @@ export interface SitesViewData {
 
 export interface SitesDataServices {
   appKey?: string;
+  nearbyShopsSource?: NearbyShopsSource;
   footTrafficData?: FootTrafficDataset;
   footTrafficSource?: FootTrafficDataSource;
   footTrafficLoading?: boolean;

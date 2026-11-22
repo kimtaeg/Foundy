@@ -501,8 +501,8 @@
 
 ### foot-traffic
 
-- [x] [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx#L41) · 하위 UI 또는 상태 표현 · `data-testid=traffic-map`
-  - Props `FootTrafficMapProps` · `appKey?` · `dataSource?` · `dataset?` · `loading?` · `error?` · `onRetry?`↗ · `center` · `onCenterChange`↗ · `radius` · `onRadiusChange`↗ · `shops` · `selectedShopId` · `onSelectShop`↗ · `address?` · `settingsOpen` · `onSettingsOpenChange`↗ · `hour` · `lastHour` · `onHourChange`↗ · `onNearbyShopsChange?`↗
+- [x] [FootTrafficMap](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx#L40) · 하위 UI 또는 상태 표현 · `data-testid=traffic-map`
+  - Props `FootTrafficMapProps` · `appKey?` · `dataSource?` · `dataset?` · `loading?` · `error?` · `onRetry?`↗ · `center` · `onCenterChange`↗ · `radius` · `onRadiusChange`↗ · `shops` · `selectedShopId` · `onSelectShop`↗ · `address?` · `onNearbyAvailabilityChange?`↗ · `settingsOpen` · `onSettingsOpenChange`↗ · `hour` · `lastHour` · `onHourChange`↗
   - 연결 [`useFootTrafficData`](../src/hooks/useFootTrafficData.ts) · [`categories`](../src/lib/foot-traffic/categories.ts) / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx) · [`MapControls`](../src/components/foot-traffic/MapControls/MapControls.tsx) · [`MapDataStatus`](../src/components/foot-traffic/MapDataStatus/MapDataStatus.tsx) · [`PopulationLegend`](../src/components/foot-traffic/PopulationLegend/PopulationLegend.tsx)
   - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
 - [x] [FootTrafficMapSkeleton](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx#L8) · 로딩 자리 표시 · `상권 지도를 불러오는 중`
@@ -513,9 +513,9 @@
   - Props `MapAvailabilityProps` · `state`
   - 연결 — / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx)
   - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`MapCanvas`](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx)
-- [x] [MapCanvas](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx#L40) · 하위 UI 또는 상태 표현 · `분석 중심 위치`
-  - Props `MapCanvasProps` · `appKey` · `center` · `radius` · `level` · `lines` · `cells` · `cuts` · `label` · `hour` · `shops` · `selectedShopId` · `address?` · `onSelectShop`↗ · `onCenterChange`↗ · `onLevelChange`↗ · `onRegionChange`↗ · `onAddressStatusChange`↗ · `onNearbyShopsChange?`↗
-  - 연결 [`useFootTrafficLocation`](../src/hooks/useFootTrafficLocation.ts) · [`useFootTrafficResize`](../src/hooks/useFootTrafficResize.ts) · [`useNearbyShops`](../src/hooks/useNearbyShops.ts) · [`levels`](../src/lib/foot-traffic/levels.ts) / 하위 [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`MapZoomControls`](../src/components/foot-traffic/MapZoomControls/MapZoomControls.tsx) · [`PopulationTooltip`](../src/components/foot-traffic/PopulationTooltip/PopulationTooltip.tsx) · [`RoadPopulationLayer`](../src/components/foot-traffic/RoadPopulationLayer/RoadPopulationLayer.tsx) · [`ShopMapMarkers`](../src/components/foot-traffic/ShopMapMarkers/ShopMapMarkers.tsx)
+- [x] [MapCanvas](../src/components/foot-traffic/MapCanvas/MapCanvas.tsx#L36) · 하위 UI 또는 상태 표현 · `분석 중심 위치`
+  - Props `MapCanvasProps` · `appKey` · `center` · `radius` · `level` · `lines` · `cells` · `cuts` · `label` · `hour` · `shops` · `selectedShopId` · `address?` · `onNearbyAvailabilityChange?`↗ · `onSelectShop`↗ · `onCenterChange`↗ · `onLevelChange`↗ · `onRegionChange`↗ · `onAddressStatusChange`↗
+  - 연결 [`useFootTrafficLocation`](../src/hooks/useFootTrafficLocation.ts) · [`useFootTrafficResize`](../src/hooks/useFootTrafficResize.ts) · [`levels`](../src/lib/foot-traffic/levels.ts) / 하위 [`MapAvailability`](../src/components/foot-traffic/MapAvailability/MapAvailability.tsx) · [`MapZoomControls`](../src/components/foot-traffic/MapZoomControls/MapZoomControls.tsx) · [`PopulationTooltip`](../src/components/foot-traffic/PopulationTooltip/PopulationTooltip.tsx) · [`RoadPopulationLayer`](../src/components/foot-traffic/RoadPopulationLayer/RoadPopulationLayer.tsx) · [`ShopMapMarkers`](../src/components/foot-traffic/ShopMapMarkers/ShopMapMarkers.tsx)
   - 참조 `/sites` / 상위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx)
 - [x] [MapControls](../src/components/foot-traffic/MapControls/MapControls.tsx#L20) · 사용자 동작 · `생활인구 지도 설정` · `생활인구 분석` · `<button>` · `<svg>`
   - Props `MapControlsProps` · `open` · `onOpenChange`↗ · `category` · `sub` · `hour` · `lastHour` · `radius` · `shown` · `region` · `onCategoryChange`↗ · `onSubChange`↗ · `onHourChange`↗ · `onRadiusChange`↗ · `onToggle`↗
@@ -733,7 +733,7 @@
 - [x] [SectionSkeleton](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx#L13) · 로딩 자리 표시
   - Props `SectionSkeletonProps` · `variant?` · `rows?` · `label?` · `className?` · `appearance?`
   - 연결 — / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
-  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/mypage`, `/`, `/report`, `/sites`, 공통 레이아웃, `/` 로딩 / 상위 [`ChatConversation`](../src/components/chat/ChatConversation/ChatConversation.tsx) · [`ChatPanel`](../src/components/chat/ChatPanel/ChatPanel.tsx) · [`ChatPanelContent`](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx) · [`ChecklistView`](../src/components/checklist/ChecklistView.tsx) · [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx) · [`DocsDirectory`](../src/components/docs/DocsDirectory/DocsDirectory.tsx) · [`GrantResults`](../src/components/grants/GrantResults/GrantResults.tsx) · [`GrantsView`](../src/components/grants/GrantsView.tsx) · [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx) · [`ComponentBoundary`](../src/components/loading/ComponentBoundary/ComponentBoundary.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`MypageView`](../src/components/mypage/MypageView.tsx) · [`ReportItems`](../src/components/report/ReportItems/ReportItems.tsx) · [`ReportView`](../src/components/report/ReportView.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
+  - 참조 `/checklist`, `/dashboard`, `/docs`, `/grants`, `/mypage`, `/`, `/report`, `/sites`, 공통 레이아웃, `/` 로딩 / 상위 [`ChatConversation`](../src/components/chat/ChatConversation/ChatConversation.tsx) · [`ChatPanel`](../src/components/chat/ChatPanel/ChatPanel.tsx) · [`ChatPanelContent`](../src/components/chat/ChatPanelContent/ChatPanelContent.tsx) · [`ChecklistView`](../src/components/checklist/ChecklistView.tsx) · [`DashboardBentoGrid`](../src/components/dashboard/DashboardBentoGrid/DashboardBentoGrid.tsx) · [`DocsDirectory`](../src/components/docs/DocsDirectory/DocsDirectory.tsx) · [`GrantResults`](../src/components/grants/GrantResults/GrantResults.tsx) · [`GrantsView`](../src/components/grants/GrantsView.tsx) · [`ApplicationFeedback`](../src/components/layout/ApplicationFeedback/ApplicationFeedback.tsx) · [`ComponentBoundary`](../src/components/loading/ComponentBoundary/ComponentBoundary.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`MypageView`](../src/components/mypage/MypageView.tsx) · [`ReportItems`](../src/components/report/ReportItems/ReportItems.tsx) · [`ReportView`](../src/components/report/ReportView.tsx) · [`MarketEmptyState`](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
 - [x] [Skeleton](../src/components/loading/Skeleton/Skeleton.tsx#L5) · 로딩 자리 표시
   - Props `SkeletonProps` · `className?`
   - 연결 — / 하위 —
@@ -812,7 +812,7 @@
   - Props `ProfileFieldProps` · `field` · `value` · `edit?`
   - 연결 [`editable-fields`](../src/lib/profile/editable-fields.ts) / 하위 [`ProfileFieldEditor`](../src/components/mypage/ProfileFieldEditor/ProfileFieldEditor.tsx)
   - 참조 `/mypage` / 상위 [`AccountCard`](../src/components/mypage/AccountCard/AccountCard.tsx) · [`BusinessConditionsCard`](../src/components/mypage/BusinessConditionsCard/BusinessConditionsCard.tsx) · [`StoreDetailsCard`](../src/components/mypage/StoreDetailsCard/StoreDetailsCard.tsx)
-- [x] [ProfileFieldEditor](../src/components/mypage/ProfileFieldEditor/ProfileFieldEditor.tsx#L10) · 입력과 검증 상태 · `선택하세요` · `원` · `<form>` · `<select>` · `<input>` · `<button>` · `<svg>` · `data-nx=mpcancel`
+- [x] [ProfileFieldEditor](../src/components/mypage/ProfileFieldEditor/ProfileFieldEditor.tsx#L10) · 입력과 검증 상태 · `선택하세요` · `취소` · `<form>` · `<select>` · `<input>` · `<button>` · `<svg>` · `data-nx=mpcancel`
   - Props `ProfileFieldEditorProps` · `edit`
   - 연결 [`editable-fields`](../src/lib/profile/editable-fields.ts) / 하위 [`DatePickerField`](../src/components/ui/DatePickerField/DatePickerField.tsx)
   - 참조 `/mypage` / 상위 [`ProfileField`](../src/components/mypage/ProfileField/ProfileField.tsx)
@@ -982,7 +982,7 @@
   - Props `StoreInformationStepProps` · `store` · `saving?` · `showDemo?`
   - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`DemoScenarioBanner`](../src/components/onboarding/DemoScenarioBanner/DemoScenarioBanner.tsx) · [`StoreInformationForm`](../src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx)
   - 참조 `/mypage`, `/register` / 상위 [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
-- [x] [StoreScheduleFields](../src/components/onboarding/StoreScheduleFields/StoreScheduleFields.tsx#L8) · 입력과 검증 상태 · `개업 예정일` · `출생 연도`
+- [x] [StoreScheduleFields](../src/components/onboarding/StoreScheduleFields/StoreScheduleFields.tsx#L8) · 입력과 검증 상태 · `개업 예정일` · `영업장 면적`
   - Props `StoreScheduleFieldsProps` · `store`
   - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`DatePickerField`](../src/components/ui/DatePickerField/DatePickerField.tsx) · [`Input`](../src/components/ui/Input/Input.tsx)
   - 참조 `/mypage`, `/register` / 상위 [`StoreInformationForm`](../src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx)
@@ -1128,9 +1128,9 @@
   - Props `MarketCategoryFilterProps` · `value` · `onChange`↗
   - 연결 — / 하위 —
   - 참조 `/sites` / 상위 [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx)
-- [x] [MarketEmptyState](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx#L15) · 하위 UI 또는 상태 표현
-  - Props `MarketEmptyStateProps` · `status?`
-  - 연결 — / 하위 —
+- [x] [MarketEmptyState](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx#L16) · 하위 UI 또는 상태 표현 · `주변 점포` · `다시 조회` · `<button>`
+  - Props `MarketEmptyStateProps` · `status?` · `onRetry?`↗
+  - 연결 — / 하위 [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx)
   - 참조 `/sites` / 상위 [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx)
 - [x] [MarketMetric](../src/components/sites/MarketMetric/MarketMetric.tsx#L8) · 하위 UI 또는 상태 표현
   - Props `MarketMetricProps` · `label` · `children` · `unavailable?`
@@ -1148,12 +1148,12 @@
   - Props `MarketPanelTabsProps` · `value` · `onChange`↗
   - 연결 — / 하위 —
   - 참조 `/sites` / 상위 [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx)
-- [x] [MarketSummaryCard](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx#L8) · 목록 또는 항목 표시 · `반경 안 점포 구성` · `표시된 점포`
-  - Props `MarketSummaryCardProps` · `analysis`
+- [x] [MarketSummaryCard](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx#L13) · 목록 또는 항목 표시 · `반경 안 점포 구성` · `표시된 점포`
+  - Props `MarketSummaryCardProps` · `analysis` · `status?` · `truncated?` · `onRetry?`↗
   - 연결 — / 하위 [`DonutChart`](../src/components/charts/DonutChart/DonutChart.tsx) · [`HorizontalBarChart`](../src/components/charts/HorizontalBarChart/HorizontalBarChart.tsx) · [`MarketEmptyState`](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx)
   - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
-- [x] [NearbyShopsCard](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx#L16) · 목록 또는 항목 표시
-  - Props `NearbyShopsCardProps` · `shops` · `selectedShop?` · `onSelect`↗ · `status?` · `truncated?`
+- [x] [NearbyShopsCard](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx#L15) · 목록 또는 항목 표시
+  - Props `NearbyShopsCardProps` · `shops` · `status?` · `truncated?` · `onRetry?`↗ · `selectedShop?` · `onSelect`↗
   - 연결 — / 하위 [`MarketEmptyState`](../src/components/sites/MarketEmptyState/MarketEmptyState.tsx) · [`MarketPanelCard`](../src/components/sites/MarketPanelCard/MarketPanelCard.tsx) · [`SelectedShop`](../src/components/sites/SelectedShop/SelectedShop.tsx) · [`ShopListItem`](../src/components/sites/ShopListItem/ShopListItem.tsx)
   - 참조 `/sites` / 상위 [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
 - [x] [PopulationBreakdownCard](../src/components/sites/PopulationBreakdownCard/PopulationBreakdownCard.tsx#L16) · 목록 또는 항목 표시 · `공개값 구성비` · `연령별 공개값`
@@ -1184,21 +1184,21 @@
   - Props `ShopListItemProps` · `shop` · `selected` · `onSelect`↗
   - 연결 — / 하위 —
   - 참조 `/sites` / 상위 [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx)
-- [x] [SitesPage](../src/components/sites/SitesPage/SitesPage.tsx#L7) · 페이지 데이터 연결
+- [x] [SitesPage](../src/components/sites/SitesPage/SitesPage.tsx#L8) · 페이지 데이터 연결
   - Props —
-  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) · [`useSites`](../src/hooks/useSites.ts) · [`static-data-source`](../src/lib/foot-traffic/static-data-source.ts) / 하위 [`SitesView`](../src/components/sites/SitesView.tsx)
+  - 연결 [`useFoundy`](../src/hooks/useFoundy.ts) · [`useSites`](../src/hooks/useSites.ts) · [`static-data-source`](../src/lib/foot-traffic/static-data-source.ts) · [`kakao-shops`](../src/lib/market/kakao-shops.ts) / 하위 [`SitesView`](../src/components/sites/SitesView.tsx)
   - 참조 `/sites` / 상위 [`page`](../src/app/sites/page.tsx)
 - [x] [SitesSkeleton](../src/components/sites/SitesSkeleton/SitesSkeleton.tsx#L4) · 로딩 자리 표시 · `상권 분석을 불러오는 중`
   - Props —
   - 연결 — / 하위 [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
   - 참조 `/sites`, 공통 레이아웃, `/` 로딩, `/sites` 로딩 / 상위 [`loading`](../src/app/sites/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`SitesView`](../src/components/sites/SitesView.tsx)
 - [x] [SitesView](../src/components/sites/SitesView.tsx#L11) · 화면과 하위 영역 조합
-  - Props `SitesViewProps` · `data?` · `loading?` · `error?` · `onRetry?`↗ · `appKey?` · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onOpenReport?`↗
+  - Props `SitesViewProps` · `data?` · `loading?` · `error?` · `onRetry?`↗ · `appKey?` · `nearbyShopsSource?`↗ · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onOpenReport?`↗
   - 연결 — / 하위 [`DataBoundary`](../src/components/loading/DataBoundary/DataBoundary.tsx) · [`SitesSkeleton`](../src/components/sites/SitesSkeleton/SitesSkeleton.tsx) · [`SitesWorkspace`](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx)
   - 참조 `/sites` / 상위 [`SitesPage`](../src/components/sites/SitesPage/SitesPage.tsx)
-- [x] [SitesWorkspace](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx#L34) · 화면과 하위 영역 조합 · `상권 분석 지도` · `상권 분석` · `<button>` · `data-testid=market-workspace`
-  - Props `SitesWorkspaceProps` · `data` · `appKey?` · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onOpenReport?`↗
-  - 연결 [`usePopulationInsights`](../src/hooks/usePopulationInsights.ts) · [`analyze-market`](../src/lib/market/analyze-market.ts) / 하위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`FieldChecklistCard`](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx) · [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
+- [x] [SitesWorkspace](../src/components/sites/SitesWorkspace/SitesWorkspace.tsx#L35) · 화면과 하위 영역 조합 · `상권 분석 지도` · `상권 분석` · `<button>` · `data-testid=market-workspace`
+  - Props `SitesWorkspaceProps` · `data` · `appKey?` · `nearbyShopsSource?`↗ · `footTrafficData?` · `footTrafficSource?` · `footTrafficLoading?` · `footTrafficError?` · `onFootTrafficRetry?`↗ · `populationData?` · `populationSource?` · `populationInsights?` · `onAnalysisChange?`↗ · `onOpenReport?`↗
+  - 연결 [`useNearbyShops`](../src/hooks/useNearbyShops.ts) · [`usePopulationInsights`](../src/hooks/usePopulationInsights.ts) · [`analyze-market`](../src/lib/market/analyze-market.ts) / 하위 [`FootTrafficMap`](../src/components/foot-traffic/FootTrafficMap/FootTrafficMap.tsx) · [`FootTrafficMapSkeleton`](../src/components/foot-traffic/FootTrafficMapSkeleton/FootTrafficMapSkeleton.tsx) · [`SectionSkeleton`](../src/components/loading/SectionSkeleton/SectionSkeleton.tsx) · [`CompetitionCard`](../src/components/sites/CompetitionCard/CompetitionCard.tsx) · [`FieldChecklistCard`](../src/components/sites/FieldChecklistCard/FieldChecklistCard.tsx) · [`MarketAnalysisPanel`](../src/components/sites/MarketAnalysisPanel/MarketAnalysisPanel.tsx) · [`MarketSummaryCard`](../src/components/sites/MarketSummaryCard/MarketSummaryCard.tsx) · [`NearbyShopsCard`](../src/components/sites/NearbyShopsCard/NearbyShopsCard.tsx) · [`PopulationReport`](../src/components/sites/PopulationReport/PopulationReport.tsx) · [`PopulationSummaryCard`](../src/components/sites/PopulationSummaryCard/PopulationSummaryCard.tsx) · [`StrategyCard`](../src/components/sites/StrategyCard/StrategyCard.tsx)
   - 참조 `/sites` / 상위 [`SitesView`](../src/components/sites/SitesView.tsx)
 - [x] [StrategyCard](../src/components/sites/StrategyCard/StrategyCard.tsx#L4) · 목록 또는 항목 표시 · `지도를 읽는 방법`
   - Props —

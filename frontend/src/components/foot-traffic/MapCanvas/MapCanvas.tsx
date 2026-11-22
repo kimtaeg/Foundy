@@ -4,9 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Circle, CustomOverlayMap, Map, useKakaoLoader } from "react-kakao-maps-sdk";
 import { useFootTrafficLocation } from "@/hooks/useFootTrafficLocation";
 import { useFootTrafficResize } from "@/hooks/useFootTrafficResize";
-import { useNearbyShops } from "@/hooks/useNearbyShops";
 import { toLevel, type CellStat, type HourSel, type LatLng, type PopulationCuts, type PopulationRoad } from "@/lib/foot-traffic";
-import type { NearbyShopsState, Shop } from "@/types/market";
+import type { NearbyShopsAvailability, Shop } from "@/types/market";
 import { MapAvailability } from "../MapAvailability";
 import { PopulationTooltip } from "../PopulationTooltip";
 import { RoadPopulationLayer } from "../RoadPopulationLayer";
@@ -26,16 +25,13 @@ export interface MapCanvasProps {
   shops: Shop[];
   selectedShopId: string | null;
   address?: string;
+  onNearbyAvailabilityChange?: (availability: NearbyShopsAvailability) => void;
   onSelectShop: (id: string) => void;
   onCenterChange: (center: LatLng) => void;
   onLevelChange: (level: number) => void;
   onRegionChange: (region: string) => void;
   onAddressStatusChange: (status: string) => void;
-  /** 지도 중심·반경 안의 실제 점포 조회 상태가 바뀔 때 */
-  onNearbyShopsChange?: (state: NearbyShopsState) => void;
 }
-
-const SDK_FAILED: NearbyShopsState = { status: "error", shops: [], truncated: false };
 
 export function MapCanvas(props: MapCanvasProps) {
   const [loading, error] = useKakaoLoader({ appkey: props.appKey, libraries: ["services"] });
@@ -57,12 +53,10 @@ export function MapCanvas(props: MapCanvasProps) {
   }, [onLevelChange]);
   useFootTrafficResize(map, props.center);
   const ready = !loading && !error;
-  const { region, addressStatus, selectCenter, resolved } = useFootTrafficLocation(ready, props.center, props.address, props.onCenterChange);
-  // 가게 주소를 찾은 뒤(또는 못 찾은 게 확정되거나 사용자가 위치를 고른 뒤)에만 점포를 조회한다
-  const nearby = useNearbyShops(ready && resolved, props.center, props.radius);
-  const sdkFailed = Boolean(error || (loading && timedOut));
-  const { onRegionChange, onAddressStatusChange, onNearbyShopsChange } = props;
-  useEffect(() => { onNearbyShopsChange?.(sdkFailed ? SDK_FAILED : nearby); }, [sdkFailed, nearby, onNearbyShopsChange]);
+  const { region, addressStatus, locationAvailability, selectCenter } = useFootTrafficLocation(ready, props.center, props.address, props.onCenterChange);
+  const { onRegionChange, onAddressStatusChange, onNearbyAvailabilityChange } = props;
+  const availability = error || (loading && timedOut) ? "unavailable" : loading ? "loading" : locationAvailability;
+  useEffect(() => { onNearbyAvailabilityChange?.(availability); }, [availability, onNearbyAvailabilityChange]);
   useEffect(() => { onRegionChange(region); }, [region, onRegionChange]);
   useEffect(() => { onAddressStatusChange(addressStatus); }, [addressStatus, onAddressStatusChange]);
   useEffect(() => {
