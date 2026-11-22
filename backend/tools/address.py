@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from tools import retry
 from tools.failure import classify, log_failure
 
 KAKAO_URL = "https://dapi.kakao.com/v2/local/search/address.json"
@@ -47,7 +48,7 @@ def codes_from_document(document: dict) -> dict:
 
 
 def search(client: httpx.Client, key: str, query: str) -> list[dict]:
-    response = client.get(KAKAO_URL, params={"query": query}, headers={"Authorization": f"KakaoAK {key}"})
+    response = retry.get(client, KAKAO_URL, params={"query": query}, headers={"Authorization": f"KakaoAK {key}"})
     response.raise_for_status()
     return response.json().get("documents", [])
 
