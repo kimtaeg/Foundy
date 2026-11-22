@@ -922,7 +922,7 @@
   - Props `BusinessQuestionProps` · `field` · `title` · `description` · `value`
   - 연결 — / 하위 —
   - 참조 `/mypage`, `/register` / 상위 [`BusinessQuestionsStep`](../src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx)
-- [x] [BusinessQuestionsStep](../src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx#L12) · 하위 UI 또는 상태 표현 · `어떤 조건으로 운영하시나요?` · `영업 조건에 맞춰 신고 절차와 준비 항목을 안내해 드려요.` · `<button>` · `data-nx=wizback` · `data-nx=analyze`
+- [x] [BusinessQuestionsStep](../src/components/onboarding/BusinessQuestionsStep/BusinessQuestionsStep.tsx#L12) · 하위 UI 또는 상태 표현 · `어떤 조건으로 운영하실 계획인가요?` · `영업 조건에 맞춰 신고 절차와 준비 항목을 안내해 드려요.` · `<button>` · `data-nx=wizback` · `data-nx=analyze`
   - Props `BusinessQuestionsStepProps` · `store` · `answers?` · `analysisFailed?`
   - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`BusinessQuestion`](../src/components/onboarding/BusinessQuestion/BusinessQuestion.tsx) · [`Input`](../src/components/ui/Input/Input.tsx)
   - 참조 `/mypage`, `/register` / 상위 [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
@@ -966,7 +966,7 @@
   - Props `RegistrationSkeletonProps` · `currentStep?` · `analysisCount?` · `embedded?`
   - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`Skeleton`](../src/components/loading/Skeleton/Skeleton.tsx)
   - 참조 `/mypage`, `/register`, 공통 레이아웃, `/` 로딩, `/register` 로딩 / 상위 [`loading`](../src/app/register/loading.tsx) · [`PageSkeleton`](../src/components/loading/PageSkeleton/PageSkeleton.tsx) · [`OnboardingView`](../src/components/onboarding/OnboardingView.tsx)
-- [x] [StoreAddressFields](../src/components/onboarding/StoreAddressFields/StoreAddressFields.tsx#L11) · 입력과 검증 상태 · `가게 주소` · `이 주소로 점검과 상권 분석을 진행해요.` · `<input>`
+- [x] [StoreAddressFields](../src/components/onboarding/StoreAddressFields/StoreAddressFields.tsx#L11) · 입력과 검증 상태 · `가게 주소` · `입력한 주소를 바탕으로 점검 리포트를 만들고, 주변 상권을 분석해요.` · `<input>`
   - Props `StoreAddressFieldsProps` · `store`
   - 연결 [`onboarding-styles`](../src/components/onboarding/onboarding-styles.ts) / 하위 [`AddressSearchButton`](../src/components/ui/AddressSearchButton/AddressSearchButton.tsx) · [`Input`](../src/components/ui/Input/Input.tsx)
   - 참조 `/mypage`, `/register` / 상위 [`StoreInformationForm`](../src/components/onboarding/StoreInformationForm/StoreInformationForm.tsx)

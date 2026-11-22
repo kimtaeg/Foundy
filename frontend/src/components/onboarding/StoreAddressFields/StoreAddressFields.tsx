@@ -21,7 +21,7 @@ export function StoreAddressFields({ store }: StoreAddressFieldsProps) {
             document.getElementById("fDetail")?.focus();
           }} />
         </div>
-        <p id="store-address-hint" className={fieldHint}>이 주소로 점검과 상권 분석을 진행해요.</p>
+        <p id="store-address-hint" className={fieldHint}>입력한 주소를 바탕으로 점검 리포트를 만들고, 주변 상권을 분석해요.</p>
       </div>
       <label className={fieldLabel}>
         <span>상세 주소 <span className="font-normal text-neutral-600">(선택)</span></span>
