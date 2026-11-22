@@ -181,8 +181,9 @@ try {
   await expect(replies).toHaveCount(2);
   await expect(replies.last()).toContainText('서버에서 조회한 안내예요.');
   assert.equal(transcript[2].content, '어떤 서류가 필요하죠?\n\n점검 리포트 항목: ' + cardTitle);
-  assert.deepEqual(requests.slice(4), [['POST', messagesPath]]);
-  console.log('PASS report navigation, focused question, and existing session reuse');
+  // 다시 열면 서버 기록을 한 번 다시 읽는다 (바뀐 게 없으면 화면은 그대로)
+  assert.deepEqual(requests.slice(4), [['GET', sessionPath], ['POST', messagesPath]]);
+  console.log('PASS report navigation, focused question, history recheck on reopen, and existing session reuse');
 
   failNextTurn = true;
   await input.fill('구청에 무엇을 물어봐야 할까요?');
@@ -196,20 +197,49 @@ try {
   await expect(replies.last()).toContainText('서버에서 조회한 안내예요.');
   assert.equal(transcript[4].content, transcript[6].content);
   assert.match(transcript[6].content, /점검 리포트 항목:/);
-  assert.deepEqual(requests.slice(5), [['POST', messagesPath], ['POST', messagesPath]]);
+  assert.deepEqual(requests.slice(6), [['POST', messagesPath], ['POST', messagesPath]]);
   console.log('PASS stream error recovery and retry with the original report context');
+
+  // 서버 기록이 그대로면 다시 열어도 화면 상태(실패 답변의 '다시 요청')를 유지한다
+  await panel.getByRole('button', { name: '상담 닫기' }).click();
+  await launch.click();
+  await expect.poll(() => requests.length).toBe(9);
+  assert.deepEqual(requests.slice(8), [['GET', sessionPath]]);
+  await expect(replies).toHaveCount(4);
+  await expect(failed.getByRole('button', { name: '다시 요청' })).toBeVisible();
+  console.log('PASS reopening with an unchanged server history keeps the on-screen state');
+
+  // 같은 계정이 다른 기기에서 대화를 이어 가면, 다시 열 때 그 대화가 보인다
+  await panel.getByRole('button', { name: '상담 닫기' }).click();
+  transcript.push(response('user', '다른 기기에서 보낸 질문'));
+  transcript.push(response('assistant', '다른 기기에서 받은 답변'));
+  await launch.click();
+  await expect(panel.getByText('다른 기기에서 받은 답변', { exact: true })).toBeVisible();
+  await expect(panel.getByText('다른 기기에서 보낸 질문', { exact: true })).toBeVisible();
+  await expect(replies).toHaveCount(5);
+  assert.deepEqual(requests.slice(9), [['GET', sessionPath]]);
+  console.log('PASS reopening shows messages added from another device');
+
+  // 채팅이 열린 채로 탭이 다시 보이면 서버 기록을 다시 읽는다
+  transcript.push(response('user', '세 번째 기기 질문'));
+  transcript.push(response('assistant', '세 번째 기기 답변'));
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(panel.getByText('세 번째 기기 답변', { exact: true })).toBeVisible();
+  await expect(replies).toHaveCount(6);
+  assert.deepEqual(requests.slice(10), [['GET', sessionPath]]);
+  console.log('PASS returning to the tab refreshes the open chat history');
 
   await page.reload();
   await launch.click();
-  await expect(replies).toHaveCount(4);
+  await expect(replies).toHaveCount(6);
   await expect(panel.getByText('어떤 서류가 필요하죠?', { exact: true })).toBeVisible();
-  assert.deepEqual(requests.slice(7), [['GET', sessionPath]]);
+  assert.deepEqual(requests.slice(11), [['GET', sessionPath]]);
   console.log('PASS reloaded chat session and transcript');
 
   pauseNextTurn = true;
   await input.fill('이 질문을 중지할게요');
   await input.press('Enter');
-  await expect.poll(() => requests.length).toBe(9);
+  await expect.poll(() => requests.length).toBe(13);
   await panel.getByRole('button', { name: '답변 생성 중지' }).click();
   await expect(panel.locator('[data-chat-processing="canceled"]')).toBeVisible();
   await expect(panel.locator('[data-chat-processing="processing"]')).toHaveCount(0);

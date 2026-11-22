@@ -42,6 +42,8 @@ export interface ChatProcessing {
   steps: ChatProcessingStep[];
 }
 export interface ChatMessageModel {
+  /** 서버에 저장된 메시지 id (서버 상담에서만). 화면에만 있는 메시지는 없다 */
+  id?: string;
   role: string;
   kind?: string;
   text: string;
