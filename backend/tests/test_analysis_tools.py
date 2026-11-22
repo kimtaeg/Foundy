@@ -54,6 +54,22 @@ def test_building_uses_selected_floor_and_never_invents_violation_flag():
         assert missing.ok and missing.data["space"]["status"] == "floor_missing"
 
 
+def test_new_address_lookup_returns_legal_dong_with_codes():
+    # 주소를 바꿔 코드를 비운 가게: 건물 조회가 카카오로 새 주소를 확인하고, 그 법정동을 코드와 함께 돌려준다 (#193)
+    doc = {"address_name": "서울 관악구 봉천동 1", "address": {
+        "b_code": "1162010100", "main_address_no": "1", "sub_address_no": "", "mountain_yn": "N",
+        "region_1depth_name": "서울", "region_2depth_name": "관악구", "region_3depth_name": "봉천동"}}
+
+    def respond(req):
+        if "kakao" in req.url.host:
+            return httpx.Response(200, json={"documents": [doc]})
+        return httpx.Response(200, json={"response": {"header": {"resultCode": "00"}, "body": {"totalCount": 0, "items": ""}}})
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        result = Providers(client, settings()).building(store(address="서울특별시 관악구 관악로 1", address_codes={}))
+    assert result.data["address_codes"]["region"] == "서울 관악구 봉천동"
+    assert result.data["address_codes"]["sigungu_cd"] == "11620"
+
+
 def test_address_ambiguity_is_not_silently_resolved():
     with httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, json={"documents": [{}, {}]}))) as client:
         with pytest.raises(ValueError, match="ADDRESS_AMBIGUOUS"):

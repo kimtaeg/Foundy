@@ -307,6 +307,60 @@ def test_address_lookup_failure_keeps_fallback_contact(context, update):
     assert card_contact["phone"] == "110" and task_contact["phone"] == "110"
 
 
+# ---------- 주소를 바꾸면 임대료 상권 매칭에 옛 법정동을 쓰지 않는다 (#193) ----------
+
+def rent_area(store_row) -> tuple:
+    """가게로 임대료 통계 지역을 고를 때 첫 후보 (실제 조회와 같은 주소 글자)."""
+    from services import rent as rent_service
+    from tools import rent as rent_tool
+
+    return rent_tool.candidates(rent_service._address_text(store_row))[0]
+
+
+def test_address_change_in_same_district_does_not_keep_old_dong_area(context):
+    client, base, headers, tools, *_ = context
+    with transaction() as session:  # 관악구 신림동 가게 → 신림역 상권
+        row = session.get(Store, sid_of(base))
+        row.address, row.region = "서울특별시 관악구 신림로 330", "서울 관악구 신림동"
+        assert rent_area(row) == ("상권", "서울>기타>신림역", "full")
+    # 새 주소의 법정동(봉천동)을 확인하기 전에 분석이 끝나지 않도록 건물 조회는 실패로 둔다
+    tools.building = building_with(tools, ok=False, error="외부 조회 실패")
+
+    res = client.patch(base, headers=headers, json={"address": "서울특별시 관악구 관악로 1"})
+    assert res.status_code == 200 and wait(client, res.json()["run_id"], headers)["status"] == "done"
+    with transaction() as session:
+        row = session.get(Store, sid_of(base))
+        assert row.region is None  # 옛 법정동(신림동)을 지운다
+        # 새 법정동을 확인하기 전에는 이전 상권(신림역)이 아니라 서울 평균으로 비교한다
+        assert rent_area(row) == ("시도", "서울", "name")
+
+
+def test_address_change_fills_dong_only_from_new_address_lookup(context):
+    client, base, headers, tools, *_ = context
+    with transaction() as session:
+        row = session.get(Store, sid_of(base))
+        row.address, row.region = "서울특별시 관악구 신림로 330", "서울 관악구 신림동"
+    # 재분석의 건물 조회가 새 주소를 확인하면서 법정동(봉천동)을 함께 돌려준다
+    tools.building = building_with(tools, data={"address_codes": {**NEW_CODES, "region": "서울 관악구 봉천동"}})
+
+    res = client.patch(base, headers=headers, json={"address": "서울특별시 관악구 관악로 1"})
+    assert wait(client, res.json()["run_id"], headers)["status"] == "done"
+    with transaction() as session:
+        row = session.get(Store, sid_of(base))
+        assert row.region == "서울 관악구 봉천동"
+        assert rent_area(row) == ("상권", "서울>기타>서울대입구역", "full")  # 새 동의 상권, 이전 신림역이 아니다
+
+
+def test_address_detail_change_keeps_dong(context):
+    client, base, headers, *_ = context
+    with transaction() as session:
+        before = session.get(Store, sid_of(base)).region
+    res = client.patch(base, headers=headers, json={"address_detail": "2층"})
+    assert wait(client, res.json()["run_id"], headers)["status"] == "done"
+    with transaction() as session:
+        assert session.get(Store, sid_of(base)).region == before  # 층·호만 바꾸면 법정동은 그대로다
+
+
 # ---------- 응답의 needs_reanalyze = 실제로 새 run을 만들었는지 ----------
 
 def test_needs_reanalyze_matches_created_run(context):

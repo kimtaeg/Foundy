@@ -55,9 +55,11 @@ def _floor_values(found: dict) -> tuple[dict[str, float], dict | None, bool]:
     values = {calc.FIRST_FLOOR: found["rent_thousand_krw_per_sqm"]}
     if not floors:
         return values, None, False
-    values.update({k: v for k, v in (floors.get("area") or {}).items() if k != calc.FIRST_FLOOR and v is not None})
+    # 0 이하는 표본 없음 (R-ONE이 0으로 준다). 저장된 이전 조회 결과에 0이 남아 있어도 비교에 쓰지 않는다
+    values.update({k: v for k, v in (floors.get("area") or {}).items() if k != calc.FIRST_FLOOR and v is not None and v > 0})
     top = floors.get("top") or {}
-    return values, (top if top.get(calc.FIRST_FLOOR) is not None else None), True
+    top_value = top.get(calc.FIRST_FLOOR)
+    return values, (top if top_value is not None and top_value > 0 else None), True
 
 
 def _rows(found: dict, values: dict[str, float], top: dict | None, compared: str, matched: bool,

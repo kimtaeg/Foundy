@@ -54,7 +54,10 @@ class Providers:
         documents = address_tool.search(self.client, self.settings.kakao_rest_key, store.address)
         if len(documents) != 1:
             raise ValueError("ADDRESS_AMBIGUOUS_OR_MISSING")
-        return address_tool.codes_from_document(documents[0])
+        codes = address_tool.codes_from_document(documents[0])
+        # 새 주소에서 확인한 법정동도 함께 돌려줘, 분석 결과 저장 때 stores.region 을 채운다 (임대료 상권 매칭)
+        region = address_tool.region_from_document(documents[0])
+        return {**codes, "region": region} if region else codes
 
     def _building_rows(self, url: str, params: dict) -> list[dict]:
         """건축HUB 목록을 끝까지 읽는다. 제공자 오류·불완전한 페이지는 예외 (조회 실패)."""

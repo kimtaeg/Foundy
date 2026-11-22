@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import time
 from pathlib import Path
@@ -41,16 +42,26 @@ def load_areas() -> dict:
     return yaml.safe_load(AREAS_FILE.read_text(encoding="utf-8"))
 
 
+def areas_version() -> str:
+    """상권 매칭 규칙 파일의 짧은 해시. 규칙이 바뀌면 저장된 조회 결과(캐시)를 다시 쓰지 않도록 캐시 키에 넣는다."""
+    return hashlib.sha256(AREAS_FILE.read_bytes()).hexdigest()[:12]
+
+
 def candidates(address: str, areas: dict | None = None) -> list[tuple[str, str, str]]:
-    """주소에 맞는 통계 지역 후보 (상권 → 권역 → 시도 순). 값: (단계, 찾을 이름, 맞추는 방식 full|name)."""
+    """주소에 맞는 통계 지역 후보 (상권 → 권역 → 시도 순). 값: (단계, 찾을 이름, 맞추는 방식 full|name).
+
+    규칙의 `match` 는 주소 글자에 포함되면 맞고(도로명 등), `dongs` 는 주소의 낱말(법정동)과 정확히 같아야 맞는다.
+    (예: dongs [목동] 은 '목동로'를 목동으로 보지 않는다.)
+    """
     areas = areas or load_areas()
     text = re.sub(r"\s+", " ", address or "").strip()
+    words = set(text.split(" "))
     out: list[tuple[str, str, str]] = []
     for rule in areas.get("areas", []):
         district = rule.get("district")
-        if district and district not in text:
+        if district and district not in words:
             continue
-        if any(word in text for word in rule["match"]):
+        if any(word in text for word in rule.get("match") or []) or words & set(rule.get("dongs") or []):
             out.append(("상권", rule["area"], "full"))
             break
     for district, region in (areas.get("regions") or {}).items():
@@ -97,9 +108,17 @@ def fetch_table(client: httpx.Client, key: str, table: str, start: str) -> list[
     return rows
 
 
+def _positive(value) -> bool:
+    """통계 값이 있는지. 0 이하는 표본 없음으로 본다."""
+    try:
+        return value is not None and float(value) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def latest(rows: list[dict], target: str, how: str) -> dict | None:
-    """대상 지역의 가장 최근 분기 row (값이 있는 것만)."""
-    found = [r for r in rows if r.get("DTA_VAL") is not None
+    """대상 지역의 가장 최근 분기 row (값이 있는 것만, 0 이하 제외)."""
+    found = [r for r in rows if _positive(r.get("DTA_VAL"))
              and (r.get("CLS_FULLNM") if how == "full" else r.get("CLS_NM")) == target]
     if how == "name":  # 시도 이름은 하위 상권 이름과 겹칠 수 있어 가장 짧은 경로(시도 행)만 쓴다
         found = [r for r in found if ">" not in (r.get("CLS_FULLNM") or "")] or found
@@ -152,7 +171,8 @@ def floor_rents(client: httpx.Client, key: str, area_name: str, period_id: str) 
     값이 없는 층은 넣지 않는다. 호출 실패는 예외로 올린다.
     """
     rows = _period_rows(client, key, FLOOR_TABLES, period_id)
-    rents = [r for r in rows if r.get("ITM_NM") == "임대료" and r.get("DTA_VAL") is not None and r.get("CLS_NM") in FLOORS]
+    # 표본이 없는 층은 R-ONE이 0으로 준다 (2026년 3분기 예: 천호·상봉역 지하1층 임대료 0, 효용비율 0). 값 없음으로 본다
+    rents = [r for r in rows if r.get("ITM_NM") == "임대료" and _positive(r.get("DTA_VAL")) and r.get("CLS_NM") in FLOORS]
     top = area_name.split(">")[0] if ">" in area_name else NATION
     top_row = next((r for r in rents if r.get("CLS_NM") == "1층" and _same_area(r, top)), None)
     return {"area": {r["CLS_NM"]: float(r["DTA_VAL"]) for r in rents if _same_area(r, area_name)},

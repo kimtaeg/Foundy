@@ -331,6 +331,9 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None, item_ev
         if getattr(result, "address_codes", None) and not store.address_codes:
             # 주소를 바꿔 비워 둔 코드를 새 주소의 실제 조회 결과로 채운다. 조회에 실패하면 비운 채로 둔다 (110 안내)
             store.address_codes = result.address_codes
+            if not store.region and result.address_codes.get("region"):
+                # 주소를 바꿔 비운 법정동도 새 주소에서 확인한 값으로만 채운다 (임대료 상권 매칭, #193)
+                store.region = result.address_codes["region"]
         for c in cost.rows:
             session.add(CostLog(run_id=row.id, store_id=store.id, step=c.step, model=c.model,
                                 input_tokens=c.input_tokens, output_tokens=c.output_tokens, cost_krw=c.cost_krw))

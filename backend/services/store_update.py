@@ -144,6 +144,10 @@ def apply_profile_fields(pack: dict, store: Store, cards: list[ReportItem], plan
         setattr(store, change.field, change.after)
     if {"address", "address_detail"}.intersection(plan.fields):
         store.address_codes = None  # 다음 분석에서 새 주소로 다시 조회한다 (옛 코드로 건축물대장을 찾지 않도록)
+    if "address" in plan.fields:
+        # 옛 주소의 법정동(region)을 남기면 임대료 상권 매칭이 이전 동의 상권을 고른다 (#193).
+        # 다음 분석에서 새 주소로 확인한 법정동으로 채우고, 그 전에는 권역·서울 평균으로 비교한다
+        store.region = None
     effective = effective_store(pack, store, cards)
     store.business_type = business_type(pack, effective["sells_alcohol"])
     store.updated_at = now_utc()
