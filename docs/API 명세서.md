@@ -12,6 +12,7 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-17 | 최초 작성 |
+| 2026-11-22 (임대료 지도 중심) | `GET /stores/{id}/rent`에 선택 쿼리 `lat`·`lng`(지도 중심) 추가. 둘 다 있으면 좌표의 법정동(카카오 coord2regioncode, `region_type` B)으로 상권 → 권역 → 시도를 찾고, 없으면 가게 주소 기준. 응답에 `location { source, region, resolved }` 추가(기존 필드는 그대로). 동을 확인하지 못하면 `unavailable`(가게 주소로 대체하지 않음). 좌표 결과는 `api_cache`(`coord_region`, 1일) (#201) |
 | 2026-11-22 (로그인 문서 정리) | 로그인은 아이디·비밀번호와 예시 계정(`demo`/`demo`)만 문서에 남김. 서류함 엔드포인트 표에 `GET·PATCH /documents/{doc_key}` 추가, 서류함 제목에서 "파일" 제거 |
 | 2026-11-21 (AI 선택지) | 결과 카드의 선택지를 코드가 만드는 유형(`remedies`)에 더해 AI가 최대 2개까지 안내형 선택지(`remedy: ai_suggested`)를 제안할 수 있다. 건물 용도 판정에서 AI가 가능한 업종을 비워도 규칙표가 확인한 업종으로 "술 빼고 시작" 선택지를 남긴다. 규칙 묶음의 `ai_options: true` 항목은 코드 선택지가 없어도 AI가 선택지를 제안한다 |
 | 2026-11-21 (법령 RAG) | 가게 입력에 영업장 면적 `area_sqm`(㎡, 선택)과 배달 여부 `answers.does_delivery` 추가(`POST /stores`·`/answers`·`PATCH /stores`·`GET /stores`, `answers`에 `area_sqm`도 포함). 법령 적용 결과 `GET /stores/{id}/obligations`, 조문 검색 `GET /laws/search`, 법령 재수집·변경 감지 `POST /internal/laws/refresh` 추가. 점검 카드에 `fire_safety`(소방 안전시설)·`labor_contract`(근로계약·최저임금) 추가, `labeling`은 조문이 있으면 AI가 판정. 조문 근거는 저장된 법령에서 하이브리드 검색(키워드+벡터)으로 찾는다. 판정값 4가지는 그대로 |
@@ -1003,6 +1004,24 @@ grants는 선택 기능으로 핵심 분석과 함께 지정하면 생략하며,
 ### `GET /api/stores/{store_id}/rent`
 
 쿼리 (모두 선택): `monthly_rent` 월세(원, 0 이상) · `deposit` 보증금(원, 0 이상, 없으면 0) · `area` 임대면적(㎡, 0 초과, 계약서의 전용+공용. 없으면 가게의 영업장 면적 `area_sqm`). 범위를 벗어나면 `400 INVALID_INPUT`, 남의 가게는 `403`.
+
+지도 중심 쿼리 (#201, 선택): `lat` 위도(33~39) · `lng` 경도(124~132). **둘 다 있으면 지도 중심 기준, 둘 다 없으면 가게 주소 기준**이다. 하나만 오거나 범위를 벗어나면 `400 INVALID_INPUT`. 결과는 저장하지 않는다.
+
+응답에는 아래 `location`이 더해진다 (기존 필드는 그대로):
+
+```json
+"location": { "source": "map", "region": "서울특별시 관악구 봉천동", "resolved": true }
+```
+
+- `source`: `store`(가게 주소 기준) | `map`(지도 중심 기준).
+- `region`: 상권 매칭에 쓴 지번 지역(시도 구 법정동). `store`면 가게의 `region`(없으면 null), `map`이면 좌표에서 확인한 법정동(확인 못 하면 null).
+- `resolved`: `store`면 `region`이 있으면 true, `map`이면 좌표 → 법정동 확인에 성공했는지.
+- **좌표 → 법정동 (`tools/address.region_from_coord`):** 카카오 `coord2regioncode`(`x`=경도, `y`=위도, 키 `KAKAO_REST_KEY`)의 **`region_type == "B"`(법정동) 문서만** 쓴다. `H`(행정동)는 상권 규칙(`rules/rent_areas.yaml`, 법정동 기준)과 맞지 않아 쓰지 않는다. 글자는 "시도 구 법정동"(예: "서울특별시 관악구 봉천동")이고, 시도는 `rent_areas.yaml`의 `sido` 매핑이 "서울특별시"·"서울"을 모두 받는다. 키 없음·호출 실패·결과 없음은 null이고, 실패는 `external_api_failure tool=address_coord`(호출 실패)·`tool=coord_region`(결과 없음 포함)로 남긴다. URL·키는 로그에 남기지 않는다.
+- **지도 기준 매칭:** 법정동 글자만으로 상권 → 권역 → 시도를 찾는다. 가게의 도로명 주소·동은 섞지 않는다(가게는 신림동이어도 지도가 봉천동이면 서울대입구역). 층·면적·월세·보증금과 층별 비교·`rows`·`readings`·`notes` 규칙은 가게 주소 기준과 같다(층은 가게 층).
+- **법정동을 확인하지 못하면** `status: "unavailable"`, `message`는 "임대료 통계를 아직 불러올 수 없어요", `reason`은 "지도 위치의 동을 확인하지 못했어요", `location.resolved: false`. **가게 주소로 대신 비교하지 않는다.**
+- **캐시:** 좌표를 소수 4자리(약 10m)로 반올림해 `api_cache`(`source='coord_region'`, 1일)에 둔다. 같은 반올림 좌표는 카카오를 다시 부르지 않는다. 임대료 조회 캐시는 매칭 글자 기준이라 같은 법정동이면 같은 결과를 재사용한다.
+- **예시 계정·`USE_MOCK=true`:** 지금처럼 예시 값(`is_example: true`)이고 좌표를 조회하지 않는다. `location.source`는 요청대로, `region: null`, `resolved: false`.
+- **한계:** 통계가 상권 단위라 지도를 옮겨도 다른 상권·권역·시도로 넘어갈 때만 숫자가 바뀐다. 법정동 → 상권 대응은 R-ONE 실제 상권 경계로 검증한 것이 아니다.
 
 `ready` (1층 가게, `?monthly_rent=2500000&deposit=30000000&area=40`, 2026년 3분기 실제 값):
 

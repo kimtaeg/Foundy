@@ -564,3 +564,206 @@ def test_real_reb_lookup_for_seongsu():
     assert floors and floors["top"]["name"] == "서울" and floors["top"]["1층"] > 0
     assert set(floors["area"]) >= {"1층", "2층"}
     assert abs(floors["area"]["1층"] - res.data["rent_thousand_krw_per_sqm"]) < 0.01  # 층별 1층 = 지역별 임대료
+
+
+# ── 지도 중심 좌표 (#201) ──
+
+def kakao_region(*docs):
+    """실제 카카오 coord2regioncode 응답 형식. 실제 응답은 B(법정동)·H(행정동) 두 문서를 준다."""
+    return {"meta": {"total_count": len(docs)}, "documents": [
+        {"region_type": t, "code": code, "address_name": f"{a} {b} {c}", "region_1depth_name": a,
+         "region_2depth_name": b, "region_3depth_name": c, "region_4depth_name": "", "x": 126.9527, "y": 37.4812}
+        for t, code, a, b, c in docs]}
+
+
+BONGCHEON = kakao_region(("H", "1162058500", "서울특별시", "관악구", "청룡동"),
+                         ("B", "1162010100", "서울특별시", "관악구", "봉천동"))
+
+
+def kakao_client(payload, seen=None, status=200):
+    def handler(request):
+        if seen is not None:
+            seen.append(dict(request.url.params))
+        return httpx.Response(status, json=payload)
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_coord_region_uses_legal_dong_document_only():
+    from tools.address import region_from_coord
+
+    seen = []
+    assert region_from_coord(37.4812, 126.9527, key="k", client=kakao_client(BONGCHEON, seen)) == "서울특별시 관악구 봉천동"
+    assert seen == [{"x": "126.9527", "y": "37.4812"}]  # x=경도, y=위도
+    only_h = kakao_region(("H", "1162058500", "서울특별시", "관악구", "청룡동"))
+    assert region_from_coord(37.4812, 126.9527, key="k", client=kakao_client(only_h)) is None
+
+
+def test_coord_region_returns_none_without_key_or_on_failure():
+    from tools.address import region_from_coord
+
+    assert region_from_coord(37.5, 127.0, key="", client=kakao_client(BONGCHEON)) is None
+    assert region_from_coord(37.5, 127.0, key="k", client=kakao_client({"documents": []})) is None
+    assert region_from_coord(37.5, 127.0, key="k", client=kakao_client({"message": "unauthorized"}, status=401)) is None
+
+
+@pytest.mark.parametrize("region,first", [
+    # 카카오는 시도를 '서울특별시'로 준다. rent_areas.yaml sido 매핑과 dongs 규칙이 그대로 맞아야 한다
+    ("서울특별시 관악구 봉천동", ("상권", "서울>기타>서울대입구역", "full")),
+    ("서울특별시 성동구 성수동1가", ("상권", "서울>기타>뚝섬", "full")),
+    ("서울특별시 강동구 천호동", ("상권", "서울>기타>천호", "full")),
+    ("서울특별시 강남구 역삼동", ("권역", "서울>강남", "full")),
+    ("경기도 성남시분당구 정자동", ("시도", "경기", "name")),
+])
+def test_kakao_legal_dong_text_matches_area_rules(region, first):
+    assert rent_tool.candidates(region)[0] == first
+
+
+MAP_RENT_ROWS = RENT_ROWS + [row(RENT, 520050, "서울>기타>서울대입구역", "임대료", 45.5, "천원/㎡"),
+                             row(RENT, 510001, "서울>강남", "임대료", 70.2, "천원/㎡"),
+                             row(RENT, 500009, "경기", "임대료", 25.1, "천원/㎡")]
+MAP_CONV_ROWS = CONV_ROWS + [row(CONV, 520050, "서울>기타>서울대입구역", "전환율", 6.6, "%"),
+                             row(CONV, 510001, "서울>강남", "전환율", 6.4, "%"),
+                             row(CONV, 500009, "경기", "전환율", 7.2, "%")]
+
+
+class MapTools:
+    """좌표 → 법정동은 정해 둔 값, 임대료는 실제 lookup 코드로 매칭 글자에 맞는 지역을 고른다."""
+
+    def __init__(self, region):
+        self.region = region
+        self.coords = []
+        self.addresses = []
+
+    def coord_region(self, lat, lng):
+        self.coords.append((lat, lng))
+        return self.region
+
+    def rent(self, address):
+        self.addresses.append(address)
+        data = rent_tool.lookup(reb_client(tables(MAP_RENT_ROWS, MAP_CONV_ROWS)), "k", address, 2025)
+        return ToolResult(ok=True, source=rent_tool.SOURCE, data=data)
+
+
+def test_without_coordinates_uses_store_address_and_store_location(real_mode):
+    tools = MapTools("서울특별시 관악구 봉천동")
+    v = service.view(store(), tools, monthly_rent=2_500_000, deposit=30_000_000, area=40)
+    assert v["location"] == {"source": "store", "region": "서울 성동구 성수동1가", "resolved": True}
+    assert v["headline"]["area_name"] == "서울>기타>뚝섬" and tools.coords == []
+    assert tools.addresses == ["서울특별시 성동구 아차산로 17 서울 성동구 성수동1가"]
+    assert service.view(store(region=None), MapTools(None), monthly_rent=None, deposit=None, area=None)["location"] == \
+        {"source": "store", "region": None, "resolved": False}
+
+
+@pytest.mark.parametrize("region,area_name,level", [
+    ("서울특별시 관악구 봉천동", "서울>기타>서울대입구역", "상권"),
+    ("서울특별시 강남구 역삼동", "서울>강남", "권역"),
+    ("경기도 성남시분당구 정자동", "경기", "시도"),
+])
+def test_map_center_matches_by_legal_dong(real_mode, region, area_name, level):
+    tools = MapTools(region)
+    v = service.view(store(address_detail="2층"), tools, monthly_rent=2_500_000, deposit=30_000_000, area=40,
+                     lat=37.48, lng=126.95)
+    assert v["location"] == {"source": "map", "region": region, "resolved": True}
+    assert (v["headline"]["area_name"], v["headline"]["area_level"]) == (area_name, level)
+    assert v["inputs"]["floor"] == "2"  # 층은 가게 층을 그대로 쓴다
+    assert tools.addresses == [region]
+
+
+def test_map_center_does_not_mix_store_dong(real_mode):
+    # 가게는 신림동인데 지도는 봉천동 → 서울대입구역 (매칭 글자에 가게 주소·동을 섞지 않는다)
+    shop = store(address="서울특별시 관악구 신림로 1", region="서울 관악구 신림동")
+    tools = MapTools("서울특별시 관악구 봉천동")
+    v = service.view(shop, tools, monthly_rent=2_500_000, deposit=0, area=40, lat=37.48, lng=126.95)
+    assert v["headline"]["area_name"] == "서울>기타>서울대입구역"
+    assert tools.addresses == ["서울특별시 관악구 봉천동"] and "신림" not in tools.addresses[0]
+
+
+def test_map_center_unresolved_is_unavailable_without_store_fallback(real_mode):
+    tools = MapTools(None)
+    v = service.view(store(), tools, monthly_rent=2_500_000, deposit=30_000_000, area=40, lat=37.5, lng=127.0)
+    assert v["status"] == "unavailable" and v["message"] == "임대료 통계를 아직 불러올 수 없어요"
+    assert v["reason"] == "지도 위치의 동을 확인하지 못했어요"
+    assert v["location"] == {"source": "map", "region": None, "resolved": False}
+    assert tools.addresses == []  # 가게 주소로 몰래 대체하지 않는다
+    assert (v["headline"], v["rows"], v["source"], v["average"]) == (None, None, None, None)
+
+
+@pytest.mark.parametrize("demo,use_mock", [(True, False), (False, True)])
+def test_example_mode_keeps_example_values_with_location_contract(monkeypatch, demo, use_mock):
+    monkeypatch.setattr(service, "get_settings", lambda: SimpleNamespace(use_mock=use_mock))
+
+    class Boom:
+        def coord_region(self, lat, lng):
+            raise AssertionError("예시 모드는 좌표를 조회하지 않는다")
+
+        def rent(self, address):
+            raise AssertionError("예시 모드는 실제 통계를 부르지 않는다")
+
+    for lat, lng, src in ((37.5, 127.0, "map"), (None, None, "store")):
+        v = service.view(store(is_demo=demo), Boom(), monthly_rent=2_500_000, deposit=0, area=40, lat=lat, lng=lng)
+        assert v["is_example"] is True and v["status"] == "ready"
+        assert v["location"] == {"source": src, "region": None, "resolved": False}
+
+
+def test_same_rounded_coordinate_calls_kakao_once(monkeypatch):
+    from datetime import timedelta
+
+    from sqlalchemy import delete
+
+    from db.models import ApiCache
+    from db.session import transaction
+    from services.timeutil import now_utc
+    from tools import address as address_tool
+    from tools.analysis import AnalysisTools
+
+    calls = []
+
+    def fake(lat, lng, *, key, client=None):
+        calls.append((lat, lng))
+        return "서울특별시 관악구 봉천동"
+
+    monkeypatch.setattr(address_tool, "region_from_coord", fake)
+    tools = AnalysisTools(providers=None, use_mock=False)
+    key = tools._key("coord_region", {"lat": 37.4812, "lng": 126.9527})
+    with transaction() as session:
+        session.execute(delete(ApiCache).where(ApiCache.key == key))
+    try:
+        assert tools.coord_region(37.48121, 126.95268) == "서울특별시 관악구 봉천동"
+        assert tools.coord_region(37.48117, 126.95273) == "서울특별시 관악구 봉천동"  # 소수 4자리 반올림이 같다
+        assert calls == [(37.4812, 126.9527)]
+        with transaction() as session:
+            row = session.get(ApiCache, key)
+            assert row.source == "coord_region" and row.expires_at - now_utc() <= timedelta(days=1)
+    finally:
+        with transaction() as session:
+            session.execute(delete(ApiCache).where(ApiCache.key == key))
+
+
+def test_api_requires_both_coordinates_in_range():
+    import main
+    from api.deps import owned_store
+
+    main.app.dependency_overrides[owned_store] = lambda: store(is_demo=True)
+    try:
+        client = TestClient(main.app)
+        for params in ({"lat": 37.5}, {"lng": 127.0}, {"lat": 40, "lng": 127.0}, {"lat": 37.5, "lng": 133},
+                       {"lat": 32.9, "lng": 127.0}, {"lat": 37.5, "lng": 123.9}):
+            r = client.get("/api/stores/x/rent", params=params)
+            assert r.status_code == 400 and r.json()["error"]["code"] == "INVALID_INPUT", params
+        r = client.get("/api/stores/x/rent", params={"lat": 37.5446, "lng": 127.0560})
+        assert r.status_code == 200 and r.json()["location"]["source"] == "map"
+        assert client.get("/api/stores/x/rent").json()["location"]["source"] == "store"
+    finally:
+        main.app.dependency_overrides.pop(owned_store, None)
+
+
+@pytest.mark.skipif(not os.getenv("KAKAO_REST_KEY"), reason="KAKAO_REST_KEY 없음")
+def test_real_kakao_coord_near_seongsu_is_ttukseom():
+    from tools.address import region_from_coord, resolve_address
+
+    key = os.environ["KAKAO_REST_KEY"]
+    found = resolve_address("서울특별시 성동구 아차산로 17", key=key, use_mock=False)
+    assert found.status == "resolved" and found.coord
+    region = region_from_coord(found.coord["lat"], found.coord["lng"], key=key)
+    assert region and region.startswith("서울특별시 성동구 성수동")
+    assert rent_tool.candidates(region)[0] == ("상권", "서울>기타>뚝섬", "full")

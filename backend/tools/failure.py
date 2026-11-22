@@ -25,6 +25,7 @@ SERVER_ERROR, NETWORK, CONFIG, PROVIDER_ERROR = "server_error", "network", "conf
 TOOL_LABELS = {
     "address": "주소 검색", "building": "건축물대장", "law": "법령", "law_rag": "저장된 법령",
     "trademark": "상표 검색", "grants": "지원사업 공고", "rent": "임대료 통계",
+    "address_coord": "좌표 → 동 확인", "coord_region": "좌표 → 동 확인",
 }
 
 # 제공자가 HTTP 200 안에 돌려주는 인증·승인 오류 코드 (공공데이터포털·KIPRIS 공통 체계)
@@ -37,6 +38,7 @@ _VALUE_KINDS = {
     "LAW_NOT_UNIQUE": NO_DATA,
     "LAW_REFERENCE_UNCONFIRMED": NO_DATA,
     "RENT_AREA_NOT_FOUND": NO_DATA,
+    "COORD_REGION_NOT_FOUND": NO_DATA,
 }
 
 _SECRET_PARAM = re.compile(r"(?i)\b(service_?key|access_?key|api_?key|crtfc_?key|oc|key|token)=([^&\s\"'<>]+)")

@@ -1,15 +1,23 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { MarketPanelCard } from "@/components/sites/MarketPanelCard";
 import { manwonText, won } from "@/lib/format";
 import { manwonInputToKrw, perPyeongManwon, rentDiffShort, rentScopeName, rentView, toManwon } from "@/lib/market/rent";
+import {
+  createRentRequester, rentLocationKey, rentLocationLabel, rentLocationProblem, rentLocationQuery,
+} from "@/lib/market/rent-location";
 import type { ApiRent, ApiRentQuery } from "@/lib/api/types";
+import type { MarketPoint } from "@/types/market";
 
 export interface RentComparisonCardProps {
   /** 임대료 비교를 불러오는 함수. 없으면(서버 연결 없음) 비교할 수 없다고 안내한다 */
   source?: (query: ApiRentQuery) => Promise<ApiRent>;
   /** 처음 그릴 결과 (테스트·서버 렌더링용) */
   initial?: ApiRent;
+  /** 지금 지도 중심. 처음 위치와 다르면 그 좌표 기준으로 다시 계산한다 (#199) */
+  center?: MarketPoint;
+  /** 처음 지도 중심(가게 주소 위치). 지도 중심이 이 위치면 가게 주소 기준으로 계산한다 */
+  origin?: MarketPoint;
 }
 
 const UNAVAILABLE = "임대료 통계를 아직 불러올 수 없어요";
@@ -17,36 +25,44 @@ const field = "block min-h-11 w-full min-w-0 rounded-lg border border-solid bord
 const numberOrUndefined = (value: string) => (value.trim() === "" ? undefined : Number(value));
 const approxManwon = (krw: number) => `약 ${manwonText(toManwon(krw))}`;
 
-export function RentComparisonCard({ source, initial }: RentComparisonCardProps) {
+export function RentComparisonCard({ source, initial, center, origin }: RentComparisonCardProps) {
   const [result, setResult] = useState<ApiRent | undefined>(initial);
   const [loading, setLoading] = useState(Boolean(source && !initial));
   const [failed, setFailed] = useState(false);
   const [rent, setRent] = useState("");
   const [deposit, setDeposit] = useState("");
   const [area, setArea] = useState("");
+  const location = rentLocationQuery(center, origin);
+  const locationKey = rentLocationKey(location);
+
+  // 요청 관리: 지도 위치 변경은 잠시 기다렸다 한 번만, 제출한 입력은 유지, 늦게 온 이전 응답은 버린다
+  const requester = useMemo(() => source ? createRentRequester({
+    source,
+    location,
+    onStart: () => setLoading(true),
+    onResult: (next) => { setResult(next); setFailed(false); },
+    onError: () => setFailed(true),
+    onSettled: () => setLoading(false),
+  }) : null,
+  // 위치는 처음 값만 넘기고, 이후 변경은 moveTo 로 알린다
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [source]);
 
   useEffect(() => {
-    if (!source || initial) return;
-    let current = true;
-    source({}).then(
-      (next) => { if (current) { setResult(next); setFailed(false); } },
-      () => { if (current) setFailed(true); },
-    ).finally(() => { if (current) setLoading(false); });
-    return () => { current = false; };
-  }, [source, initial]);
+    if (!requester) return;
+    if (!initial) void requester.load();
+    return () => requester.dispose();
+  }, [requester, initial]);
+
+  useEffect(() => {
+    requester?.moveTo(location);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requester, locationKey]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!source) return;
-    setLoading(true);
-    try {
-      setResult(await source({ monthly_rent: manwonInputToKrw(rent), deposit: manwonInputToKrw(deposit) ?? 0, area: numberOrUndefined(area) }));
-      setFailed(false);
-    } catch {
-      setFailed(true);
-    } finally {
-      setLoading(false);
-    }
+    if (!requester) return;
+    await requester.submit({ monthly_rent: manwonInputToKrw(rent), deposit: manwonInputToKrw(deposit) ?? 0, area: numberOrUndefined(area) });
   }
 
   // 통계가 없으면(unavailable·서버 없음·호출 실패) view 는 null 이고 숫자를 하나도 그리지 않는다
@@ -57,16 +73,24 @@ export function RentComparisonCard({ source, initial }: RentComparisonCardProps)
   const diff = comparison && result ? rentDiffShort(result) : null;
   const myArea = result?.inputs.area_sqm ?? null;
   const needArea = result?.status === "need_input" && result.missing.includes("area");
+  const locationLabel = !failed ? rentLocationLabel(result) : null;
+  const locationProblem = !failed ? rentLocationProblem(result) : null;
 
   return (
     <MarketPanelCard title="주변 상가 임대료 분석">
       {result?.is_example && view && (
         <p className="mb-2 mt-0 inline-block rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">예시 · 실제 통계 아님</p>
       )}
+      {locationLabel && (
+        <p className="mb-2 mt-0 text-xs font-semibold text-foundy-primary" data-rent-location>{locationLabel}</p>
+      )}
 
-      <div role="status" aria-live="polite">
+      <div role="status" aria-live="polite" aria-busy={loading}>
         {unavailable ? (
-          <p className="m-0 rounded-xl bg-neutral-50 p-4 text-sm leading-relaxed text-neutral-600">{UNAVAILABLE}</p>
+          <div className="m-0 rounded-xl bg-neutral-50 p-4 text-sm leading-relaxed text-neutral-600">
+            <p className="m-0">{UNAVAILABLE}</p>
+            {locationProblem && <p className="m-0 mt-1 text-xs">{locationProblem}</p>}
+          </div>
         ) : headline ? (
           <div className="grid gap-1">
             <p className="m-0 text-sm text-neutral-600">
@@ -89,6 +113,10 @@ export function RentComparisonCard({ source, initial }: RentComparisonCardProps)
         ) : loading ? (
           <p className="m-0 text-sm text-neutral-600">통계를 불러오고 있어요…</p>
         ) : null}
+        {loading && result && (
+          // 다시 계산하는 동안 이전 결과는 지우지 않고 그대로 둔다
+          <p className="m-0 mt-1 text-xs text-neutral-500">새 위치·입력으로 다시 계산하고 있어요…</p>
+        )}
       </div>
 
       <form onSubmit={submit} aria-label="임대료 비교 입력" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

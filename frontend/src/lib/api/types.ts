@@ -414,6 +414,17 @@ export interface ApiRentQuery {
   monthly_rent?: number;
   deposit?: number;
   area?: number;
+  /** 지도 중심 기준으로 계산할 때만 (둘 다 보낸다). 없으면 가게 주소 기준 */
+  lat?: number;
+  lng?: number;
+}
+/** 임대료 비교의 기준 위치 (#199). 옛 응답에는 없다 */
+export interface ApiRentLocation {
+  source: "store" | "map";
+  /** 매칭에 쓴 지번 지역 (시도 구 법정동) */
+  region: string | null;
+  /** map 일 때 좌표 → 법정동 확인 성공 여부 */
+  resolved: boolean;
 }
 export interface ApiRent {
   status: "ready" | "need_input" | "unavailable";
@@ -455,6 +466,8 @@ export interface ApiRent {
   /** "이 숫자 읽는 법" 문장 (코드가 만든 규칙 문장) */
   readings?: string[];
   source?: { name: string; period: string; conversion_rate_pct: number } | null;
+  /** 가게 주소 기준인지 지도 중심 기준인지 (#199). 옛 응답에는 없다 */
+  location?: ApiRentLocation;
   basis: { rent: string; area: string; floor: string };
   notes: string[];
 }
