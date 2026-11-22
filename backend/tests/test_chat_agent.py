@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
-from agent.assistant import UNGROUNDED_LAW_NOTE, ToolBox, finalize, history_messages, run_turn
+from agent.assistant import (OUT_OF_SCOPE_REPLY, UNGROUNDED_LAW_NOTE, ToolBox, finalize,
+                             history_messages, run_turn)
 from agent.llm import LLMError
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -53,6 +54,32 @@ def test_finalize_no_navigation_without_citation():
 def test_same_source_gets_same_ref():
     box = ToolBox({})
     assert box.sources.add("law", "A", source_id="A") == box.sources.add("law", "A", source_id="A") == "S1"
+
+
+def test_unrelated_question_is_rejected_before_llm_call():
+    class ExplodingLLM:
+        def stream_tools(self, **kwargs):
+            raise AssertionError("범위 밖 질문은 LLM을 호출하면 안 됩니다")
+
+    events = list(run_turn(ExplodingLLM(), profile={}, history=[], question="오늘 주식 뭐가 좋아요?",
+                           box=ToolBox({}), today=date(2026, 11, 22)))
+    assert events == [("delta", OUT_OF_SCOPE_REPLY),
+                      ("done", {"content": OUT_OF_SCOPE_REPLY, "citations": [], "actions": []})]
+
+
+def test_contextual_follow_up_remains_allowed():
+    class ChatLLM:
+        def stream_tools(self, *, step, tier, messages, tools, require_tool):
+            if tier == "fast":
+                yield "final", {"content": "", "tool_calls": [{"id": "law-1", "type": "function",
+                    "function": {"name": "search_laws", "arguments": '{"query":"식품위생법"}'}}]}
+            else:
+                yield "final", {"content": "확인해 볼게요.", "tool_calls": []}
+
+    box = ToolBox({"search_laws": lambda _: [{"law_name": "식품위생법", "article": "제41조"}]})
+    events = list(run_turn(ChatLLM(), profile={}, history=[{"role": "user", "content": "영업신고가 필요해요?"}],
+                           question="그럼 어떻게 해요?", box=box, today=date(2026, 11, 22)))
+    assert events[-1][0] == "done"
 
 
 def test_history_keeps_only_user_and_assistant_recent():

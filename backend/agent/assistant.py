@@ -26,6 +26,38 @@ MAX_LAW_TEXT = 1500
 REF_RE = re.compile(r"\[S(\d+)\]")
 BRACKET_RE = re.compile(r"\[([^\[\]]*?\bS\d+\b[^\[\]]*)\]")  # [S1] · [S1, S2] · [식품위생법 시행령 제21조 S1, S2]
 UNGROUNDED_LAW_NOTE = "※ 이 답변은 저장된 법령 조문으로 확인한 근거가 붙어 있지 않아요. 법적 의무는 관할 기관에 꼭 확인해 주세요."
+OUT_OF_SCOPE_REPLY = "저는 카페·음식점 창업 준비에 관한 상담만 도와드릴 수 있어요. 가게의 인허가·건물·상표·위생·서류·체크리스트·지원사업에 대해 물어봐 주세요."
+
+# 모델 프롬프트만으로는 일반 상식 질문까지 답하는 경우가 있어, LLM 호출 전에
+# 서비스 관련성의 최소 경계를 코드로 확인한다. 새 기능을 추가하면 이 목록도 함께 넓힌다.
+SCOPE_TERMS = (
+    "창업", "가게", "매장", "카페", "음식점", "식당", "영업", "신고", "인허가", "허가",
+    "건축물대장", "건물", "주소", "층", "임대차", "상표", "상호", "메뉴", "광고", "원산지",
+    "위생", "식품", "주류", "술", "직원", "고용", "근로", "4대보험", "세무", "세금", "부가세",
+    "사업자", "체크리스트", "개업", "오픈", "준비", "서류", "지원금", "지원사업", "정책", "공고",
+    "법령", "법률", "법적으로", "규정", "적용", "조문", "구청", "세무서", "소방", "간판", "소상공인", "임대료",
+    "상권", "매물", "배달", "개업일", "개업 예정일", "준비 자금", "오늘 뭐", "뭐부터", "다음 할 일",
+)
+CHATTER_RE = re.compile(r"^(안녕(?:하세요)?|하이|반가워요|고마워요|감사해요|감사합니다|도움이 됐어요|네|응|좋아요)[!.?！。 ]*$", re.I)
+
+
+def is_in_service_scope(question: str, history: list[dict] | None = None) -> bool:
+    """서비스와 무관한 질문은 LLM에 보내지 않기 위한 보수적인 1차 게이트."""
+    text = re.sub(r"\s+", " ", str(question or "")).strip().lower()
+    if not text:
+        return False
+    if CHATTER_RE.fullmatch(text):
+        return True
+    if any(term.lower() in text for term in SCOPE_TERMS):
+        return True
+
+    # "왜요?", "그럼 어떻게 해요?" 같은 후속 질문은 직전 대화가 서비스 주제였을 때 허용한다.
+    recent = " ".join(
+        str(row.get("content") or "") for row in (history or [])[-4:]
+        if isinstance(row, dict) and row.get("role") in ("user", "assistant")
+    ).lower()
+    return bool(re.search(r"왜|어떻게|가능|얼마|언제|그럼|이건|이거|다른 방법|자세히", text)
+                and any(term.lower() in recent for term in SCOPE_TERMS))
 
 SYSTEM = """너는 FOUNDY의 AI 창업 상담사 "파운디"다. 카페·음식점을 여는 청년 창업자를 돕는다.
 
@@ -278,6 +310,12 @@ def run_turn(llm, *, profile: dict, history: list[dict], question: str, box: Too
     ("delta", 글자) — 최종 답변 스트리밍
     ("done", {"content", "citations", "actions"}) — 끝
     """
+    if not is_in_service_scope(question, history):
+        # 범위 밖 질문은 모델에 전달하지 않는다. 따라서 모델이 일반 상식이나 잡담으로
+        # 답을 만들어 내는 경로 자체가 없다.
+        yield "delta", OUT_OF_SCOPE_REPLY
+        yield "done", {"content": OUT_OF_SCOPE_REPLY, "citations": [], "actions": []}
+        return
     if not hasattr(llm, "stream_tools"):
         raise LLMError("이 AI 설정에서는 상담(도구 호출)을 쓸 수 없어요. LLM_PROVIDER=openai 로 설정해 주세요.")
     system = SYSTEM.format(today=today.isoformat(), profile=json.dumps(profile, ensure_ascii=False, separators=(",", ":")))
