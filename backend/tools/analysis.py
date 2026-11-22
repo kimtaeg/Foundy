@@ -153,6 +153,15 @@ class AnalysisTools:
         found = self._stored_law(check_id, store) if get_settings().law_rag_enabled else None
         return found if found is not None else self._official_law(check_id)
 
+    def discover_laws(self, store):
+        """조문에서 의무 찾기용 조문 (저장된 법령만). 모의 모드·법령 RAG를 끈 경우에는 찾지 않는다 (모의 조문으로 의무를 만들지 않는다)."""
+        if self.use_mock or not get_settings().law_rag_enabled:
+            return None
+        try:
+            return self._rag().discover(store)
+        except Exception:
+            return None
+
     def laws_for(self, check_ids, store):
         """독립적인 법령 검색을 겹쳐 실행한다. 공식 API 대체 조회는 중복 요청 재사용을 위해 순서대로 한다."""
         check_ids = list(check_ids)
