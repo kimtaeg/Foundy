@@ -125,7 +125,8 @@ class AnalysisTools:
 
     def rent(self, address: str):
         """임대료 통계. 같은 주소는 저장된 조회 결과(7일)를 쓴다 (분기 통계라 자주 바뀌지 않는다)."""
-        return self._query("rent", {"address": address}, lambda: self.providers.rent(address))
+        # schema 2: 층별 임대료(floors)를 담는다. 층별이 없는 이전 저장 결과는 다시 쓰지 않는다
+        return self._query("rent", {"address": address, "schema": 2}, lambda: self.providers.rent(address))
 
     def trademark(self, name):
         return self._query("trademark", {"name": name}, lambda: self.providers.trademark(name))
