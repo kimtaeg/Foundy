@@ -12,16 +12,16 @@
 | 날짜 | 내용 |
 | --- | --- |
 | 2026-11-17 | 최초 작성 |
-| 2026-11-22 (로그인 문서 정리) | 화면 로그인은 아이디·비밀번호와 예시 계정(`demo`/`demo`)이고, 소셜 로그인은 백엔드만 있고 프론트 미연결임을 명시. 서류함 엔드포인트 표에 `GET·PATCH /documents/{doc_key}` 추가, 서류함 제목에서 "파일" 제거 |
+| 2026-11-22 (로그인 문서 정리) | 로그인은 아이디·비밀번호와 예시 계정(`demo`/`demo`)만 문서에 남김. 서류함 엔드포인트 표에 `GET·PATCH /documents/{doc_key}` 추가, 서류함 제목에서 "파일" 제거 |
 | 2026-11-21 (AI 선택지) | 결과 카드의 선택지를 코드가 만드는 유형(`remedies`)에 더해 AI가 최대 2개까지 안내형 선택지(`remedy: ai_suggested`)를 제안할 수 있다. 건물 용도 판정에서 AI가 가능한 업종을 비워도 규칙표가 확인한 업종으로 "술 빼고 시작" 선택지를 남긴다. 규칙 묶음의 `ai_options: true` 항목은 코드 선택지가 없어도 AI가 선택지를 제안한다 |
 | 2026-11-21 (법령 RAG) | 가게 입력에 영업장 면적 `area_sqm`(㎡, 선택)과 배달 여부 `answers.does_delivery` 추가(`POST /stores`·`/answers`·`PATCH /stores`·`GET /stores`, `answers`에 `area_sqm`도 포함). 법령 적용 결과 `GET /stores/{id}/obligations`, 조문 검색 `GET /laws/search`, 법령 재수집·변경 감지 `POST /internal/laws/refresh` 추가. 점검 카드에 `fire_safety`(소방 안전시설)·`labor_contract`(근로계약·최저임금) 추가, `labeling`은 조문이 있으면 AI가 판정. 조문 근거는 저장된 법령에서 하이브리드 검색(키워드+벡터)으로 찾는다. 판정값 4가지는 그대로 |
-| 2026-11-21 (아이디·비밀번호 로그인) | `POST /auth/signup`(아이디·비밀번호·이름으로 가입 후 바로 로그인)·`POST /auth/login` 추가. 아이디는 영문 소문자·숫자 4~20자, 비밀번호는 8자 이상(72바이트 이하), 비밀번호는 bcrypt 해시로만 저장. 로그인 실패는 아이디 없음·비밀번호 오류 모두 같은 `401 INVALID_CREDENTIALS`, 같은 접속 IP에서 같은 아이디로 10분에 5번 틀리면 `429 RATE_LIMITED`(아이디 하나가 여러 IP에서 20번 틀려도 막는다), 한 IP의 회원가입 시도는 10분에 10번까지. 가입 시 중복 아이디는 `409 USERNAME_TAKEN`. `user`에 `username` 추가, `provider`에 `local` 추가. 소셜 로그인 엔드포인트는 그대로 두되 화면에서는 쓰지 않는다 |
-| 2026-11-21 (인증·가게 등록) | 소셜 로그인 시작 `POST /auth/social/start`(state 발급·`redirect_uri` 허용 목록·`browser_hash`) 추가, `POST /auth/social`은 `{provider, code, state, browser_nonce}`로 state와 브라우저 결속 대조(실패 시 제공자 호출 전 `400`, state 유지). 로그아웃은 요청에 쓴 토큰만 폐기(옛 토큰 호환). `PATCH /me` 규칙. 가게 등록 응답에 `address_status`, `422 ADDRESS_NOT_RESOLVED`의 `reason`·`candidates`, 업종은 규칙 묶음 `business_type_inputs`. 되묻기 답변은 `null` = 미답변, 부분 저장(생략 = 유지), 분석 중 `409`·첫 분석 후 `400`. 새 에러 코드 `INVALID_STATE`·`SOCIAL_LOGIN_FAILED`·`SOCIAL_PROVIDER_UNAVAILABLE`·`SOCIAL_LOGIN_UNAVAILABLE` |
+| 2026-11-21 (아이디·비밀번호 로그인) | `POST /auth/signup`(아이디·비밀번호·이름으로 가입 후 바로 로그인)·`POST /auth/login` 추가. 아이디는 영문 소문자·숫자 4~20자, 비밀번호는 8자 이상(72바이트 이하), 비밀번호는 bcrypt 해시로만 저장. 로그인 실패는 아이디 없음·비밀번호 오류 모두 같은 `401 INVALID_CREDENTIALS`, 같은 접속 IP에서 같은 아이디로 10분에 5번 틀리면 `429 RATE_LIMITED`(아이디 하나가 여러 IP에서 20번 틀려도 막는다), 한 IP의 회원가입 시도는 10분에 10번까지. 가입 시 중복 아이디는 `409 USERNAME_TAKEN`. `user`에 `username` 추가, `provider`에 `local` 추가 |
+| 2026-11-21 (인증·가게 등록) | 로그아웃은 요청에 쓴 토큰만 폐기(옛 토큰 호환). `PATCH /me` 규칙. 가게 등록 응답에 `address_status`, `422 ADDRESS_NOT_RESOLVED`의 `reason`·`candidates`, 업종은 규칙 묶음 `business_type_inputs`. 되묻기 답변은 `null` = 미답변, 부분 저장(생략 = 유지), 분석 중 `409`·첫 분석 후 `400`. |
 | 2026-11-21 (알림) | 알림 시점 이동 `as_of` 구현 반영: 기한 알림(미완료·기한 지남·14일 이내) 규칙, 개업 후 달력상 6개월 mock 알림, 예시 알림의 `alert_id`(`ex-`)·읽음·`created_at`·필터 규칙 |
 | 2026-11-21 | 마이페이지 수정·카드 선택 구현 반영: 분석 중 `/choose`·`PATCH /stores`는 `409 RUN_IN_PROGRESS`(저장 안 함), 재분석이 필요하면 변경과 run을 한 트랜잭션으로 저장하고 `run_id` 반환. `/choose`의 재분석 여부는 이전 선택을 비우기 전 ↔ 새 선택 후 유효 값 비교로 결정. `address_detail`(층·호수)은 `building`만. 직원 여부만 바꾸면 재분석 없이 고용 항목 생성·숨김. 미리보기 응답에 `dry_run`, `/changes` 항목에 `changed`·`impacts`·`reset_items` 추가 |
 | 2026-11-20 (확정) | 프로토타입 `foundy` 확정 반영: 서류함은 **받는 곳 안내만**(`documents[]`는 서류 이름·받는 곳 링크·찾는 방법·기관 전화번호, `type`·`ready`·`prepared_id` 제거, `PATCH /documents/{doc_key}` 제거, `GET /documents`는 읽기 전용), 결과 카드에서 **`prepared[]`(문의 문구·특약·서류 초안) 제거**하고 `contact`(기관 전화번호)로 대체, 체크리스트 `prepared` 제거, **상권 분석(`/map`·`/market`)과 메뉴 광고 문구(`menu_text`)는 마지막에 구현**해 현재 범위에서 제외 |
 | 2026-11-20 (서류, 같은 날 확정에서 축소됨) | **필요 서류와 서류함**: 체크리스트 항목의 `documents`를 문자열 목록에서 **서류 객체**(`type`: 만들어 줌·받는 곳·내가 준비·기관에 문의, 받는 곳 링크, 기관 전화번호, 준비 여부)로 바꾸고, `GET /documents`(서류함)·`PATCH /documents/{doc_key}`(준비 완료 체크) 추가, 대시보드 `documents_progress`, 상담의 서류 질문 응답 |
-| 2026-11-19 (프로토타입 반영) | **로그인·계정**(소셜 로그인, 사용자별 가게 소유), **마이페이지**(`PATCH /stores`가 영향 `impacts[]`·초기화된 카드 `reset_items[]`를 돌려줌, 변경 기록 `/changes`), **다음으로 할 일**(`next_steps[]`), 알림 유형 확장과 `as_of`(시점 이동 시연), AI 상담 응답 `kind`·`contacts[]`·통화 준비, **상권 분석**으로 재편(`/map`·`/market`, 후보 자리 `/sites` 전부 제거), 점검 카드 선택지 `set_main_site` 제거(`adds_checklist` 추가), 지원사업 보기·필터, 화면–API 매핑 갱신 |
+| 2026-11-19 (프로토타입 반영) | **로그인·계정**(사용자별 가게 소유), **마이페이지**(`PATCH /stores`가 영향 `impacts[]`·초기화된 카드 `reset_items[]`를 돌려줌, 변경 기록 `/changes`), **다음으로 할 일**(`next_steps[]`), 알림 유형 확장과 `as_of`(시점 이동 시연), AI 상담 응답 `kind`·`contacts[]`·통화 준비, **상권 분석**으로 재편(`/map`·`/market`, 후보 자리 `/sites` 전부 제거), 점검 카드 선택지 `set_main_site` 제거(`adds_checklist` 추가), 지원사업 보기·필터, 화면–API 매핑 갱신 |
 | 2026-11-22 (상권 분석 정리·외부 API 안정화) | **주변 점포 실제 조회 복구**: 프론트 개편(#157)에서 빠진 카카오 카테고리 검색(CE7·FD6)을 다시 붙였다(#169). **성수 일대 예시 점포·후보지·기본 중심을 지웠다** (좌표가 없으면 서울시청에서 시작). **가격 비교(`/market`, 가격 포지셔닝)는 공개 데이터가 없어 제외**했다. 외부 API: 실패하면 서버 로그 `external_api_failure` 한 줄과 SSE 메시지 끝 ` · 원인`(#159), 기한 안 캐시 재사용은 `done`·대체만 `fallback`(#161), 일시 오류(500·502·503·504·시간 초과) 최대 2번 재시도(#163) |
 | 2026-11-22 (상권 분석 시작 위치·주변 점포) | 상권 분석 지도가 **가게 주소에서 시작**하고(찾는 동안 지도를 그리지 않음), 주변 점포를 **카카오 장소 검색(CE7·FD6) 실제 결과**로 보여 준다. 서버 `/map`은 아직 없다(프론트가 SDK로 직접 조회) |
 | 2026-11-22 (서류함에서 파일·전화번호 제거) | 서류함에서 **파일 올리기·내려받기·삭제(`…/files`)와 서류의 `files`·`contact`를 없앴다**. 서류는 상태(`status`)와 이력만 관리한다. DB는 마이그레이션 0007 |
@@ -46,10 +46,8 @@
 
 | 메서드 | 경로 | 설명 | 범위 |
 | --- | --- | --- | --- |
-| POST | `/api/auth/social/start` | 소셜 로그인 시작: state 발급 + 제공자 인가 주소 | 핵심 |
 | POST | `/api/auth/signup` | 회원가입(아이디·비밀번호·이름): 가입 후 바로 세션 토큰 | 핵심 |
 | POST | `/api/auth/login` | 아이디·비밀번호 로그인 → 세션 토큰 | 핵심 |
-| POST | `/api/auth/social` | 소셜 로그인(카카오·Google·네이버): 인가 코드 + state → 세션 토큰 | 핵심 |
 | POST | `/api/auth/logout` | 로그아웃 (요청에 쓴 토큰만 폐기) | 핵심 |
 | GET | `/api/me` | 내 계정과 내 가게(`store_id`, 없으면 `null` → 첫 설정) | 핵심 |
 | PATCH | `/api/me` | 계정 이름 수정 | 핵심 |
@@ -110,19 +108,15 @@
 | 404 | `STORE_NOT_FOUND`, `RUN_NOT_FOUND`, `ITEM_NOT_FOUND` |  |
 | 409 | `RUN_IN_PROGRESS` | 같은 가게의 분석이 이미 실행 중. 분석 중에 카드 선택(`/choose`)·가게 정보 수정(`PATCH /stores`)을 보내도 같은 오류이며, 아무것도 저장하지 않는다 |
 | 409 | `STORE_EXISTS` | 이미 가게를 등록한 계정이 다시 등록함 (수정은 `PATCH`) |
-| 400 | `INVALID_STATE` | 소셜 로그인 state가 발급한 값이 아니거나 만료·재사용됨, 제공자가 다름 |
-| 401 | `SOCIAL_LOGIN_FAILED` | 제공자가 인가 코드를 거절함(잘못된·만료된·재사용한 코드) 또는 사용자 id를 받지 못함 |
 | 422 | `ADDRESS_NOT_RESOLVED` | 실제 주소 조회 결과가 없거나(`reason: not_found`) 후보가 여러 개(`reason: ambiguous`, `candidates` 최대 5개) |
-| 502 | `SOCIAL_PROVIDER_UNAVAILABLE` | 소셜 로그인 제공자 장애(네트워크 오류·5xx) |
-| 503 | `SOCIAL_LOGIN_UNAVAILABLE` | 그 제공자의 앱 키나 `redirect_uri` 허용 목록이 서버에 설정되지 않음 |
 | 429 | `RATE_LIMITED` | 외부 API 한도 초과 (가능하면 캐시·mock으로 대체하고 에러를 내지 않음) |
 | 500 | `INTERNAL_ERROR` |  |
 
 ### 인증과 계정 [핵심]
 
-**아이디·비밀번호 로그인** (화면에서 쓰는 방식). 소셜 로그인은 제공자 앱 키가 있어야 해서 키가 없는 환경에서는 쓸 수 없다. 아래 두 엔드포인트는 키 없이 동작한다.
+**아이디·비밀번호 로그인**. 백엔드가 **자체 세션 토큰(JWT)**을 발급하고, 사용자는 PostgreSQL `users`에 저장한다. 백엔드는 토큰의 `user_id`로 가게 소유를 확인한다.
 
-`POST /api/auth/signup` 요청: `{ "username": "foundy01", "password": "password1", "name": "김창업" }`. 응답 `201`은 소셜 로그인과 같은 형식이다.
+`POST /api/auth/signup` 요청: `{ "username": "foundy01", "password": "password1", "name": "김창업" }`. 응답 `201`:
 
 ```json
 { "access_token": "…", "user": { "user_id": "u-01", "name": "김창업", "provider": "local", "username": "foundy01", "joined_at": "2026-11-21" }, "store_id": null }
@@ -132,62 +126,13 @@
 
 - 아이디는 영문 소문자·숫자 4~20자(대문자는 소문자로 바꿔 저장·비교), 비밀번호는 8자 이상이고 UTF-8 72바이트 이하, 이름은 1~30자. 어기면 `400 INVALID_INPUT`. 정해지지 않은 필드를 보내도 `400`.
 - 이미 쓰는 아이디는 `409 USERNAME_TAKEN`.
-- 로그인 실패는 아이디가 없든 비밀번호가 틀리든 **같은 `401 INVALID_CREDENTIALS`**다 (계정이 있는지 알리지 않는다). 소셜·예시 계정은 아이디가 없어 이 방식으로 들어올 수 없다.
+- 로그인 실패는 아이디가 없든 비밀번호가 틀리든 **같은 `401 INVALID_CREDENTIALS`**다 (계정이 있는지 알리지 않는다). 예시 계정은 아이디가 없어 이 방식으로 들어올 수 없다.
 - 같은 접속 IP에서 같은 아이디로 10분 안에 5번 틀리면 이후 시도는 맞는 비밀번호여도 `429 RATE_LIMITED`다. 다른 IP에서 오는 로그인은 막지 않지만, 한 아이디가 여러 IP에서 합쳐 20번 틀려도 막는다. 회원가입도 한 IP에서 10분에 10번까지다. 접속 IP는 프록시가 덧붙인 `X-Forwarded-For`의 맨 오른쪽 값이고, 기록은 서버 메모리라 재시작하면 초기화된다.
-- 비밀번호는 bcrypt 해시로만 저장하고 응답·로그에 남기지 않는다. 로그아웃·토큰 정책은 아래 소셜 로그인과 같다.
-
-**소셜 로그인** (제공자 앱 키가 설정된 환경에서만)
-
-
-백엔드에만 구현돼 있고 **프론트 화면은 아직 연결하지 않았다** (로그인 화면에 소셜 버튼이 없다). 백엔드가 소셜 로그인(OAuth)의 인가 코드를 교환해 사용자를 식별하고 **자체 세션 토큰(JWT)**을 발급하며, 사용자는 PostgreSQL `users`에 저장한다. 백엔드는 토큰의 `user_id`로 가게 소유를 확인한다. 소셜 계정에는 비밀번호가 없다.
-
-**소셜 로그인 흐름** (인가 코드 방식. 요청 형식은 각 제공자 공식 문서 기준)
-
-1. `POST /api/auth/social/start` 요청: `{ "provider": "kakao", "browser_hash": "<64자리 소문자 hex>", "redirect_uri": "http://localhost:3000/auth/callback" }` (`redirect_uri`는 선택, `browser_hash` 필수). 응답 `200`
-
-```json
-{ "provider": "kakao", "state": "…(32바이트 무작위)", "redirect_uri": "http://localhost:3000/auth/callback",
-  "authorize_url": "https://kauth.kakao.com/oauth/authorize?response_type=code&client_id=…&redirect_uri=…&state=…", "expires_in": 600 }
-```
-
-- 서버가 **state를 발급해 `browser_hash`와 함께 저장**한다(10분, 1회용). 원본 `browser_nonce`는 받지도 저장하지도 않고, 제공자에게도 보내지 않는다. `redirect_uri`는 서버 설정 `OAUTH_REDIRECT_URIS`(허용 목록)에 **정확히 같은 값**이 있을 때만 쓰고, 없으면 `400`. 생략하면 목록의 첫 값. 각 제공자 콘솔에 등록한 콜백 주소와도 같아야 한다.
-- 프론트는 `authorize_url`로 이동한다. Google은 `scope=openid profile`이 붙는다.
-
-2. 제공자가 `redirect_uri`로 `code`와 `state`를 돌려주면, 프론트는 `POST /api/auth/social`로 보낸다.
-
-요청: `{ "provider": "kakao", "code": "…", "state": "…", "browser_nonce": "<43자 base64url>" }`. 응답 `200`
-
-```json
-{ "access_token": "…", "user": { "user_id": "u-01", "name": "김창업", "provider": "kakao", "joined_at": "2026-11-19" }, "store_id": null }
-```
-
-- 서버는 state 행을 잠근 뒤 아래 순서로 대조한다. 실패하면 모두 `400 INVALID_STATE`이고 **제공자를 부르지 않는다.**
-  1. 발급한 state인가 (없거나 이미 사용·정리됨 → 거절)
-  2. **브라우저 결속**: `SHA-256(browser_nonce)`가 시작 때 저장한 `browser_hash`와 같은가. 다르면 거절하되 **state를 소비하지 않는다** (로그인을 시작한 원래 브라우저가 계속 로그인할 수 있게).
-  3. 결속이 확인되면 state를 **한 번 소비**(삭제·커밋)한 뒤, 제공자가 같은지·만료되지 않았는지 확인한다. 같은 state로 콜백이 동시에 여러 건 와도 잠금 때문에 한 건만 인가 코드 교환까지 간다.
-- `browser_nonce`·`browser_hash` 형식이 틀리거나 빠지면 `400 INVALID_INPUT`.
-- 코드 교환에는 **시작 때 저장한 `redirect_uri`**를 쓴다 (요청 본문으로 받지 않는다).
-  - 카카오: `POST kauth.kakao.com/oauth/token` (`grant_type`, `client_id`, `redirect_uri`, `code`, 클라이언트 시크릿을 쓰면 `client_secret`) → `GET kapi.kakao.com/v2/user/me`의 `id`, `kakao_account.profile.nickname`
-  - Google: `POST oauth2.googleapis.com/token` (`code`, `client_id`, `client_secret`, `redirect_uri`, `grant_type`) → `GET openidconnect.googleapis.com/v1/userinfo`의 `sub`, `name`
-  - 네이버(네아로 일반 방식): `POST nid.naver.com/oauth2.0/token` (`grant_type`, `client_id`, `client_secret`, `code`, `state`. `redirect_uri` 없음) → `GET openapi.naver.com/v1/nid/me`의 `response.id`, `response.nickname`(없으면 `name`)
-- 같은 `(provider, 제공자 사용자 id)`로 다시 로그인하면 같은 `users` 행을 쓴다. 처음 로그인할 때만 제공자 닉네임으로 이름을 정하고(없으면 "사용자"), 이후에는 `PATCH /me`로 바꾼 이름을 유지한다.
-- 제공자가 코드를 거절하면 `401 SOCIAL_LOGIN_FAILED`, 제공자 장애는 `502 SOCIAL_PROVIDER_UNAVAILABLE`, 앱 키가 없으면 `503 SOCIAL_LOGIN_UNAVAILABLE`.
-
-**프론트 구현 규칙 (브라우저 결속)**
-
-브라우저 결속은 **Foundy 자체 방식**으로, 로그인을 시작한 브라우저 탭에서만 콜백을 끝낼 수 있게 해 로그인 CSRF(다른 사람의 인가 코드로 로그인시키기)를 막는다. **제공자 OAuth의 PKCE(`code_challenge`/`code_verifier`)와는 별개**다. `browser_nonce`는 제공자에게 보내지 않고 Foundy API에만 쓴다. 지금 서버는 제공자 PKCE를 쓰지 않는다 (서버가 `client_secret`으로 코드를 교환하는 방식).
-
-1. 로그인 버튼을 누를 때마다 **암호학적으로 안전한 32바이트 `browser_nonce`**를 새로 만든다: `crypto.getRandomValues(new Uint8Array(32))` → base64url(패딩 없음, 43자). `Math.random` 등은 쓰지 않는다.
-2. `browser_hash = SHA-256(browser_nonce의 ASCII 바이트)`를 소문자 hex 64자로 만든다 (`crypto.subtle.digest`). `start`에는 **해시만** 보낸다.
-3. 응답의 `state`를 키로 `sessionStorage`에 `{browser_nonce, provider}`를 보관한다 (예: `foundy.oauth.<state>`). `localStorage`나 쿠키에는 두지 않는다.
-4. `authorize_url`로 **같은 탭에서** 이동하고, 콜백도 **같은 탭**에서 처리한다 (새 창·팝업으로 열면 `sessionStorage`가 달라 결속이 실패한다).
-5. 콜백 화면에서 쿼리의 `state`로 `sessionStorage`를 찾는다. **대응하는 항목이 없으면 API를 부르지 말고 중단**하고 로그인 화면으로 돌린다. 제공자가 `error`를 돌려준 경우도 중단한다.
-6. 항목이 있으면 `{provider, code, state, browser_nonce}`를 `POST /api/auth/social` **요청 본문으로만** 보낸다. 원본 nonce는 URL·쿼리·헤더·로그에 넣지 않는다.
-7. 응답을 받으면(성공·실패 모두) 그 `state`의 `sessionStorage` 항목을 지운다.
+- 비밀번호는 bcrypt 해시로만 저장하고 응답·로그에 남기지 않는다. 로그아웃·토큰 정책은 아래와 같다.
 
 **로그아웃 토큰 정책**: `POST /api/auth/logout`(Bearer) → `204`. **요청에 쓴 토큰만** 폐기 목록(`revoked_tokens`)에 올려 이후 요청을 `401`로 막는다. 같은 계정의 다른 토큰과 다시 로그인해 받은 새 토큰은 그대로 쓸 수 있다.
 - 토큰은 HS256 JWT(7일)이고 새 토큰에는 `jti`가 있다. `jti`가 없는 옛 토큰(이 변경 전 발급한 예시 계정 토큰 등)은 만료될 때까지 쓸 수 있고, 로그아웃하면 토큰 문자열의 SHA-256으로 폐기한다.
-- 폐기 기록과 소셜 로그인 state는 만료 후 서버 시작·로그인 시작·로그아웃 때 정리한다.
+- 폐기 기록은 만료 후 서버 시작·로그아웃 때 정리한다.
 
 `PATCH /api/me` 요청: `{ "name": "김사장" }` → `GET /me`와 같은 응답. 앞뒤 공백을 지우고 1~30자. 다른 필드는 `400`. 가게 이름·점검 결과에는 영향이 없다.
 
