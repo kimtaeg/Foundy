@@ -68,10 +68,25 @@ def _safe(source: str, fn, *args) -> ToolResult:
         return ToolResult(ok=False, source=source, error=str(e))
 
 
+def _with_reason(message: str, res: ToolResult) -> str:
+    """대체·실패 메시지에 짧은 원인을 붙인다 (예: '상표 조회 실패 · 상표 검색 서비스 인증에 실패했어요')."""
+    return f"{message} · {res.reason}" if res.reason else message
+
+
 def _status(res: ToolResult) -> str:
     if not res.ok:
         return "failed"
-    return "fallback" if (res.from_mock or res.from_cache) else "done"
+    # 기한 안의 저장된 조회 결과를 재사용한 것은 정상 완료다. 실패해서 대체했거나 예시 자료를 썼을 때만 fallback
+    return "fallback" if (res.from_mock or res.substituted) else "done"
+
+
+def _origin(res: ToolResult) -> str:
+    """단계 메시지에 붙이는 자료 출처."""
+    if res.from_mock:
+        return " · 예시 자료"
+    if res.from_cache:
+        return " · 저장된 조회 결과로 대체" if res.substituted else " · 저장된 조회 결과"
+    return ""
 
 
 def _data_ev(res: ToolResult, value: str) -> Evidence:
@@ -150,15 +165,16 @@ def run_analysis(
     if "building" in selected:
         step("building", "running", "건축물대장 조회 중")
         b = _safe("건축물대장", tools.building, store)
-        step("building", _status(b),
-             ("캐시·예시 건축물 자료 사용" if b.from_cache or b.from_mock else "건축물대장 조회 완료")
-             if b.ok else "건축물대장 조회 실패", source=b.source)
+        step("building", _status(b), _with_reason(
+             ("예시 건축물 자료 사용" if b.from_mock else f"건축물대장 조회 완료{_origin(b)}")
+             if b.ok else "건축물대장 조회 실패", b), source=b.source)
     elif "law" in selected and hasattr(tools, "cached_building"):
         b = _safe("건축물대장 캐시", tools.cached_building, store)
     address_codes = resolved_address_codes(b)
     if b.ok and b.from_mock and getattr(tools, "use_mock", None) is False:
         # 실제 모드에서 조회가 실패해 모의 응답(다른 주소의 예시 건물)으로 대체됐다. 이 자료로 건물 용도·위반건축물을 판정하지 않는다
-        b = ToolResult(ok=False, source=b.source, error="실제 조회 실패 (예시 건축물 자료로 판정하지 않음)", from_mock=True)
+        b = ToolResult(ok=False, source=b.source, error="실제 조회 실패 (예시 건축물 자료로 판정하지 않음)", from_mock=True,
+                       reason=b.reason)
     building = building_input(pack, business_type, b.data) if b.ok else None
     uses = (building.uses or []) if building else []
 
@@ -169,10 +185,10 @@ def run_analysis(
         if getattr(tools, "use_mock", None) is False and t.ok and t.from_mock:
             # 실제 모드에서 KIPRIS 조회가 실패해 모의 상표 목록으로 대체됐다. 모의 목록은 가게 이름과 상관없는 예시라서
             # 그걸로 "겹치는 상표가 없다"고 판정하면 거짓 안심이 되므로 조회 실패로 두고 판단 불가로 판정하게 한다
-            t = ToolResult(ok=False, source=t.source, error="REAL_TRADEMARK_UNAVAILABLE", from_mock=True)
+            t = ToolResult(ok=False, source=t.source, error="REAL_TRADEMARK_UNAVAILABLE", from_mock=True, reason=t.reason)
         n_sim = len((t.data or {}).get("similar", [])) if t.ok else 0
-        origin = " · 예시 자료" if t.from_mock else (" · 저장된 조회 결과" if t.from_cache else "")
-        step("trademark", _status(t), f"비슷한 상표 {n_sim}건{origin}" if t.ok else "상표 조회 실패", source=t.source)
+        step("trademark", _status(t), _with_reason(f"비슷한 상표 {n_sim}건{_origin(t)}" if t.ok else "상표 조회 실패", t),
+             source=t.source)
 
     # 2. 규칙 판정 + AI 판정 (점검 항목 순서는 규칙 묶음의 순서)
     # AI가 규정별 적용 여부를 판정하려면 규칙 엔진이 미적용으로 본 카드의 조문도 읽어야 해서 조문 카드 전체를 조회한다
@@ -188,7 +204,8 @@ def run_analysis(
             "fallback" if any(s != "done" for s in law_statuses) else "done")
         message = {"done": "조문 조회 완료", "fallback": "캐시·예시 법령 자료로 대체하거나 일부 조문 확인이 필요해요",
                    "failed": "조문을 조회하지 못해 확인이 필요해요"}[law_status]
-        step("law", law_status, message)
+        reason = next((r for r in laws.values() if r.reason and _status(r) != "done"), None)
+        step("law", law_status, _with_reason(message, reason) if reason else message)
     if getattr(tools, "use_mock", None) is False:
         if "law" not in selected and any(c["id"] == "building_use" for c in checks):
             # 건물만 다시 반영할 때(층·호 변경 등)도 건물 용도는 조문이 있어야 판정하므로 그 조문만 함께 찾는다

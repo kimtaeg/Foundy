@@ -12,6 +12,8 @@ from services.pack import get_pack
 from services.timeutil import now_utc, today_kst
 from rules import building_use
 from tools import address as address_tool
+from tools import retry
+from tools.failure import ProviderError, check_gateway
 from tools import kstartup
 
 KAKAO_URL = address_tool.KAKAO_URL
@@ -37,7 +39,8 @@ class Providers:
         self.client.close()
 
     def _get(self, url, **kwargs):
-        response = self.client.get(url, **kwargs)
+        response = retry.get(self.client, url, **kwargs)
+        check_gateway(response, "DATA_GO_KR_GATEWAY_ERROR")
         response.raise_for_status()
         return response
 
@@ -57,8 +60,9 @@ class Providers:
         rows, expected, seen = [], None, set()
         for page in range(1, 31):
             payload = self._get(url, params={**params, "pageNo": str(page)}).json()["response"]
-            if str(payload["header"].get("resultCode")) not in {"00", "0"}:
-                raise ValueError("BUILDING_PROVIDER_ERROR")
+            header = payload["header"]
+            if str(header.get("resultCode")) not in {"00", "0"}:
+                raise ProviderError("BUILDING_PROVIDER_ERROR", str(header.get("resultCode")), header.get("resultMsg"))
             body = payload["body"]
             total = int(body["totalCount"])
             if expected is not None and expected != total:
@@ -139,8 +143,10 @@ class Providers:
             root = ET.fromstring(raw)
             for node in root.iter():
                 node.tag = node.tag.rsplit("}", 1)[-1]
-            if root.tag != "response" or root.findtext("header/resultCode") != "00" or root.findtext("header/successYN") != "Y":
-                raise ValueError("KIPRIS_PROVIDER_ERROR")
+            if root.tag != "response":
+                raise ValueError("INVALID_KIPRIS_XML")
+            if root.findtext("header/resultCode") != "00" or root.findtext("header/successYN") != "Y":
+                raise ProviderError("KIPRIS_PROVIDER_ERROR", root.findtext("header/resultCode"), root.findtext("header/resultMsg"))
             total = int(root.findtext("count/totalCount"))
             if int(root.findtext("count/pageNo")) != page or (expected is not None and total != expected):
                 raise ValueError("KIPRIS_INCOMPLETE")

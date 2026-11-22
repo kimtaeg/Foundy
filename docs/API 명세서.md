@@ -539,6 +539,7 @@ data: {"code":"INTERNAL_ERROR","message":"..."}
 | `grants` | 지원사업 조회·AI 자격 판정 |
 | `market` | (마지막에 구현) 상권 분석 데이터 (주변 동종 업소 조회) |
 - `status`: `running | done | fallback | skipped | failed`. `fallback`은 캐시·mock으로 대체했다는 뜻이고 화면에 표시한다.
+- 외부 조회가 실패해 `fallback`·`failed`가 되면 `message` 끝에 ` · ` 뒤로 짧은 원인이 붙는다 (예: `상표 조회 실패 · 상표 검색 서비스 인증에 실패했어요`, `캐시·예시 건축물 자료 사용 · 건축물대장 서비스에 일시적인 문제가 있어요`). 응답 필드는 바뀌지 않는다. 같은 실패는 서버 로그에 `external_api_failure tool=… kind=… http=… result_code=… result_msg=… elapsed_ms=… outcome=…` 한 줄로 남는다 (키·URL 쿼리 문자열은 남기지 않는다).
 - 스트림이 끊기면 `GET /api/runs/{run_id}`로 상태와 `events`를 폴링한다.
 
 ### `GET /api/runs/{run_id}` — 실행 상태
