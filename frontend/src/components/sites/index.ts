@@ -24,3 +24,4 @@ export * from "./SitesSkeleton";
 export * from "./SitesView";
 export * from "./SitesPage";
 export * from "./SitesWorkspace";
+export * from "./RentComparisonCard";

@@ -1,3 +1,4 @@
+import type { ApiRent, ApiRentQuery } from "@/lib/api/types";
 import type { FootTrafficDataset, FootTrafficDataSource, HourSel } from "./foot-traffic";
 import type { PopulationDataset, PopulationInsights, PopulationInsightsDataSource } from "./population-insights";
 import type { DataState } from "./data-state";
@@ -71,6 +72,8 @@ export interface SitesViewData {
 export interface SitesDataServices {
   appKey?: string;
   nearbyShopsSource?: NearbyShopsSource;
+  /** 임대료 비교 (서버가 한국부동산원 통계로 계산). 없으면 비교할 수 없다고 안내한다 */
+  rentSource?: (query: ApiRentQuery) => Promise<ApiRent>;
   footTrafficData?: FootTrafficDataset;
   footTrafficSource?: FootTrafficDataSource;
   footTrafficLoading?: boolean;

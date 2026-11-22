@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     data_go_kr_key: str = Field(default="", repr=False)
     law_oc: str = Field(default="", repr=False)
     kipris_api_key: str = Field(default="", repr=False)
+    # 한국부동산원 R-ONE 부동산통계 Open API 인증키 (상업용부동산 임대동향조사 → 임대료 비교)
+    reb_api_key: str = Field(default="", repr=False)
     # 법령 RAG: 저장된 법령에서 조문을 검색해 점검 근거로 쓴다. 끄면 예전 방식(지정 조문 조회)만 쓴다.
     law_rag_enabled: bool = True
     # /internal/* (예약 작업이 부르는 내부 API) 보호 토큰. 비어 있으면 내부 API는 항상 거절한다
