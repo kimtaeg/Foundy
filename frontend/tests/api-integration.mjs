@@ -192,11 +192,17 @@ try {
   await button.click();
   await expect(button).toHaveAttribute('aria-expanded', 'true');
   const document = group.documents[0];
-  const status = page.locator('[data-document-status="' + document.doc_key + '"]:visible');
+  const row = page.locator('#doc-' + group.item_id);
+  const status = row.locator('select[data-document-status="' + document.doc_key + '"]');
+  const picker = row.getByRole('button', { name: document.name + ' 준비 상태', exact: true });
+  const choose = async (label) => {
+    await picker.click();
+    await page.getByRole('option', { name: label, exact: true }).click();
+  };
   const previousStatus = await status.inputValue();
-  await rejectSave(() => status.selectOption('obtained'), 'PATCH', '/documents/' + document.doc_key, '서류 상태 저장이 충돌했어요.');
+  await rejectSave(() => choose('발급·취득 완료'), 'PATCH', '/documents/' + document.doc_key, '서류 상태 저장이 충돌했어요.');
   await expect(status).toHaveValue(previousStatus);
-  await save(() => status.selectOption('obtained'), 'PATCH', '/documents/' + document.doc_key);
+  await save(() => choose('발급·취득 완료'), 'PATCH', '/documents/' + document.doc_key);
   await page.reload();
   await button.click();
   await expect(status).toHaveValue('obtained');
