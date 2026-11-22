@@ -114,7 +114,8 @@ Foundy/
 1. 입력을 받으면 `rules/`에서 업종 규칙 묶음을 불러오고, `ask`에 따라 빠진 정보만 되묻는다.
 2. 규칙 엔진이 가게 정보로 법령 적용 여부(`applies`·`not_applicable`·`needs_check`)를 먼저 판정하고(`rules/applicability.py`, 안전장치), 조문 조회 뒤 AI가 조문 원문을 읽고 규정별로 다시 판정한다 (`rules/ai_applicability.py`). 조문이 규칙보다 우선이다. 인용 문장이 원문에서 검증되면 규칙 엔진 결과와 달라도 AI 판정을 따르고, 조문이 없거나 인용을 검증하지 못하면 규칙 엔진 결과를 쓴다. 결과는 `legal_obligations`에 저장한다.
 3. 조회: 건축물대장 → 상표 → 법령(저장된 법령 RAG 검색). 진행 상황을 SSE로 스트리밍한다 (`GET /api/runs/{id}/stream`, 폴링은 `GET /api/runs/{id}`).
-4. 규칙표 대조 → AI 판정(건물 용도·위반건축물·영업신고 서류·상표·광고 문구) → 해결 방안(결과 카드) 순으로 만든다.
+4. 규칙표 대조 → AI 판정(건물 용도·위반건축물·영업신고 서류·상표·광고 문구) → **조문에서 의무 찾기** → 해결 방안(결과 카드) 순으로 만든다.
+   - 조문에서 의무 찾기(`agent/discover.py`): 규칙 묶음이 다루지 않는 조문(`law_rag.discovery` 검색 묶음)을 AI가 읽고 이 가게의 새 의무를 찾는다. 조문 key 가 검색 결과에 있고 인용 문장이 원문에 있어야 채택하며, 채택한 의무는 `law_found:<id>` 점검 카드(`low`, AI 판정)와 체크리스트 작업(`o-x<id>`, `legal_analysis`)이 된다. id 는 조문+인용 문장으로 정해 재분석해도 같다. 이번에 다시 찾지 못한 카드·미완료 작업은 지우고, 의무 찾기가 실패한 분석에서는 이전 결과를 그대로 둔다.
 5. **체크리스트**: 기본 일정(템플릿)에 규칙 엔진이 적용·확인 필요로 판정한 법적 의무와 조건부 작업을 합친다 (`calc/obligation_tasks.py`).
 6. 점검 1회의 토큰·비용을 기록한다 (`cost_logs`). 정책 알림(지원사업)은 선택 단계다.
 
@@ -140,7 +141,7 @@ Foundy/
 ### Checklist Rules
 
 - 체크리스트 작업은 세 가지 유형이다: `legal_obligation`(필수) / `conditional`(조건부, 적용 판단 이유를 보여준다) / `preparation`(권장). 생성 출처는 `source_type`: `template`(기본 일정) · `rule_engine`(조건 규칙) · `legal_analysis`(점검 카드가 검증해 인용한 조문이 있는 법령 분석) · `inspection` · `grant`.
-- **RAG 검색 결과를 그대로 작업으로 만들지 않는다.** 적용 판정(AI 판정, 실패 시 규칙 엔진)이 적용(`applies`)·확인 필요(`needs_check`)인 규칙만 `applicability_rules[].task`로 작업이 된다. 적용 안 함이면 만들지 않는다.
+- **RAG 검색 결과를 그대로 작업으로 만들지 않는다.** 작업이 되는 경로는 두 가지뿐이다. (1) 적용 판정(AI 판정, 실패 시 규칙 엔진)이 적용(`applies`)·확인 필요(`needs_check`)인 규칙의 `applicability_rules[].task`. (2) 조문에서 의무 찾기에서 AI가 고르고 인용 문장이 원문에서 검증된 의무 (`agent/discover.py`, 가게당 `law_rag.discovery.max_items`개까지). 검증하지 못한 의무, 규칙 묶음이 이미 다루는 조문은 작업으로 만들지 않는다. 날짜는 `group_offsets`로 코드가 계산하고 법정 기한은 채우지 않는다.
 - **`due_date`는 권장 준비일(개업일 + `offset_days`)이다.** 법령이 개업 전 기한을 정한 경우만 `statutory_deadline`(개업 전날)과 `statutory_basis`를 따로 채우고, 조문에 근거가 없으면 비워 둔다. 권장일을 법정 기한처럼 표시하지 않는다.
 - 법령 개정이나 재분석으로 더는 적용되지 않는 작업이라도 사용자가 완료한 기록은 지우지 않고 `review_needed`로 표시한다. 미완료 작업만 삭제한다.
 - 새 작업은 해당 점검 카드(`check_id`)와 연결되어 카드를 완료하면 자동 체크된다. 기본 항목의 연결은 규칙 묶음 `report_links`가 정한다.
