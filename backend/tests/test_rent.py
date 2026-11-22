@@ -129,6 +129,76 @@ def test_candidates_requires_district_for_shared_road_names():
     assert rent_tool.candidates("서울특별시 광진구 아차산로 200")[0][1] != "서울>기타>뚝섬"
 
 
+# 자치구 1차 추가 (#193): 도로명 주소 + 지번 지역(시도 구 법정동). 실제 가게의 _address_text 와 같은 형식
+@pytest.mark.parametrize("address,area", [
+    ("서울특별시 강동구 천호대로 1005 서울 강동구 천호동", "서울>기타>천호"),
+    ("서울특별시 동작구 노량진로 100 서울 동작구 노량진동", "서울>기타>노량진"),
+    ("서울특별시 동작구 동작대로 1 서울 동작구 사당동", "서울>기타>사당"),
+    ("서울특별시 관악구 신림로 1 서울 관악구 신림동", "서울>기타>신림역"),
+    ("서울특별시 관악구 관악로 1 서울 관악구 봉천동", "서울>기타>서울대입구역"),
+    ("서울특별시 노원구 동일로 1 서울 노원구 상계동", "서울>기타>상계역"),
+    ("서울특별시 중랑구 망우로 1 서울 중랑구 상봉동", "서울>기타>상봉역"),
+    ("서울특별시 양천구 목동동로 1 서울 양천구 목동", "서울>기타>목동"),
+    ("서울특별시 금천구 시흥대로 1 서울 금천구 독산동", "서울>기타>독산/시흥"),
+    ("서울특별시 금천구 시흥대로 2 서울 금천구 시흥동", "서울>기타>독산/시흥"),
+    ("서울특별시 강북구 도봉로 1 서울 강북구 수유동", "서울>기타>수유"),
+    ("서울특별시 동대문구 장한로 1 서울 동대문구 장안동", "서울>기타>장안동"),
+    ("서울특별시 구로구 경인로 1 서울 구로구 오류동", "서울>기타>오류동역"),
+    ("서울특별시 강남구 도산대로 1 서울 강남구 청담동", "서울>강남>청담"),
+    ("서울특별시 강남구 압구정로 1 서울 강남구 압구정동", "서울>강남>압구정"),
+])
+def test_first_batch_district_rules_match_by_legal_dong(address, area):
+    assert rent_tool.candidates(address)[0] == ("상권", area, "full")
+
+
+@pytest.mark.parametrize("address,first", [
+    # 한 동이 여러 상권에 걸치는 곳은 연결하지 않고 권역·서울 평균으로 비교한다
+    ("서울특별시 서초구 서초대로 1 서울 서초구 서초동", ("권역", "서울>강남", "full")),
+    ("서울특별시 강남구 테헤란로 1 서울 강남구 역삼동", ("권역", "서울>강남", "full")),
+    ("서울특별시 송파구 올림픽로 1 서울 송파구 잠실동", ("시도", "서울", "name")),
+    ("서울특별시 강서구 화곡로 1 서울 강서구 화곡동", ("시도", "서울", "name")),
+    # 동 이름은 낱말이 정확히 같아야 한다: 목동로(신정동)는 목동 상권이 아니다
+    ("서울특별시 양천구 목동로 1 서울 양천구 신정동", ("시도", "서울", "name")),
+    # 같은 동 이름이라도 자치구가 다르면 맞추지 않는다 (경기 시흥시는 금천구 시흥동이 아니다)
+    ("경기도 시흥시 시흥대로 1 경기 시흥시 시흥동", ("시도", "경기", "name")),
+])
+def test_ambiguous_or_other_district_addresses_are_not_linked(address, first):
+    assert rent_tool.candidates(address)[0] == first
+
+
+def test_rent_cache_key_changes_when_area_rules_change(monkeypatch, tmp_path):
+    from tools.analysis import AnalysisTools
+
+    seen = []
+    tools = AnalysisTools.__new__(AnalysisTools)
+    tools._query = lambda source, params, fetch, check_id=None: seen.append(params)
+    tools.rent("서울 강동구 천호동")
+    rules = tmp_path / "rent_areas.yaml"
+    rules.write_text(rent_tool.AREAS_FILE.read_text(encoding="utf-8") + "\n# 바뀐 규칙\n", encoding="utf-8")
+    monkeypatch.setattr(rent_tool, "AREAS_FILE", rules)
+    tools.rent("서울 강동구 천호동")
+    assert seen[0]["address"] == seen[1]["address"] and seen[0]["schema"] == 2
+    assert seen[0]["rules"] != seen[1]["rules"]  # 규칙이 바뀌면 저장된 결과를 다시 쓰지 않는다
+
+
+@pytest.mark.skipif(not os.getenv("REB_API_KEY"), reason="REB_API_KEY 없음")
+def test_every_rule_area_has_real_rent_and_conversion():
+    """규칙에 넣은 상권이 실제 최신 통계표에 있고 임대료·전환율이 있는지 (상권 이름이 바뀌면 여기서 알 수 있다)."""
+    key = os.environ["REB_API_KEY"]
+    with httpx.Client(timeout=30) as client:
+        rents = rent_tool._first_rows(client, key, rent_tool.RENT_TABLES, "2025")
+        period = max(str(r["WRTTIME_IDTFR_ID"]) for r in rents)
+        rent_areas = {r["CLS_FULLNM"] for r in rents if str(r["WRTTIME_IDTFR_ID"]) == period and r.get("DTA_VAL") is not None}
+        convs = rent_tool._period_rows(client, key, rent_tool.CONVERSION_TABLES, period)
+        conv_areas = {r["CLS_FULLNM"] for r in convs if r.get("DTA_VAL") is not None}
+        floors = rent_tool._period_rows(client, key, rent_tool.FLOOR_TABLES, period)
+        floor_areas = {r["GRP_FULLNM"] for r in floors if r["ITM_NM"] == "임대료" and r.get("DTA_VAL") is not None}
+    areas = [rule["area"] for rule in rent_tool.load_areas()["areas"]]
+    assert [a for a in areas if a not in rent_areas] == []
+    assert [a for a in areas if a not in conv_areas] == []
+    assert [a for a in areas if a not in floor_areas] == []
+
+
 # ── R-ONE 응답 해석 ──
 
 def test_lookup_reads_area_rent_and_same_area_conversion():
@@ -286,6 +356,15 @@ def test_floor_rents_for_sido_uses_nation_and_drops_missing_floor():
     assert "지하1층" not in nation["area"]  # 값이 없는(null) 층은 넣지 않는다
 
 
+def test_zero_floor_value_is_treated_as_missing():
+    # R-ONE은 표본이 없는 층을 0으로 준다 (실제: 서울>기타>천호 지하1층 임대료 0). 0원 평균과 비교하지 않는다
+    rows = FLOOR_ROWS + [frow("서울>기타>천호", "1층", "임대료", 57.851016605076),
+                         frow("서울>기타>천호", "2층", "임대료", 26.0278586054532),
+                         frow("서울>기타>천호", "지하1층", "임대료", 0)]
+    f = rent_tool.floor_rents(reb_client(tables(floor_rows=rows)), "k", "서울>기타>천호", "202603")
+    assert f["area"] == {"1층": 57.851016605076, "2층": 26.0278586054532}
+
+
 def test_floor_rows_without_full_path_match_sido_by_name_only():
     rows = [{**r, "GRP_FULLNM": None} for r in FLOOR_ROWS]
     assert rent_tool.floor_rents(reb_client(tables(floor_rows=rows)), "k", "서울", "202603")["area"]["2층"] == 27.2338468240708
@@ -379,6 +458,25 @@ def test_second_floor_store_compares_with_second_floor(real_mode):
 def test_basement_store_compares_with_basement_first_floor(real_mode):
     v = service.view(store(address_detail="지하2층"), Tools(floor_real()), monthly_rent=1_000_000, deposit=0, area=40)
     assert v["comparison"]["compared_floor"] == "지하1층" and v["rows"][2]["is_my_floor"] is True
+
+
+def test_basement_store_with_zero_basement_value_falls_back_to_first_floor(real_mode):
+    rows = [r for r in FLOOR_ROWS if not (r["GRP_NM"] == "뚝섬" and r["CLS_NM"] == "지하1층")]
+    rows.append(frow("서울>기타>뚝섬", "지하1층", "임대료", 0))
+    v = service.view(store(address_detail="지하1층"), Tools(floor_real(floor_rows=rows)), monthly_rent=1_000_000,
+                     deposit=0, area=40)
+    assert v["comparison"]["compared_floor"] == "1층" and v["comparison"]["average_krw_per_sqm"] == 67_381
+    assert [r["label"] for r in v["rows"]] == ["뚝섬 1층", "뚝섬 2층", "서울 1층 평균"]
+    assert v["notes"] == ["지하1층 통계가 없어 1층 평균과 비교했어요. 1층이 아니면 보통 이보다 낮아요."]
+
+
+def test_zero_floor_value_in_saved_result_is_ignored(real_mode):
+    # 0 거르기 이전에 저장된 조회 결과(캐시)에 0이 남아 있어도 0원 평균과 비교하지 않는다
+    data = {**floor_real().data, "floors": {"area": {"1층": 67.38, "2층": 33.33, "지하1층": 0}, "top": {"name": "서울", "1층": 0}}}
+    v = service.view(store(address_detail="지하1층"), Tools(ToolResult(ok=True, source=rent_tool.SOURCE, data=data)),
+                     monthly_rent=1_000_000, deposit=0, area=40)
+    assert v["comparison"]["compared_floor"] == "1층" and v["comparison"]["average_krw_per_sqm"] == 67_381
+    assert [r["label"] for r in v["rows"]] == ["뚝섬 1층", "뚝섬 2층"]
 
 
 def test_third_floor_store_falls_back_to_first_floor_with_note(real_mode):
