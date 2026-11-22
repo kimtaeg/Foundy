@@ -11,10 +11,11 @@
 
 | 날짜 | 내용 |
 | --- | --- |
+| 2026-11-22 | 문서 정리: `users`를 아이디·비밀번호·예시 계정 기준으로 설명, 개인정보 항목에 비밀번호 해시 저장 반영. 스키마 변경 없음 |
 | 2026-11-21 | 법령 RAG: `laws`·`law_articles`·`law_article_history`·`law_embeddings`(pgvector `vector(768)`)·`applicability_rules`·`legal_obligations`·`law_change_logs` 추가(11장), `stores.area_sqm`·`does_delivery` 추가, 마이그레이션 `0004_law_rag` |
 | 2026-11-21 | 아이디·비밀번호 로그인: `users.username`·`password_hash` 추가, `provider`에 `local` 허용, 마이그레이션 `0003_password_login` |
 | 2026-11-20 | 최초 작성. `foundy` 확정 기능 기준. **상권 분석(상권 테이블·캐시)과 메뉴 광고 문구(`menu_text`)는 마지막에 구현하므로 지금 테이블에 넣지 않고 10장에 추가 방법만 적는다.** 서류함은 규칙 묶음으로 만들어서 테이블이 없다 |
-| 2026-11-20 | 백엔드 착수 결정: `cost_logs`는 `run_id` NULL 허용 + `store_id` 직접 연결로 확정(2-10), `decision` 알림은 저장 방식(`dec-<item_key>`)으로 확정, 로그인은 예시 계정(`provider='demo'`)만 먼저 만들고 소셜 로그인은 Must 이후. 첫 마이그레이션 `backend/db/migrations/versions/0001_init.py` |
+| 2026-11-20 | 백엔드 착수 결정: `cost_logs`는 `run_id` NULL 허용 + `store_id` 직접 연결로 확정(2-10), `decision` 알림은 저장 방식(`dec-<item_key>`)으로 확정, 로그인은 예시 계정(`provider='demo'`)부터 만든다. 첫 마이그레이션 `backend/db/migrations/versions/0001_init.py` |
 
 ---
 
@@ -47,7 +48,7 @@ erDiagram
 
 | 테이블 | 역할 | `foundy` 저장 키 | 범위 |
 | --- | --- | --- | --- |
-| `users` | 소셜 로그인 계정 | `foundy-session`, `profile` | 핵심 |
+| `users` | 계정 (아이디·비밀번호·예시) | `foundy-session`, `profile` | 핵심 |
 | `stores` | 가게 정보 (계정당 1개) | `store` | 핵심 |
 | `runs` | 분석 실행과 진행 이벤트 (SSE 재생) | (조사 중 진행 화면) | 핵심 |
 | `report_items` | 점검 카드 내용과 사용자 진행 상태 | `rs` (카드별 선택·실행·메모) | 핵심 |
@@ -78,13 +79,12 @@ erDiagram
 
 ### 2-1. `users`
 
-아이디·비밀번호 계정(`provider = 'local'`)과 소셜 로그인 계정. 비밀번호는 bcrypt 해시(`password_hash`)로만 저장한다. 예시 계정(`provider = 'demo'`)은 가입 없이 만든다.
+아이디·비밀번호 계정(`provider = 'local'`). 비밀번호는 bcrypt 해시(`password_hash`)로만 저장한다. 예시 계정(`provider = 'demo'`)은 가입 없이 만든다.
 
 ```sql
 CREATE TABLE users (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider         text NOT NULL CHECK (provider IN ('kakao','google','naver','demo','local')),
-  provider_user_id text,                        -- 소셜 쪽 사용자 id. demo는 NULL
+  provider         text NOT NULL CHECK (provider IN ('demo','local')),
   username         text,                        -- 아이디(영문 소문자·숫자 4~20자). local만
   password_hash    text,                        -- bcrypt 해시. local만
   name             text NOT NULL,               -- 마이페이지에서 바꿀 수 있는 표시 이름
@@ -92,8 +92,6 @@ CREATE TABLE users (
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX users_provider_uid ON users (provider, provider_user_id)
-  WHERE provider_user_id IS NOT NULL;
 CREATE UNIQUE INDEX users_username ON users (username) WHERE username IS NOT NULL;
 ALTER TABLE users ADD CONSTRAINT users_local_credentials
   CHECK ((provider = 'local') = (username IS NOT NULL AND password_hash IS NOT NULL));
@@ -101,9 +99,8 @@ ALTER TABLE users ADD CONSTRAINT users_local_credentials
 
 | 컬럼 | 설명 |
 | --- | --- |
-| `provider` | `kakao`·`google`·`naver`·`demo`·`local`(아이디·비밀번호) |
+| `provider` | `local`(아이디·비밀번호)·`demo`(예시 계정) |
 | `username`·`password_hash` | `local` 계정만 값이 있다 (`0003_password_login`). 평문 비밀번호는 저장하지 않는다 |
-| `provider_user_id` | OAuth로 얻은 사용자 식별자. 같은 `(provider, provider_user_id)`로 다시 로그인하면 같은 `users` 행을 쓴다 |
 | `name` | `PATCH /api/me`로만 바뀐다. 점검 결과에 영향이 없다 |
 
 - `GET /api/me`의 `user`·`store_id`: `store_id`는 `stores`에서 `user_id`로 찾고 없으면 `null` (첫 설정으로 보낸다).
@@ -401,7 +398,7 @@ CREATE TABLE change_logs (
 CREATE INDEX change_logs_store ON change_logs (store_id, created_at DESC);
 ```
 
-### 2-7a. `revoked_tokens`·`oauth_states` (인증, 마이그레이션 `0002_auth_answers`)
+### 2-7a. `revoked_tokens` (인증, 마이그레이션 `0002_auth_answers`)
 
 ```sql
 CREATE TABLE revoked_tokens (           -- 로그아웃한 토큰. 요청에 쓴 토큰만 올린다
@@ -410,20 +407,10 @@ CREATE TABLE revoked_tokens (           -- 로그아웃한 토큰. 요청에 쓴
   expires_at  timestamptz NOT NULL,     -- 토큰 만료 시각. 지나면 정리 (어차피 401)
   revoked_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE oauth_states (             -- 소셜 로그인 시작 때 발급한 state (10분, 1회용)
-  state         text PRIMARY KEY,
-  provider      text NOT NULL CHECK (provider IN ('kakao','google','naver')),
-  redirect_uri  text NOT NULL,          -- 허용 목록에서 고른 값. 코드 교환 때 이 값을 쓴다
-  browser_hash  text NOT NULL CHECK (browser_hash ~ '^[0-9a-f]{64}$'),  -- 시작한 브라우저의 SHA-256(browser_nonce). 원본은 저장하지 않는다
-  expires_at    timestamptz NOT NULL,
-  created_at    timestamptz NOT NULL DEFAULT now()
-);
 ```
 
-- 콜백 대조: 행 잠금 → `browser_hash` 비교(다르면 소비하지 않고 거절) → 일치하면 삭제·커밋(1회 소비) → 제공자·만료 확인. 브라우저 결속은 제공자 PKCE와 별개인 Foundy 자체 방식이다 (API 명세서 1장).
-
 - 인증 확인: 토큰 서명·만료 → `revoked_tokens`에 없음 → `users`에 있음. 하나라도 아니면 `401`.
-- 만료된 행은 서버 시작·로그인 시작·로그아웃 때 지운다.
+- 만료된 행은 서버 시작·로그아웃 때 지운다.
 
 ### 2-8. `grant_matches` [구현]
 
@@ -681,7 +668,7 @@ sync_links(store):
 
 | 테이블 | 제약·인덱스 |
 | --- | --- |
-| `users` | `UNIQUE (provider, provider_user_id)` (소셜 계정당 1행) |
+| `users` | `UNIQUE (username)` (아이디당 1행) |
 | `stores` | `user_id UNIQUE` (계정당 가게 1개), `ON DELETE CASCADE` |
 | `runs` | 가게당 진행 중 1개만 (`UNIQUE … WHERE status IN ('queued','running')`) |
 | `report_items` | `UNIQUE (store_id, item_key)`, `UNIQUE (store_id, check_id)` |
@@ -766,7 +753,7 @@ sync_links(store):
 - **확장**: `CREATE EXTENSION IF NOT EXISTS pgcrypto;` (`gen_random_uuid()`).
 - **정리 작업**: `api_cache`의 만료 행은 조회할 때 지우거나 하루 1회 `DELETE FROM api_cache WHERE expires_at < now()`로 정리한다. 중단된 `runs`는 시작 시 정리한다.
 - **백업**: Railway 요금제에 따른다. 심사 기간에는 예시 계정이 항상 동작해야 하므로 시드 JSON(`mocks/demo/seoyeon.json`)을 저장소에 둔다.
-- **개인정보**: 저장하는 개인 정보는 소셜 이름과 가게 정보, 출생 연도(선택)뿐이다. 비밀번호·주민등록번호·계좌 정보를 받지 않는다. 출생 연도는 지원사업 자격 판정에만 쓴다.
+- **개인정보**: 저장하는 개인 정보는 이름(가입 때 입력)·아이디, 가게 정보, 출생 연도(선택)뿐이다. 비밀번호는 bcrypt 해시로만 저장하고 평문은 남기지 않는다. 주민등록번호·계좌 정보는 받지 않는다. 출생 연도는 지원사업 자격 판정에만 쓴다.
 - **시간대**: DB는 UTC `timestamptz`로 저장하고 응답에서 +09:00으로 변환한다. `due_date`·`opening_date`는 날짜(`date`)로 시간대 영향이 없다.
 
 ---
@@ -777,7 +764,6 @@ sync_links(store):
 - [ ] `stores`의 `answers` 컬럼 방식(2-2)으로 API 응답 `answers` 객체를 조립하는 위치(직렬화 함수) 확정.
 - [x] `alerts`의 `decision` 알림을 저장할지, 결정 대기 카드에서 응답 때 계산할지 (이 문서는 저장 + `dedupe_key`). 계산 방식으로 가면 `decision` 행은 만들지 않는다. → **저장으로 확정** (2026-11-20)
 - [x] 챗봇 비용 기록(`cost_logs`)을 `runs(trigger='chat')`에 연결할지 `store_id`로 직접 연결할지 (2-10). → **`store_id` 직접 연결로 확정** (2026-11-20)
-- [ ] 소셜 로그인의 `provider_user_id` 필드(카카오 `id`, 구글 `sub`, 네이버 `id`) 매핑.
 - [ ] 관할 구청 전화번호는 규칙 묶음 `contacts.*.by_sigungu`에 사람이 확인한 지역만 채운다 (표에 없는 지역은 `fallback` 110). 시연 주소(성동구) 번호를 시연 전에 직접 확인한다.
 - [ ] 서류 받는 곳 링크(`sites`)를 배포 전에 사람이 확인한다.
 - [ ] 데모 시드 파일 `seoyeon.json`에 `report_items`·`checklist_items`·`alerts`가 이 스키마 형태로 들어 있는지. → 2026-11-20 확인: **아니다.** API 응답 형태(`item_id`, `answers` 객체, `offset_days` 없음, `alerts` 없음)라 `backend/db/seed_demo.py`가 변환한다. 점검 카드는 4개(`r-01` building_use, `r-02` building_violation, `r-03` alcohol_vs_type, `r-04` trademark_similar)로 2-4 표와 키·항목이 다르고 `permit_docs`·`labeling`이 없다. 체크리스트 키도 2-5 표와 다르다(`c-05`가 사업자등록, 지원사업 마감이 `g-*`가 아닌 `c-08`·`c-09`).
