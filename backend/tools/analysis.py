@@ -89,7 +89,7 @@ class AnalysisTools:
                 with transaction() as session:
                     stmt = insert(ApiCache).values(key=key, source=source, payload=result.model_dump(mode="json"),
                                                    fetched_at=result.fetched_at,
-                                                   expires_at=now + timedelta(days=1 if source in ("law", "grants") else 7))
+                                                   expires_at=now + timedelta(days=1 if source in ("law", "grants", "coord_region") else 7))
                     session.execute(stmt.on_conflict_do_update(index_elements=[ApiCache.key], set_={
                         "payload": stmt.excluded.payload, "fetched_at": stmt.excluded.fetched_at,
                         "expires_at": stmt.excluded.expires_at}))
@@ -131,6 +131,28 @@ class AnalysisTools:
 
         params = {"address": address, "schema": 2, "rules": areas_version()}
         return self._query("rent", params, lambda: self.providers.rent(address))
+
+    def coord_region(self, lat: float, lng: float) -> str | None:
+        """지도 좌표 → 지번 지역 '시도 구 법정동'. 소수 4자리(약 10m)로 반올림해 같은 좌표는 저장된 결과(1일)를 쓴다.
+
+        모의 모드·키 없음·호출 실패·결과 없음은 None (지어낸 동을 쓰지 않는다).
+        """
+        if self.use_mock:
+            return None
+        from tools.address import region_from_coord
+
+        params = {"lat": round(lat, 4), "lng": round(lng, 4)}
+
+        def fetch():
+            region = region_from_coord(params["lat"], params["lng"], key=get_settings().kakao_rest_key)
+            if region is None:
+                return ToolResult(ok=False, source="coord_region", error="COORD_REGION_NOT_FOUND")  # 결과 없음·실패
+            return ToolResult(ok=True, source="coord_region", data={"region": region})
+
+        res = self._query("coord_region", params, fetch)
+        if not res.ok or res.from_mock or not res.data:
+            return None
+        return res.data.get("region") or None
 
     def trademark(self, name):
         return self._query("trademark", {"name": name}, lambda: self.providers.trademark(name))

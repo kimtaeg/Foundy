@@ -17,6 +17,7 @@ from tools import retry
 from tools.failure import classify, log_failure
 
 KAKAO_URL = "https://dapi.kakao.com/v2/local/search/address.json"
+KAKAO_COORD_URL = "https://dapi.kakao.com/v2/local/geo/coord2regioncode.json"
 MAX_CANDIDATES = 5
 
 
@@ -92,3 +93,32 @@ def region_from_document(document: dict) -> str | None:
     address = document.get("address") or {}
     return " ".join(p for p in (address.get("region_1depth_name"), address.get("region_2depth_name"),
                                 address.get("region_3depth_name")) if p) or None
+
+
+def region_from_coord(lat: float, lng: float, *, key: str, client: httpx.Client | None = None) -> str | None:
+    """좌표 → 지번 지역 '시도 구 법정동' (카카오 coord2regioncode, 법정동 문서만).
+
+    region_type 'B'(법정동) 문서만 쓴다. 'H'(행정동)는 임대료 상권 규칙(법정동 기준)과 맞지 않아 쓰지 않는다.
+    키 없음·호출 실패·결과 없음은 None. 실패는 address_coord 로 기록한다 (URL·키는 남기지 않는다).
+    """
+    if not key:
+        return None
+    own = client is None
+    client = client or httpx.Client(timeout=10, follow_redirects=False)
+    started = time.monotonic()
+    try:
+        response = retry.get(client, KAKAO_COORD_URL, params={"x": lng, "y": lat},
+                             headers={"Authorization": f"KakaoAK {key}"})
+        response.raise_for_status()
+        documents = response.json().get("documents", [])
+    except (httpx.HTTPError, ValueError) as exc:
+        log_failure("address_coord", classify(exc), (time.monotonic() - started) * 1000, "failed")
+        return None
+    finally:
+        if own:
+            client.close()
+    for document in documents:
+        if document.get("region_type") == "B":
+            return " ".join(p for p in (document.get("region_1depth_name"), document.get("region_2depth_name"),
+                                        document.get("region_3depth_name")) if p) or None
+    return None
