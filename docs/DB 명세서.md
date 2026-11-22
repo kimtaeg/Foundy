@@ -181,7 +181,7 @@ CREATE UNIQUE INDEX runs_one_active ON runs (store_id) WHERE status IN ('queued'
 ```
 
 - `scope`: 마이페이지 수정으로 시작한 재분석은 `impacts`에 해당하는 단계만 담는다 (`dates`는 DB 호출만 하고 외부 조회·LLM이 없다).
-- `events[].status`: `running | done | fallback | skipped | failed`. `fallback`은 캐시·모의 응답으로 대체했다는 뜻이고 화면에 표시한다.
+- `events[].status`: `running | done | fallback | skipped | failed`. `fallback`은 실제 조회가 실패해 저장된 결과·모의 응답으로 대체했다는 뜻이고 화면에 표시한다. 기한 안의 `api_cache`를 재사용한 것은 `done`이다.
 - 오래 걸리거나 서버가 재시작되면 `running`인 행이 남는다. 시작 시 `status IN ('queued','running')`이고 `started_at`이 10분 넘은 행은 `failed`로 정리한다.
 
 ### 2-4. `report_items`
@@ -732,7 +732,7 @@ sync_links(store):
 | `alertread` | `{알림id: true}` | `alerts.read` |
 | `sim` | 알림 시점 이동(`now`/`d7`/`after6m`) | 저장하지 않음. `GET /alerts?as_of=` 쿼리값 |
 | `candx` | 후보 자리 (옛 기능) | 없음 (서비스에서 제외) |
-| `myprice` | 내 아메리카노 가격 (상권 분석) | 없음 (마지막에 구현, 10장) |
+| `myprice` | 내 아메리카노 가격 (상권 분석) | **제외** (가격 비교 화면 제거, API 명세서 10장) |
 
 ---
 
@@ -751,8 +751,8 @@ sync_links(store):
 
 | 기능 | 추가할 DB 변경 |
 | --- | --- |
-| 상권 분석 | **테이블 추가 없음.** 주변 업소는 `stores.address_codes.coord`로 카카오 로컬(CE7·FD6)을 호출해 `api_cache`(`source='places'`, 7일)에 둔다. 상권 요약·경쟁 강도·프랜차이즈 비율은 응답 때 계산한다 (규칙 묶음 `franchise_brands`). 가격 분포·평균 임대료는 `mocks/`의 예시 |
-| 내 가격 입력(가격 포지셔닝) | `ALTER TABLE stores ADD COLUMN my_americano_krw int;` (저장만, 다시 반영 없음) |
+| 상권 분석 | **테이블 추가 없음.** 주변 업소는 프론트가 카카오맵 JS SDK 카테고리 검색(CE7·FD6)으로 직접 조회한다 (서버 호출·`api_cache` 저장 없음). 상권 요약·경쟁 강도·프랜차이즈 비율은 프론트가 계산한다 |
+| 내 가격 입력(가격 포지셔닝) | **제외** (공개 가격 데이터가 없어 가격 비교를 뺐다. 컬럼을 추가하지 않는다) |
 | 마이페이지 영향의 `market` | 규칙 묶음 `impacts`에 `address → market` 추가. 알림 `change`(상권 변화)는 `alerts`에 같은 방식으로 저장 |
 | 상권 변화 알림(다시 조회) | `runs(trigger='refresh')`가 이전 결과와 비교해 바뀐 것만 `alerts(type='change', diff)`로 저장 |
 | 메뉴·광고 문구 점검 | `ALTER TABLE stores ADD COLUMN menu_text text;` 그리고 `report_items`에 `check_id='ad_claims'`(규칙 묶음 `checks`에 추가) 카드 생성. 영향 표에 `menu_text → ad → 해당 카드 초기화` 추가 |

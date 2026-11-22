@@ -35,8 +35,22 @@ const { distanceMeters, analyzeMarket } = loadModule(
   "src/lib/market/analyze-market.ts",
   { "@/data/market": data },
 );
-const center = data.MARKET_DEMO_CENTER;
-const shops = [...data.SHOPS, ...data.EXFOOD];
+// 테스트용 점포: 중심에서 30~280m 사이에 카페 15곳·음식점 8곳 (실제 상권 데이터가 아니다)
+const center = { lat: 37.5, lng: 127.0 };
+const at = (meters, degrees) => ({
+  lat: center.lat + (meters * Math.sin((degrees * Math.PI) / 180)) / 110540,
+  lng: center.lng + (meters * Math.cos((degrees * Math.PI) / 180)) / 88000,
+});
+const shops = [
+  ...Array.from({ length: 15 }, (_, i) => ({
+    id: `c${i}`, name: i < 4 ? `스타벅스 ${i}호점` : `카페 ${i}`, dist: 0, ...at(30 + i * 15, i * 24),
+    sub: "커피전문점", cat: "카페", ex: true,
+  })),
+  ...Array.from({ length: 8 }, (_, i) => ({
+    id: `f${i}`, name: `식당 ${i}`, dist: 0, ...at(90 + i * 25, 20 + i * 47),
+    sub: "한식", cat: "음식점", ex: true,
+  })),
+];
 const original = JSON.stringify(shops);
 
 assert.equal(distanceMeters(center, center), 0);

@@ -1,4 +1,3 @@
-import type { ChangeEventHandler } from "react";
 import type { FootTrafficDataset, FootTrafficDataSource, HourSel } from "./foot-traffic";
 import type { PopulationDataset, PopulationInsights, PopulationInsightsDataSource } from "./population-insights";
 import type { DataState } from "./data-state";
@@ -18,33 +17,11 @@ export interface MarketSelection {
   r: number;
   cat: string;
 }
-export interface PriceRange {
-  min: number;
-  median: number;
-  max: number;
-}
-export interface PricePosition {
-  txt: string;
-  pct: number | null;
-  lvl: string;
-}
-export interface MarketStats {
-  fr: Shop[];
-  ind: number;
-  dessert: Shop[];
-  within: (radius: number) => number;
-}
 export interface SitesContext {
   S: { address: string; detail: string };
   MAP: MarketSelection;
-  SHOPS: Shop[];
-  EXFOOD: Shop[];
-  PRICE: string;
-  PRICE_EX: PriceRange;
   density: (count: number) => number;
   compLevel: (density: number) => string;
-  mkStats: () => MarketStats;
-  pricePos: (price: string) => PricePosition;
   won: (value: number) => string;
 }
 export interface ChartRow {
@@ -88,11 +65,7 @@ export interface SitesViewData {
   address: string;
   /** The initial center already represents the geocoded store address. */
   addressResolved?: boolean;
-  shops: Shop[];
   initialCenter: MarketPoint;
-  price: string;
-  priceRange: PriceRange;
-  pricePosition: PricePosition;
 }
 
 export interface SitesDataServices {
@@ -108,7 +81,6 @@ export interface SitesDataServices {
   /** Already computed API response; may be a stable Promise for Suspense. */
   populationInsights?: DataState<PopulationInsights | null>;
   onAnalysisChange?: (selection: SitesAnalysisSelection) => void;
-  onPriceChange?: ChangeEventHandler<HTMLInputElement>;
   onOpenReport?: () => void;
 }
 

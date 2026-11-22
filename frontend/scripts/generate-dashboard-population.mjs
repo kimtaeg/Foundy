@@ -5,7 +5,8 @@ import { createSourceRuntime } from '../tests/helpers/source-runtime.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const { load } = createSourceRuntime();
-const { MARKET_DEMO_CENTER } = load('@/data/market');
+// 대시보드 생활인구 미리보기 스냅숏의 기준 좌표 (성수역). 상권 분석 화면은 이 좌표를 쓰지 않는다
+const MARKET_DEMO_CENTER = { lat: 37.54515, lng: 127.05713 };
 const { buildPopulationInsights, POPULATION_INSIGHT_FILES } = load('@/lib/foot-traffic/insights');
 
 export const dashboardPopulationRadius = 300;
