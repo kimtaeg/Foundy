@@ -8,9 +8,12 @@
 """
 
 import re
+import time
 from dataclasses import dataclass, field
 
 import httpx
+
+from tools.failure import classify, log_failure
 
 KAKAO_URL = "https://dapi.kakao.com/v2/local/search/address.json"
 MAX_CANDIDATES = 5
@@ -54,9 +57,11 @@ def resolve_address(query: str, *, key: str, use_mock: bool, client: httpx.Clien
         return AddressResult(status="unverified")
     own = client is None
     client = client or httpx.Client(timeout=10, follow_redirects=False)
+    started = time.monotonic()
     try:
         documents = search(client, key, query)
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as exc:
+        log_failure("address", classify(exc), (time.monotonic() - started) * 1000, "failed")
         return AddressResult(status="lookup_failed")
     finally:
         if own:
@@ -69,7 +74,8 @@ def resolve_address(query: str, *, key: str, use_mock: bool, client: httpx.Clien
     document = documents[0]
     try:
         codes = codes_from_document(document)
-    except AddressCodeError:
+    except AddressCodeError as exc:
+        log_failure("address", classify(ValueError(str(exc))), (time.monotonic() - started) * 1000, "failed")
         return AddressResult(status="lookup_failed")
     address = document.get("address") or {}
     road = (document.get("road_address") or {}).get("address_name") or document.get("address_name")

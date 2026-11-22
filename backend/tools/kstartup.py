@@ -12,6 +12,8 @@ import re
 from datetime import date
 from urllib.parse import unquote
 
+from tools.failure import check_gateway
+
 URL = "https://apis.data.go.kr/B552735/kisedKstartupService01/getAnnouncementInformation01"
 SOURCE = "K-Startup 사업공고"
 PER_PAGE = 500
@@ -59,6 +61,7 @@ def fetch(client, service_key: str) -> list[dict]:
         response = client.get(URL, params={
             "serviceKey": unquote(service_key), "page": page, "perPage": PER_PAGE, "returnType": "json",
             "cond[rcrt_prgs_yn::EQ]": "Y"})
+        check_gateway(response, "KSTARTUP_GATEWAY_ERROR")
         response.raise_for_status()
         batch = response.json().get("data") or []
         rows.extend(batch)

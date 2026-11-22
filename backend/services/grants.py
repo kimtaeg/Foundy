@@ -43,7 +43,7 @@ def fetch_candidates(value: StoreInput, tools) -> ToolResult:
         logger.warning("지원사업 조회 실패: %s", type(exc).__name__)
         res = ToolResult(ok=False, source="K-Startup 사업공고", error="조회 실패")
     if getattr(tools, "use_mock", None) is False and res.ok and res.from_mock:
-        res = ToolResult(ok=False, source=res.source, error="REAL_GRANTS_UNAVAILABLE", from_mock=True)
+        res = ToolResult(ok=False, source=res.source, error="REAL_GRANTS_UNAVAILABLE", from_mock=True, reason=res.reason)
     return res
 
 
