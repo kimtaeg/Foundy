@@ -256,13 +256,20 @@ def judge_law_card(
         verdict, reason = "low", "이 가게에 적용되는 규정으로 확인됐어요. 아래 근거 조문을 확인해 보세요."
     elif verdict == "ok" and statuses == {"needs_check"}:
         verdict, reason = "unknown", "적용 여부를 판단할 정보가 부족해요. 관할 기관에 직접 확인해 보세요."
+    elif verdict == "low" and statuses == {"not_applicable"}:  # 조문으로 해당 없다고 정한 규정을 AI가 의무로 보면 따르지 않는다
+        verdict, reason = ("ok", "조문 기준으로 이 가게는 해당하지 않아요.") if verified else (
+            "unknown", "해당 여부를 조문으로 확인하지 못했어요. 관할 기관에 직접 확인해 보세요.")
     if verified and verdict == j.verdict and j.title.strip() and reason.strip():
         accept_response(llm, j)
     evidence = [_law_evidence(res, by_key[k], " … ".join(quotes[k]) or None) for k in (verified or cited)]
     if verdict != "unknown" and j.required and verdict == "low":
         reason = f"{reason} 조문에 적힌 할 일: " + " / ".join(r.strip() for r in j.required[:4] if r.strip())
+    from rules.engine import render_title
+
+    # 코드가 판정을 바꿨으면 AI의 단정적인 제목 대신 규칙 묶음의 판정별 제목을 쓴다 (템플릿이 없으면 AI 제목)
+    title = j.title if verdict == j.verdict else (render_title(spec, verdict) or j.title)
     return ReportItem(item_id=item_id, check_id=spec["id"], stage=spec["stage"], decided_by="ai",
-                      verdict=verdict, title=j.title, reason=reason, evidence=evidence)
+                      verdict=verdict, title=title, reason=reason, evidence=evidence)
 
 
 judge_permit_docs = judge_law_card  # 영업신고 서류 카드 (조문 해석)

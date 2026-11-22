@@ -141,6 +141,8 @@ def run_analysis(
         outcome_of = {o.rule_id: o for o in outcomes}
 
         def _shown(check: dict) -> bool:
+            if check.get("always_show"):
+                return True  # 해당하지 않거나 입력이 없어도 판정 결과(문제 없음·판단 불가)를 카드로 보여 준다
             linked = [outcome_of[r] for r in check.get("rule_ids", []) if r in outcome_of]
             if not linked:
                 return True

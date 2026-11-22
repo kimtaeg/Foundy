@@ -108,3 +108,18 @@ def test_real_discovery_finds_verified_obligations(real):
     for f in found:
         assert f.obligation.quote and f.evidence.law_name  # accept 가 원문 인용을 검증했다
         assert f"{f.evidence.law_name} {f.evidence.article}" not in covered_keys(PACK, {})
+
+
+def test_fire_card_is_always_shown_and_judged_by_area():
+    spec = check_spec(PACK, "fire_safety")
+    assert spec["always_show"] and spec["rule_ids"] == ["FIRE-DENSE-001"]
+    assert {"low", "ok", "unknown"} <= set(spec["titles"])  # 코드가 판정을 바꾸면 쓰는 면적 기준 제목
+    rule = next(r for r in PACK["applicability_rules"] if r["rule_id"] == "FIRE-DENSE-001")
+    assert rule["conditions"]["area_sqm"] == {"min": 100}
+
+
+def test_waste_obligation_articles_are_pinned_in_discovery():
+    waste = next(q for q in PACK["law_rag"]["discovery"]["queries"] if q["laws"] == ["폐기물관리법"])
+    assert {"law_name": "폐기물관리법", "label": "제15조의2"} in waste["pins"]
+    assert "소방시설 설치 및 관리에 관한 법률" in PACK["law_sources"]
+    assert not any("소방시설" in name for q in PACK["law_rag"]["discovery"]["queries"] for name in q["laws"])
