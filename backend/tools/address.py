@@ -83,7 +83,12 @@ def resolve_address(query: str, *, key: str, use_mock: bool, client: httpx.Clien
     coord = None
     if document.get("x") and document.get("y"):
         coord = {"lat": float(document["y"]), "lng": float(document["x"])}
-    region = " ".join(p for p in (address.get("region_1depth_name"), address.get("region_2depth_name"),
-                                  address.get("region_3depth_name")) if p) or None
     return AddressResult(status="resolved", codes=codes, road=road, jibun=address.get("address_name"),
-                         coord=coord, region=region)
+                         coord=coord, region=region_from_document(document))
+
+
+def region_from_document(document: dict) -> str | None:
+    """카카오 주소 문서 → 지번 지역 '시도 구 법정동' (예: '서울 관악구 봉천동'). 임대료 상권 매칭에 쓴다."""
+    address = document.get("address") or {}
+    return " ".join(p for p in (address.get("region_1depth_name"), address.get("region_2depth_name"),
+                                address.get("region_3depth_name")) if p) or None
