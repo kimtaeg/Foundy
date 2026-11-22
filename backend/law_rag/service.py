@@ -87,6 +87,43 @@ class LawRag:
         return ToolResult(ok=True, source=SOURCE, fetched_at=collected, data={"articles": articles})
 
 
+    def discover(self, store=None) -> ToolResult | None:
+        """조문에서 의무 찾기(law_rag.discovery)용 조문. 검색 묶음마다 찾아 조문 단위로 합친다. 설정·저장된 법령이 없으면 None."""
+        conf = (self.pack.get("law_rag") or {}).get("discovery") or {}
+        answers = (getattr(store, "answers", None) or {}) if store is not None else {}
+        specs = [q for q in conf.get("queries", []) if not q.get("when") or answers.get(q["when"])]
+        if not specs:
+            return None
+        per_query: list[list[dict]] = []
+        collected = None
+        max_chars = int(conf.get("max_article_chars", 2500))  # 별표처럼 긴 표는 여러 조각을 함께 읽어야 의무가 보인다
+        try:
+            with transaction() as session:
+                for spec in specs:
+                    hits = retriever.search(
+                        session, query=self._query(spec, store), keywords=spec.get("keywords", []), names=spec["laws"],
+                        embedder=self.embedder, pins=spec.get("pins"), top_k=spec.get("top_k", 4))
+                    per_query.append(retriever.merge_by_article(hits, max_chars=max_chars))
+                    stamps = [h.collected_at for h in hits if h.collected_at]
+                    if stamps:
+                        collected = max([collected, *stamps] if collected else stamps)
+        except Exception as exc:
+            logger.warning("의무 찾기 조문 검색 실패: %s", type(exc).__name__)
+            return ToolResult(ok=False, source=SOURCE, error="조문 검색 실패")
+        # 검색 묶음을 번갈아 합친다 (앞 묶음의 조문만으로 개수 제한이 차서 뒤 묶음(근로·주류 등)이 빠지지 않게)
+        found: dict[tuple[str, str], dict] = {}
+        for rank in range(max((len(q) for q in per_query), default=0)):
+            for arts in per_query:
+                if rank < len(arts):
+                    found.setdefault((arts[rank]["law_name"], arts[rank]["article"]), arts[rank])
+        if not found:
+            return ToolResult(ok=False, source=SOURCE, error="LAW_NOT_FOUND")
+        collected = collected or now_utc()
+        if collected.tzinfo is None:
+            collected = collected.replace(tzinfo=timezone.utc)
+        return ToolResult(ok=True, source=SOURCE, fetched_at=collected, data={"articles": list(found.values())})
+
+
 def sync_rules(pack: dict | None = None) -> int:
     """규칙 묶음의 적용 조건 규칙을 DB 사본(applicability_rules)에 맞춘다. 검토 상태는 DB에 남은 값을 지키되 YAML 이 reviewed 면 따른다."""
     pack = pack or load_pack("cafe_restaurant")

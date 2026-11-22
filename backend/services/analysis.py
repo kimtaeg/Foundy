@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 
 from agent.analysis_cache import AnalysisResponseCache, CachedAnalysisLLM
 from agent.cost import CostTracker
+from agent.discover import is_found
 from agent.loop import run_analysis
 from agent.ports import StoreInput
 from api.errors import ApiError, invalid_input
@@ -22,6 +23,7 @@ from calc.dates import Dates
 from config import get_settings
 from db.models import Alert, ChecklistItem, CostLog, ReportItem, Run, Store
 from db.session import transaction
+from rules.engine import check_spec
 from services.cards import current_verdict, decision_alert, is_pending_decision, load_cards
 from services.documents import sync_requirements
 from services.effective import effective_store
@@ -268,9 +270,14 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None, item_ev
                 card.recommendation = item.recommendation.model_dump(mode="json") if item.recommendation else None
                 card.user_action = item.user_action.model_dump(mode="json") if item.user_action else None
             card.evidence = [e.model_dump(mode="json") for e in item.evidence]
-            spec = next(c for c in pack["checks"] if c["id"] == item.check_id)
+            spec = check_spec(pack, item.check_id)
             card.contact_key = spec.get("contact")
-        for check_id in getattr(result, "skipped_checks", []):
+        stale_ids = list(getattr(result, "skipped_checks", []))
+        if "law" in scope:  # 조문에서 찾은 의무 중 이번 분석에서 다시 찾지 못한 카드
+            made_checks = {i.check_id for i in result.items}
+            if getattr(result, "discovery_ran", False):
+                stale_ids += [c.check_id for c in cards if is_found(c.check_id) and c.check_id not in made_checks]
+        for check_id in stale_ids:
             stale = by_check.get(check_id)
             if stale is not None and not stale.chosen_option and stale.action_status == "pending":
                 session.delete(stale)  # 면적·직원 등이 바뀌어 더는 적용되지 않는 규정의 카드는 지운다
@@ -312,6 +319,8 @@ def persist_result(run_id, snapshot, result, cost, scope, deadline=None, item_ev
             for task in list(tasks):  # 이전 분석에서 만든 법령 작업이 이번에는 만들어지지 않았다
                 if task.source_type not in ("rule_engine", "legal_analysis") or task.item_key in made:
                     continue
+                if task.item_key.startswith("o-x") and not getattr(result, "discovery_ran", False):
+                    continue  # 이번에 조문에서 의무 찾기를 못 했으면 이전에 찾은 작업을 그대로 둔다
                 if task.done:
                     task.review_needed, task.review_flagged_at = True, now_utc()
                     task.review_reason = "이 규정이 더 이상 적용되지 않는 것으로 다시 분석됐어요. 완료 기록은 남겨 둡니다."

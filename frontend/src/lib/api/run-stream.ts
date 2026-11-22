@@ -46,6 +46,7 @@ const STEP_INDEX: Record<string, number> = {
   applicability: 3,
   rules: 4,
   interpret: 5,
+  discover: 5, // 조문에서 추가 의무 찾기 (점검 결과 정리 단계에 함께 표시)
   advise: 6,
   checklist: 7,
   grants: 8,

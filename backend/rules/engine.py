@@ -114,6 +114,9 @@ def check_spec(pack: dict, check_id: str) -> dict:
     for c in pack["checks"]:
         if c["id"] == check_id:
             return c
+    if check_id.startswith("law_found:"):  # 조문에서 찾은 의무 카드 (agent/discover.py). 공통 값만 있고 선택지·초안은 없다
+        conf = ((pack.get("law_rag") or {}).get("discovery") or {}).get("check") or {}
+        return {"id": check_id, "stage": conf.get("stage", "개업 전"), "contact": conf.get("contact"), "dynamic": True}
     raise KeyError(f"규칙 묶음에 없는 점검 항목: {check_id}")
 
 
