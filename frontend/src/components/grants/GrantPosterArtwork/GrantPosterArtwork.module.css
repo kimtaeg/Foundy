@@ -1,0 +1,261 @@
+.art {
+  position: relative;
+  isolation: isolate;
+  align-self: end;
+  justify-self: end;
+  width: min(96%, 180px);
+  aspect-ratio: 1;
+  margin: 0 2% 4% 0;
+  pointer-events: none;
+}
+
+.art::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 5% 0 12% 9%;
+  border-radius: 50%;
+  background-image: radial-gradient(var(--medium) 0.8px, transparent 1px);
+  background-size: 4px 4px;
+  opacity: 0.35;
+}
+
+.art > span,
+.art > span::before,
+.art > span::after {
+  position: absolute;
+  display: block;
+}
+
+.art > span::before,
+.art > span::after {
+  content: "";
+}
+
+/* Offset hardcovers, with a separate paper edge and printed spine. */
+.book > span {
+  left: 4%;
+  bottom: 10%;
+  width: 85%;
+  height: 38%;
+  background: var(--dark);
+  clip-path: polygon(0 51%, 65% 0, 100% 28%, 100% 46%, 34% 100%, 0 70%);
+}
+
+.book > span:nth-child(2) {
+  bottom: 24%;
+  left: 13%;
+  background: var(--medium);
+}
+
+.book > span:nth-child(3) {
+  bottom: 38%;
+  left: 8%;
+}
+
+.book > span::before {
+  inset: 0;
+  background: var(--highlight);
+  clip-path: polygon(35% 83%, 98% 32%, 98% 42%, 35% 94%);
+}
+
+.book > span::after {
+  inset: 0;
+  background: var(--light);
+  clip-path: polygon(7% 47%, 61% 4%, 65% 7%, 11% 50%);
+}
+
+/* The bars share a sloped top face and a shaded right edge. */
+.growth > span {
+  bottom: 14%;
+  width: 25%;
+  background: var(--medium);
+  clip-path: polygon(0 7px, 62% 0, 100% 5px, 100% calc(100% - 8px), 38% 100%, 0 calc(100% - 5px));
+}
+
+.growth > span:nth-child(1) { left: 3%; height: 31%; }
+.growth > span:nth-child(2) { left: 33%; height: 50%; }
+.growth > span:nth-child(3) { left: 63%; height: 70%; }
+
+.growth > span::before {
+  inset: 0;
+  background: var(--dark);
+  clip-path: polygon(38% 12px, 100% 5px, 100% 100%, 38% 100%);
+}
+
+.growth > span::after {
+  inset: 0;
+  background: var(--light);
+  clip-path: polygon(0 7px, 62% 0, 100% 5px, 38% 12px);
+}
+
+.storefront > span:nth-child(1) {
+  right: 9%;
+  bottom: 15%;
+  width: 77%;
+  height: 49%;
+  background: var(--light);
+  box-shadow: inset -6px 0 var(--medium);
+}
+
+.storefront > span:nth-child(1)::before {
+  inset: 23% 43% 20% 10%;
+  border: 2px solid var(--dark);
+  background: linear-gradient(135deg, #e4efdf 40%, #fff5dd 40% 48%, #c5d6ce 48%);
+}
+
+.storefront > span:nth-child(1)::after {
+  inset: 22% 14% 0 65%;
+  border: 2px solid var(--dark);
+  border-bottom: 0;
+  background: linear-gradient(to bottom, #cbdacf 53%, var(--dark) 53% 60%, var(--medium) 60%);
+}
+
+.storefront > span:nth-child(2) {
+  right: 4%;
+  bottom: 52%;
+  width: 88%;
+  height: 23%;
+  background: repeating-linear-gradient(90deg, var(--medium) 0 12.5%, var(--highlight) 12.5% 25%);
+  clip-path: polygon(12% 0, 88% 0, 100% 72%, 100% 100%, 0 100%, 0 72%);
+}
+
+.storefront > span:nth-child(2)::after {
+  inset: 72% 0 0;
+  background: var(--dark);
+  opacity: 0.22;
+}
+
+.storefront > span:nth-child(3) {
+  inset: auto 4% 12% 9%;
+  height: 4%;
+  background: var(--dark);
+}
+
+.coins > span {
+  width: 43%;
+  border-radius: 50% / 12%;
+  background: repeating-linear-gradient(to bottom, var(--medium) 0 4px, var(--dark) 4px 6px);
+}
+
+.coins > span:nth-child(1) { right: 6%; bottom: 23%; height: 54%; }
+.coins > span:nth-child(2) { left: 4%; bottom: 19%; height: 38%; }
+.coins > span:nth-child(3) { left: 34%; bottom: 10%; height: 23%; }
+
+.coins > span::before {
+  top: -5px;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--highlight);
+  box-shadow: inset 0 0 0 2px var(--light);
+}
+
+.coins > span::after {
+  top: -2px;
+  left: 24%;
+  width: 52%;
+  height: 5px;
+  border: 1px solid var(--medium);
+  border-radius: 50%;
+}
+
+.dialogue > span:nth-child(1),
+.dialogue > span:nth-child(2) {
+  width: 63%;
+  height: 43%;
+  border-radius: 38% 38% 38% 12%;
+  background: var(--dark);
+}
+
+.dialogue > span:nth-child(1) {
+  top: 16%;
+  right: 3%;
+  transform: rotate(8deg) scaleX(-1);
+}
+
+.dialogue > span:nth-child(2) {
+  bottom: 18%;
+  left: 5%;
+  transform: rotate(-8deg);
+  background: var(--medium);
+}
+
+.dialogue > span:nth-child(-n + 2)::after {
+  bottom: -18%;
+  left: 8%;
+  width: 24%;
+  height: 29%;
+  background: inherit;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.dialogue > span:nth-child(3) {
+  left: 20%;
+  bottom: 37%;
+  width: 31%;
+  aspect-ratio: 5;
+  transform: rotate(-8deg);
+  background: radial-gradient(circle closest-side, var(--highlight) 75%, transparent 80%) 0 / 33.33% 100% repeat-x;
+}
+
+.orbit > span:nth-child(1) {
+  inset: 23% 15% 14% 22%;
+  border-radius: 50%;
+  background: var(--medium);
+  box-shadow: inset -9px -5px var(--dark);
+}
+
+.orbit > span:nth-child(2) {
+  width: 94%;
+  height: 28%;
+  top: 48%;
+  left: 4%;
+  transform: rotate(-31deg);
+  border: 4px solid var(--light);
+  border-radius: 50%;
+}
+
+.orbit > span:nth-child(3) {
+  top: 16%;
+  left: 14%;
+  width: 12%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--dark);
+}
+
+.layers > span {
+  inset: 40% 15% 13%;
+  border-radius: 8%;
+  transform: skewY(-16deg);
+  background: var(--dark);
+}
+
+.layers > span:nth-child(2) {
+  transform: translate(-4%, -23%) skewY(-16deg);
+  background: var(--medium);
+}
+
+.layers > span:nth-child(3) {
+  transform: translate(-8%, -46%) skewY(-16deg);
+  background: var(--light);
+}
+
+.ripple > span {
+  inset: 15% 5% 5% 15%;
+  border: 5px solid var(--dark);
+  border-radius: 50%;
+}
+
+.ripple > span:nth-child(2) {
+  inset: 26% 16% 16% 26%;
+  border-color: var(--medium);
+}
+
+.ripple > span:nth-child(3) {
+  inset: 38% 28% 28% 38%;
+  border: 0;
+  background: var(--light);
+}

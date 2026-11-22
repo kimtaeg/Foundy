@@ -43,3 +43,6 @@ backend/.cache/
 *.db
 logs/
 *.log
+
+# ── frontend 작업 산출물 (스크린샷·로그·백업) ──
+frontend/work/

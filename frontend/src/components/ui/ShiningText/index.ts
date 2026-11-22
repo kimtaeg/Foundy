@@ -1,0 +1,1 @@
+export { ShiningText } from "./ShiningText";

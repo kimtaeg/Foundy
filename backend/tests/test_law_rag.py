@@ -1,0 +1,663 @@
+"""법령 RAG: 조문 파서·청커·적용 조건 규칙(DB 없이) + 저장·하이브리드 검색·변경 감지·API(DB)."""
+
+import copy
+import json
+import uuid
+from pathlib import Path
+
+import pytest
+from sqlalchemy import delete, select
+
+from agent.ports import StoreInput
+from config import get_settings
+from law_rag.chunker import MAX_CHUNK, chunk_text, embed_text
+from law_rag.embedder import DIM, HashEmbedder
+from law_rag.parser import ParsedArticle, ParsedLaw, parse_law
+from rules.applicability import (
+    APPLIES, NEEDS_CHECK, NOT_APPLICABLE, evaluate_rule, evaluate_rules, floor_from_detail)
+from rules.engine import load_pack
+
+MOCKS = Path(__file__).resolve().parents[1] / "mocks"
+PACK = load_pack("cafe_restaurant")
+needs_db = pytest.mark.skipif(not get_settings().database_url, reason="테스트 PostgreSQL 필요")
+
+
+# ---------------------------------------------------------------- 파서·청커 (DB 없음)
+
+@pytest.fixture(scope="module")
+def food_law() -> ParsedLaw:
+    return parse_law(json.loads((MOCKS / "law_body.json").read_text(encoding="utf-8")), mst="285339")
+
+
+def test_parser_reads_real_food_sanitation_act(food_law):
+    assert food_law.name == "식품위생법" and food_law.law_key == "001805" and food_law.mst == "285339"
+    assert food_law.effective_date.isoformat() == "2026-10-08"
+    by_label = {a.label: a for a in food_law.articles}
+    assert "제37조" in by_label and "제41조" in by_label
+    assert by_label["제37조"].title == "영업허가 등"
+    assert "영업신고" in by_label["제37조"].content or "신고하여야 한다" in by_label["제37조"].content
+    assert len(by_label) == len(food_law.articles)  # 라벨이 겹치지 않는다
+    assert all(a.kind == "article" for a in food_law.articles if a.label.startswith("제"))
+
+
+def test_parser_reads_annex_of_building_decree():
+    law = parse_law(json.loads((MOCKS / "law_building_decree_body.json").read_text(encoding="utf-8")), mst="1")
+    annex = {a.label: a for a in law.articles if a.kind == "annex"}
+    assert "별표 1" in annex and annex["별표 1"].title.startswith("용도별 건축물의 종류")
+    assert "휴게음식점" in annex["별표 1"].content and "일반음식점" in annex["별표 1"].content
+    assert not any((a.title or "").startswith("삭제") for a in annex.values())
+
+
+def test_body_hash_changes_only_when_content_changes(food_law):
+    before = food_law.body_hash
+    changed = copy.deepcopy(food_law)
+    changed.articles[0] = ParsedArticle("article", changed.articles[0].number, 0, changed.articles[0].label,
+                                        None, changed.articles[0].content + " 개정", None)
+    assert changed.body_hash != before and copy.deepcopy(food_law).body_hash == before
+
+
+def test_chunks_respect_size_and_keep_original_text():
+    long_line = "영업자는 위생교육을 받아야 한다. " * 200
+    chunks = chunk_text("① 첫째 항\n② 둘째 항\n" + long_line)
+    assert all(len(c) <= MAX_CHUNK for c in chunks) and len(chunks) > 1
+    joined = "".join(chunks).replace("\n", "").replace(" ", "")
+    assert "첫째항" in joined and "둘째항" in joined
+    assert chunk_text("짧은 조문") == ["짧은 조문"]
+    assert embed_text("식품위생법", "제37조", "영업허가 등", "본문").startswith("식품위생법 제37조(영업허가 등)\n")
+
+
+def test_hash_embedder_is_deterministic_and_unit_length():
+    emb = HashEmbedder()
+    a, b = emb.embed_query("영업신고 위생교육"), emb.embed_query("영업신고 위생교육")
+    assert a == b and len(a) == DIM and abs(sum(x * x for x in a) - 1) < 1e-6
+    close = sum(x * y for x, y in zip(a, emb.embed_query("위생교육 영업신고 서류")))
+    far = sum(x * y for x, y in zip(a, emb.embed_query("건축물 바닥면적 용도지역")))
+    assert close > far
+
+
+# ---------------------------------------------------------------- 적용 조건 규칙 (DB 없음)
+
+def store(**kw) -> StoreInput:
+    base = dict(store_id="s", name="모노커피", address="서울", address_detail="2층", opening_date="2027-03-02",
+                answers={"sells_alcohol": True, "uses_terrace": False, "has_employees": True, "does_delivery": False},
+                area_sqm=120)
+    base.update(kw)
+    return StoreInput(**base)
+
+
+def outcome(rule_id, **kw):
+    return {o.rule_id: o for o in evaluate_rules(PACK, store(**kw), "일반음식점")}[rule_id]
+
+
+def test_floor_parsing():
+    assert [floor_from_detail(x) for x in ("1층", "2층 201호", "지하 1층", "B1", "", None, "상가동")] == \
+        [1, 2, -1, -1, None, None, None]
+
+
+def test_fire_rule_depends_on_area_and_floor():
+    assert outcome("FIRE-DENSE-001").status == APPLIES
+    assert outcome("FIRE-DENSE-001", area_sqm=60).status == NOT_APPLICABLE
+    first = outcome("FIRE-DENSE-001", address_detail="1층")
+    assert first.status == NEEDS_CHECK and "1층" in first.reason  # 예외(1층)는 확인 필요
+    unknown = outcome("FIRE-DENSE-001", area_sqm=None)
+    assert unknown.status == NEEDS_CHECK and unknown.missing_inputs == ["area_sqm"]
+
+
+def test_labor_rules_follow_employee_answer():
+    assert outcome("LABOR-CONTRACT-001").status == APPLIES
+    no = outcome("LABOR-CONTRACT-001", answers={"sells_alcohol": True, "has_employees": False})
+    assert no.status == NOT_APPLICABLE
+    unknown = outcome("LABOR-CONTRACT-001", answers={"sells_alcohol": True})
+    assert unknown.status == NEEDS_CHECK and unknown.missing_inputs == ["has_employees"]
+
+
+def test_unknown_business_type_is_never_guessed():
+    result = evaluate_rule(PACK["applicability_rules"][0], {"business_type": None})
+    assert result.status == NEEDS_CHECK and result.missing_inputs == ["business_type"]
+
+
+def test_every_rule_has_law_and_is_draft_until_reviewed():
+    for rule in PACK["applicability_rules"]:
+        assert rule["law"]["law_name"] in PACK["law_sources"], rule["rule_id"]
+        assert rule.get("review_status", "draft") in ("draft", "reviewed")
+    for spec in PACK["checks"]:
+        for rule_id in spec.get("rule_ids", []):
+            assert rule_id in {r["rule_id"] for r in PACK["applicability_rules"]}
+    for check_id, cfg in PACK["law_rag"]["checks"].items():
+        assert all(name in PACK["law_sources"] for name in cfg["laws"]), check_id
+
+
+# ---------------------------------------------------------------- DB: 저장·검색·변경 감지
+
+@pytest.fixture
+def test_law():
+    """시험용 법령 이름·ID. 끝나면 지운다 (조문·조각은 CASCADE)."""
+    from db.models import Alert, Law, LawChangeLog
+    from db.session import transaction
+
+    tag = uuid.uuid4().hex[:8]
+    name = f"시험식품법{tag}"
+    yield {"name": name, "key": f"T{tag}"}
+    with transaction() as session:
+        session.execute(delete(Law).where(Law.name == name))
+        session.execute(delete(LawChangeLog).where(LawChangeLog.law_name == name))
+        session.execute(delete(Alert).where(Alert.dedupe_key.like(f"law-T{tag}%")))
+
+
+def make_law(info, mst, articles) -> ParsedLaw:
+    law = ParsedLaw(info["key"], info["name"], "법률", mst, "1", None, "시험부처", f"https://www.law.go.kr/x/{mst}")
+    for number, (title, content) in enumerate(articles, start=37):
+        law.articles.append(ParsedArticle("article", number, 0, f"제{number}조", title, content, None))
+    return law
+
+
+@needs_db
+def test_save_search_and_hybrid_ranking(test_law):
+    from db.session import transaction
+    from law_rag import retriever
+    from law_rag.store import save_law
+
+    emb = HashEmbedder()
+    law = make_law(test_law, "100", [
+        ("영업신고", "① 휴게음식점 영업을 하려는 자는 구청장에게 영업신고를 하여야 한다."),
+        ("위생교육", "① 영업자는 영업 시작 전에 식품위생교육을 받아야 한다."),
+        ("원산지", "① 음식점에서 쇠고기를 조리하여 판매하는 경우 원산지를 표시하여야 한다."),
+    ])
+    with transaction() as session:
+        result = save_law(session, law, embedder=emb)
+    assert result.change == "added" and result.embedded_chunks == 3
+
+    with transaction() as session:
+        hits = retriever.search(session, query="식품위생교육 받기", keywords=["교육"], names=[test_law["name"]],
+                                embedder=emb, top_k=2)
+        keyword_only = retriever.search(session, query="무관", keywords=["원산지"], names=[test_law["name"]], top_k=3)
+        other_law = retriever.search(session, query="식품위생교육", keywords=["교육"], names=["없는법령"], embedder=emb)
+        pinned = retriever.search(session, query="무관", keywords=[], names=[test_law["name"]],
+                                  pins=[{"law_name": test_law["name"], "label": "제37조"}])
+    assert hits[0].label == "제38조" and "vector" in hits[0].sources and "keyword" in hits[0].sources
+    assert [h.label for h in keyword_only] == ["제39조"] and keyword_only[0].sources == {"keyword"}
+    assert other_law == []  # 법령명 필터가 항상 걸린다
+    assert [h.label for h in pinned] == ["제37조"] and pinned[0].sources == {"pinned"}
+
+    merged = retriever.merge_by_article(hits)
+    keys = [f"{a['law_name']} {a['article']}" for a in merged]
+    assert len(keys) == len(set(keys))  # 판정 AI가 쓰는 키가 겹치지 않는다
+
+
+@needs_db
+def test_unchanged_law_is_not_reembedded_and_change_is_logged_with_history(test_law):
+    from db.models import LawArticleHistory, LawChangeLog
+    from db.session import transaction
+    from law_rag.changes import apply_parsed
+
+    emb = HashEmbedder()
+    first = make_law(test_law, "100", [("영업신고", "① 영업신고를 하여야 한다."), ("위생교육", "① 교육을 받아야 한다.")])
+    assert apply_parsed(first, emb)[0].change == "added"
+    again, _ = apply_parsed(copy.deepcopy(first), emb)
+    assert again.change == "unchanged" and again.embedded_chunks == 0
+
+    second = make_law(test_law, "200", [("영업신고", "① 영업신고를 하여야 한다."), ("위생교육", "① 교육을 매년 받아야 한다.")])
+    result, _ = apply_parsed(second, emb)
+    assert result.change == "updated" and result.old_mst == "100" and result.new_mst == "200"
+    assert result.changed_articles == [{"label": "제38조", "change": "changed"}]  # 바뀐 조문만
+    assert result.embedded_chunks == 1  # 바뀐 조문만 다시 임베딩한다
+
+    third = make_law(test_law, "300", [("영업신고", "① 영업신고를 하여야 한다.")])
+    removed, _ = apply_parsed(third, emb)
+    assert removed.changed_articles == [{"label": "제38조", "change": "removed"}]
+    with transaction() as session:
+        history = list(session.scalars(select(LawArticleHistory).where(LawArticleHistory.law_name == test_law["name"])))
+        logs = list(session.scalars(select(LawChangeLog).where(LawChangeLog.law_name == test_law["name"])))
+    assert {h.content for h in history} == {"① 교육을 받아야 한다.", "① 교육을 매년 받아야 한다."}
+    assert [l.change_type for l in sorted(logs, key=lambda l: l.detected_at)] == ["added", "updated", "updated"]
+
+
+class RecordingEmbedder(HashEmbedder):
+    def __init__(self):
+        self.batches = []
+
+    def embed_documents(self, texts):
+        self.batches.append(texts)
+        return super().embed_documents(texts)
+
+
+@needs_db
+def test_law_ingest_batches_new_chunks_and_reuses_matching_vectors_on_amendment(test_law):
+    from db.models import LawArticle, LawEmbedding
+    from db.session import transaction
+    from law_rag.changes import apply_parsed
+    from law_rag.retriever import pinned_chunks
+
+    emb = RecordingEmbedder()
+    first, second, amended = ("가" * MAX_CHUNK, "나" * MAX_CHUNK, "다" * MAX_CHUNK)
+    law = make_law(test_law, "100", [("첫 조문", f"{first}\n{second}"), ("둘째 조문", "영업신고")])
+    assert apply_parsed(law, emb)[0].embedded_chunks == 3
+    assert [len(batch) for batch in emb.batches] == [3]
+
+    revision = make_law(test_law, "200", [("첫 조문", f"{first}\n{amended}"), ("둘째 조문", "영업신고")])
+    result, _ = apply_parsed(revision, emb)
+    assert result.embedded_chunks == 2
+    expected_input = embed_text(law.name, "제37조", "첫 조문", amended)
+    assert emb.batches[1:] == [[expected_input]]
+
+    pins = [{"law_name": law.name, "label": label} for label in ("제38조", "제37조")]
+    with transaction() as session:
+        first_article = select(LawArticle.id).where(
+            LawArticle.url == revision.source_url, LawArticle.label == "제37조")
+        rows = session.execute(select(LawEmbedding.content, LawEmbedding.embedding).where(
+            LawEmbedding.article_id.in_(first_article)).order_by(LawEmbedding.chunk_no)).all()
+        hits = pinned_chunks(session, pins)
+    assert len(rows) == 2
+    for (content, vector), original in zip(rows, (first, amended), strict=True):
+        assert content == original
+        assert list(vector) == pytest.approx(emb.embed_query(embed_text(law.name, "제37조", "첫 조문", original)))
+    assert [hit.label for hit in hits] == ["제38조", "제37조", "제37조"]
+    assert all(hit.url == revision.source_url for hit in hits)
+
+    renamed = make_law(test_law, "300", [("첫 조문 새 제목", f"{first}\n{amended}"), ("둘째 조문", "영업신고")])
+    apply_parsed(renamed, emb)
+    assert emb.batches[-1] == [embed_text(law.name, "제37조", "첫 조문 새 제목", part) for part in (first, amended)]
+
+
+@needs_db
+def test_law_ingest_leaves_rejected_article_searchable_without_dropping_other_vectors(test_law):
+    from db.session import transaction
+    from law_rag.changes import apply_parsed
+    from law_rag.retriever import search
+
+    class PartialResponse(RecordingEmbedder):
+        def embed_documents(self, texts):
+            vectors = super().embed_documents(texts)
+            return vectors[:0] if any(text.endswith("오류 조문") for text in texts) else vectors
+
+    emb = PartialResponse()
+    law = make_law(test_law, "100", [("부정확한 임베딩", "오류 조문"), ("정상", "영업신고 조문")])
+    apply_parsed(law, emb)
+    with transaction() as session:
+        hits = search(session, query="영업신고", keywords=["조문"], names=[law.name], embedder=emb)
+    assert [len(batch) for batch in emb.batches] == [2, 1, 1]
+    assert {hit.label: hit.sources for hit in hits} == {"제37조": {"keyword"}, "제38조": {"keyword", "vector"}}
+
+
+@needs_db
+def test_rag_skips_provider_if_only_keyword_index_exists_and_uses_vector_after_indexing(test_law):
+    from law_rag.changes import apply_parsed
+    from law_rag.service import LawRag
+
+    class QueryCountingEmbedder(HashEmbedder):
+        model = f"test-{test_law['key']}"
+
+        def __init__(self):
+            self.calls = []
+
+        def embed_query(self, text):
+            self.calls.append(text)
+            return super().embed_query(text)
+
+    emb = QueryCountingEmbedder()
+    law = make_law(test_law, "100", [("영업신고", "영업신고를 하여야 한다.")])
+    apply_parsed(law, embed=False)
+    rag = LawRag(embedder=emb, pack={"law_rag": {"checks": {"test": {
+        "query": "영업신고", "keywords": ["영업신고"], "laws": [law.name],
+    }}}})
+    assert rag.articles_for("test").data["articles"][0]["retrieved_by"] == ["keyword"]
+    assert not emb.calls
+
+    # Ingest a changed article to enable this model without backfilling unrelated laws in the test database.
+    revision = make_law(test_law, "200", [("영업신고", "영업신고를 매년 하여야 한다.")])
+    apply_parsed(revision, emb)
+    assert rag.articles_for("test").data["articles"][0]["retrieved_by"] == ["keyword", "vector"]
+    assert emb.calls == ["영업신고"]
+
+
+@needs_db
+def test_duplicate_law_refresh_is_serialized_and_only_embeds_once(test_law):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from law_rag.changes import apply_parsed
+
+    emb = RecordingEmbedder()
+    law = make_law(test_law, "100", [("정상", "영업신고 조문")])
+    start = Barrier(2, timeout=5)
+
+    def ingest():
+        start.wait()
+        return apply_parsed(law, emb)[0].change
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first, second = executor.submit(ingest), executor.submit(ingest)
+        assert {first.result(10), second.result(10)} == {"added", "unchanged"}
+    assert len(emb.batches) == 1
+
+
+@needs_db
+def test_law_change_alerts_only_stores_with_affected_rules(test_law, monkeypatch):
+    """바뀐 조문이 걸린 규칙이 적용·확인 필요인 가게에만 알림이 간다."""
+    from datetime import date
+
+    from db.models import Alert, ApplicabilityRule, LegalObligation, Store, User
+    from db.session import transaction
+    from law_rag.changes import apply_parsed
+
+    emb = HashEmbedder()
+    rule_id = f"T-{uuid.uuid4().hex[:6]}"
+    with transaction() as session:
+        session.add(ApplicabilityRule(rule_id=rule_id, title="시험 규칙", law_name=test_law["name"], article_label="제38조",
+                                      pack="test"))
+        user_a = User(provider="demo", name="a")
+        user_b = User(provider="demo", name="b")
+        session.add_all([user_a, user_b])
+        session.flush()
+        stores = []
+        for user in (user_a, user_b):
+            s = Store(user_id=user.id, name="가게", address="서울", opening_date=date(2027, 3, 2))
+            session.add(s)
+            stores.append(s)
+        session.flush()
+        affected, unaffected = stores
+        session.add(LegalObligation(store_id=affected.id, rule_id=rule_id, title="시험 규칙", status="applies",
+                                    reason="r", law_name=test_law["name"], article_label="제38조"))
+        session.add(LegalObligation(store_id=unaffected.id, rule_id=rule_id, title="시험 규칙", status="not_applicable",
+                                    reason="r", law_name=test_law["name"], article_label="제38조"))
+        ids = (affected.id, unaffected.id, user_a.id, user_b.id)
+    try:
+        apply_parsed(make_law(test_law, "1", [("a", "① 가"), ("b", "① 나")]), emb)
+        _, alerts = apply_parsed(make_law(test_law, "2", [("a", "① 가"), ("b", "① 나 개정")]), emb)
+        assert alerts == 1
+        with transaction() as session:
+            got = list(session.scalars(select(Alert).where(Alert.store_id.in_(ids[:2]), Alert.type == "change")))
+        assert [a.store_id for a in got] == [ids[0]] and test_law["name"] in got[0].title
+        assert got[0].diff["changed"] == [{"label": "제38조", "change": "changed"}]
+        _, again = apply_parsed(make_law(test_law, "2", [("a", "① 가"), ("b", "① 나 개정")]), emb)
+        assert again == 0  # 같은 버전이면 알림이 다시 가지 않는다
+    finally:
+        with transaction() as session:
+            session.execute(delete(ApplicabilityRule).where(ApplicabilityRule.rule_id == rule_id))
+            session.execute(delete(User).where(User.id.in_(ids[2:])))  # 가게·의무사항·알림은 CASCADE
+
+
+@needs_db
+def test_tools_law_uses_rag_and_falls_back_when_no_stored_law(monkeypatch):
+    """저장된 법령이 있으면 RAG 조문을, 없는 법령 범위면 None 이라 예전 방식으로 대체한다."""
+    from law_rag.service import LawRag
+
+    rag = LawRag(embedder=None, pack=PACK)
+    found = rag.articles_for("permit_docs", store())
+    stored = rag.has_data(["식품위생법"])
+    if stored:
+        assert found is not None and found.ok
+        arts = found.data["articles"]
+        assert any(a["law_name"] == "식품위생법" and a["article"] == "제37조" for a in arts)  # 고정 조문
+        assert all(a["text"] and a["url"] for a in arts)
+    assert rag.articles_for("no_such_check", store()) is None
+    # 저장된 법령이 하나도 없는 범위는 None (소방: 다중이용업소법은 수집 전)
+    if not rag.has_data(PACK["law_rag"]["checks"]["fire_safety"]["laws"]):
+        assert rag.articles_for("fire_safety", store()) is None
+
+
+# ---------------------------------------------------------------- API
+
+@pytest.fixture(scope="module")
+def client():
+    from fastapi.testclient import TestClient
+
+    from main import app
+
+    with TestClient(app) as c:
+        yield c
+
+
+@needs_db
+def test_internal_refresh_requires_token(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "internal_token", "")
+    assert client.post("/api/../internal/laws/refresh".replace("/api/..", "")).status_code == 401
+    monkeypatch.setattr(settings, "internal_token", "secret-token")
+    assert client.post("/internal/laws/refresh", headers={"Authorization": "Bearer wrong"}).status_code == 401
+    bad = client.post("/internal/laws/refresh", headers={"Authorization": "Bearer secret-token"},
+                      json={"names": ["없는법"]})
+    assert bad.status_code == 400
+    monkeypatch.setattr("api.laws._run_refresh", lambda names: None)  # 실제 수집은 하지 않는다
+    ok = client.post("/internal/laws/refresh", headers={"Authorization": "Bearer secret-token"},
+                     json={"names": ["식품위생법"]})
+    assert ok.status_code == 202 and ok.json() == {"status": "queued", "laws": 1}
+
+
+@needs_db
+def test_obligations_and_search_need_login(client):
+    assert client.get("/api/laws/search", params={"q": "영업신고"}).status_code == 401
+    assert client.get(f"/api/stores/{uuid.uuid4()}/obligations").status_code == 401
+
+
+@needs_db
+def test_authenticated_law_endpoints_read_saved_data_and_validate_queries(client, test_law, monkeypatch):
+    from db.models import LegalObligation, User
+    from db.session import transaction
+    from law_rag.store import save_law
+
+    demo = client.post("/api/demo")
+    assert demo.status_code == 201
+    account = demo.json()
+    user_id = uuid.UUID(account["user"]["user_id"])
+    store_id = uuid.UUID(account["store_id"])
+    headers = {"Authorization": f"Bearer {account['access_token']}"}
+    embedder = HashEmbedder()
+    law = make_law(test_law, "100", [("영업신고", "① 구청장에게 영업신고를 하여야 한다.")])
+    rule_id = f"{test_law['key']}-check"
+    monkeypatch.setattr("law_rag.embedder.make_embedder", lambda: embedder)
+    try:
+        with transaction() as session:
+            save_law(session, law, embedder=embedder)
+            session.add(LegalObligation(
+                store_id=store_id, rule_id=rule_id, title="시험 규칙", status="needs_check", reason="층 정보 필요",
+                missing_inputs=["floor"], law_name=test_law["name"], article_label="제37조",
+            ))
+        params = {"q": "영업신고", "laws": test_law["name"]}
+        response = client.get("/api/laws/search", headers=headers, params=params)
+        assert response.status_code == 200
+        laws = response.json()
+        assert laws["query"] == params["q"]
+        assert [(entry["law_name"], entry["article"]) for entry in laws["articles"]] == [(test_law["name"], "제37조")]
+        invalid = client.get("/api/laws/search", headers=headers, params={**params, "limit": 0})
+        assert invalid.status_code == 400 and invalid.json()["error"]["code"] == "INVALID_INPUT"
+
+        response = client.get(f"/api/stores/{store_id}/obligations", headers=headers)
+        assert response.status_code == 200
+        obligations = response.json()
+        assert obligations["store_id"] == str(store_id) and obligations["summary"]["needs_check"] >= 1
+        rule = next(entry for entry in obligations["items"] if entry["rule_id"] == rule_id)
+        assert rule["status"] == "needs_check" and rule["missing_inputs"][0]["key"] == "floor"
+        assert rule["law"]["law_name"] == test_law["name"] and rule["law"]["article"] == "제37조"
+    finally:
+        with transaction() as session:
+            session.execute(delete(User).where(User.id == user_id))
+
+
+# ---------------------------------------------------------------- 수집기 (가짜 법제처 응답, 접속 없음)
+
+def _collector(handler):
+    import httpx
+
+    from law_rag.collector import LawCollector
+
+    return LawCollector(client=httpx.Client(transport=httpx.MockTransport(handler)), oc="test-oc")
+
+
+def test_collector_searches_current_law_then_fetches_body_with_mst_and_effective_date():
+    import httpx
+
+    search = json.loads((MOCKS / "law_search.json").read_text(encoding="utf-8"))
+    body = json.loads((MOCKS / "law_body.json").read_text(encoding="utf-8"))
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.path, dict(request.url.params)))
+        return httpx.Response(200, json=search if request.url.path.endswith("lawSearch.do") else body)
+
+    law = _collector(handler).fetch("식품위생법")
+    assert law.name == "식품위생법" and law.mst == "285339" and law.articles
+    (search_path, search_params), (service_path, service_params) = seen
+    assert search_path.endswith("lawSearch.do") and search_params["query"] == "식품위생법" and search_params["OC"] == "test-oc"
+    assert service_path.endswith("lawService.do")
+    assert service_params["MST"] == "285339" and service_params["efYd"] == "20261008"  # 시행일 기준 조문
+
+
+def test_collector_reports_unregistered_ip_clearly():
+    import httpx
+
+    from law_rag.collector import LawApiError
+
+    denied = {"result": "사용자 정보 검증에 실패하였습니다.", "msg": "IP주소를 등록해 주세요."}
+    with pytest.raises(LawApiError, match="IP"):
+        _collector(lambda request: httpx.Response(200, json=denied)).fetch("식품위생법")
+
+
+def test_collector_refuses_ambiguous_law_names():
+    import httpx
+
+    from law_rag.collector import LawApiError
+
+    two = {"LawSearch": {"law": [{"법령명한글": "가법", "현행연혁코드": "현행", "법령일련번호": "1", "시행일자": "20260101"},
+                                 {"법령명한글": "가법", "현행연혁코드": "현행", "법령일련번호": "2", "시행일자": "20260101"}]}}
+    with pytest.raises(LawApiError, match="특정"):
+        _collector(lambda request: httpx.Response(200, json=two)).fetch("가법")
+
+
+# ---------------------------------------------------------------- OpenAI 임베더 (가짜 클라이언트)
+
+class _FakeEmbeddings:
+    def __init__(self, fail=None):
+        self.calls, self.fail = [], fail
+
+    def create(self, *, model, input, dimensions):
+        self.calls.append({"model": model, "n": len(input), "dimensions": dimensions})
+        if self.fail:
+            raise self.fail
+        from types import SimpleNamespace as NS
+
+        # 일부러 순서를 뒤섞어 돌려준다: index 로 원래 순서를 되찾아야 한다
+        data = [NS(index=i, embedding=[float(i + 1)] + [0.0] * (dimensions - 1)) for i in range(len(input))]
+        return NS(data=list(reversed(data)))
+
+
+class _FakeClient:
+    def __init__(self, fail=None):
+        self.embeddings = _FakeEmbeddings(fail)
+
+
+def test_openai_embedder_requests_768_dims_keeps_order_and_normalizes():
+    from law_rag.embedder import OpenAIEmbedder
+
+    client = _FakeClient()
+    emb = OpenAIEmbedder("k", client=client)
+    vectors = emb.embed_documents(["a", "b", "c"])
+    assert emb.model == "text-embedding-3-large"
+    assert client.embeddings.calls == [{"model": "text-embedding-3-large", "n": 3, "dimensions": DIM}]
+    assert len(vectors) == 3 and all(len(v) == DIM for v in vectors)
+    assert vectors[0][0] == 1.0 and vectors[2][0] == 1.0  # 길이를 1로 맞췄다 (첫 성분만 값이 있어 1.0)
+    assert len(emb.embed_query("질문")) == DIM
+
+
+def test_openai_embedder_batches_and_does_not_retry_auth_errors():
+    from law_rag import embedder as mod
+
+    client = _FakeClient()
+    mod.OpenAIEmbedder("k", client=client).embed_documents(["x"] * (mod.BATCH * 2 + 1))
+    assert [c["n"] for c in client.embeddings.calls] == [mod.BATCH, mod.BATCH, 1]
+
+    class AuthenticationError(Exception):
+        pass
+
+    denied = _FakeClient(fail=AuthenticationError("401"))
+    with pytest.raises(RuntimeError, match="AuthenticationError"):
+        mod.OpenAIEmbedder("bad", client=denied).embed_query("x")
+    assert len(denied.embeddings.calls) == 1  # 인증 오류는 다시 시도하지 않는다
+
+
+def test_openai_query_cache_coalesces_repeated_calls_and_does_not_cache_errors():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from law_rag.embedder import OpenAIEmbedder
+
+    client = _FakeClient()
+    emb = OpenAIEmbedder("k", retries=1, client=client)
+    barrier = Barrier(6, timeout=5)
+
+    def lookup(_):
+        barrier.wait()
+        return emb.embed_query("같은 검색어")
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(lookup, range(6)))
+    assert len(client.embeddings.calls) == 1
+    for item in results:
+        assert item == results[0]
+    results[0][0] = 42
+    assert emb.embed_query("같은 검색어")[0] == 1.0
+    client.embeddings.fail = RuntimeError("temporary error")
+    with pytest.raises(RuntimeError):
+        emb.embed_query("다른 검색어")
+    client.embeddings.fail = None
+    assert emb.embed_query("다른 검색어")[0] == 1.0 and len(client.embeddings.calls) == 3
+
+
+def test_openai_embedder_rejects_missing_or_duplicate_vector_indices(monkeypatch):
+    from types import SimpleNamespace as Response
+
+    from law_rag.embedder import OpenAIEmbedder
+
+    client = _FakeClient()
+    duplicate = Response(index=0, embedding=[1.0] * DIM)
+    monkeypatch.setattr(client.embeddings, "create", lambda **params: Response(data=[duplicate, duplicate]))
+    with pytest.raises(RuntimeError, match="EmbeddingResponseError"):
+        OpenAIEmbedder("k", retries=1, client=client).embed_documents(["가", "나"])
+
+
+def test_make_embedder_prefers_embedding_key_over_gemini(monkeypatch):
+    from law_rag import embedder as mod
+
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)  # 실제 .env 의 키가 섞이지 않게 한다
+    monkeypatch.setenv("EMBEDDING_API_KEY", "key")
+    monkeypatch.setenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    monkeypatch.setenv("LLM_API_KEY", "gemini-key")
+    emb = mod.make_embedder()
+    assert isinstance(emb, mod.OpenAIEmbedder) and emb.model == "text-embedding-3-small"
+    assert mod.make_embedder() is emb
+    monkeypatch.setenv("EMBEDDING_BASE_URL", "https://embeddings.example.com")
+    assert mod.make_embedder() is not emb
+    monkeypatch.delenv("EMBEDDING_API_KEY")
+    monkeypatch.setenv("LLM_API_KEY", "")
+    assert mod.make_embedder() is None  # 키가 없으면 키워드 검색만
+
+
+@needs_db
+def test_vector_search_only_compares_vectors_from_the_same_model(test_law):
+    from db.session import transaction
+    from law_rag import retriever
+    from law_rag.store import save_law
+
+    class Other(HashEmbedder):
+        model = "다른모델"
+
+    law = make_law(test_law, "100", [("영업신고", "① 영업신고를 하여야 한다.")])
+    with transaction() as session:
+        save_law(session, law, embedder=HashEmbedder())
+    with transaction() as session:
+        same = retriever.vector_search(session, HashEmbedder().embed_query("영업신고"), [test_law["name"]], "hash-ngram-768")
+        other = retriever.vector_search(session, Other().embed_query("영업신고"), [test_law["name"]], "다른모델")
+    assert len(same) == 1 and other == []
+
+
+def test_별표_조각_앞에_소속_제목이_붙는다():
+    from law_rag.chunker import chunk_text
+
+    body = "\n".join(["3. 제1종 근린생활시설"] + [f"가. 항목{i} " + "가" * 100 for i in range(6)]
+                     + ["4. 제2종 근린생활시설"] + [f"나. 항목{i} " + "나" * 100 for i in range(20)] + ["자. 일반음식점"])
+    plain = chunk_text(body)
+    marked = chunk_text(body, keep_heading=True)
+    assert not any(c.startswith("[소속]") for c in plain)
+    assert marked[-1].split("\n")[0] == "[소속] 4. 제2종 근린생활시설" and "자. 일반음식점" in marked[-1]
+    assert all(c.split("\n")[0] in ("3. 제1종 근린생활시설", "[소속] 3. 제1종 근린생활시설", "[소속] 4. 제2종 근린생활시설")
+               or c.startswith("4. 제2종") for c in marked)

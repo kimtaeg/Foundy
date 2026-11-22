@@ -1,0 +1,72 @@
+{
+  "mvp": "S4",
+  "description": "문제없는 입력",
+  "store": {
+    "store_id": "s1",
+    "name": "모노커피",
+    "business_type_input": "카페",
+    "address": "서울 성동구 성수이로 00",
+    "address_detail": "1층",
+    "opening_date": "2027-03-02",
+    "answers": {
+      "sells_alcohol": true,
+      "has_employees": true
+    }
+  },
+  "tools": {
+    "uses": [
+      "제2종근린생활시설(일반음식점)"
+    ],
+    "violation": false,
+    "similar": []
+  },
+  "llm": {
+    "judge_law_card": {
+      "verdict": "low",
+      "title": "직원 근로계약서와 최저임금을 확인해야 해요",
+      "reason": "직원을 고용하면 근로계약을 맺을 때 임금·소정근로시간 등을 서면으로 명시해 교부해야 해요.",
+      "required": [
+        "근로계약서에 임금·소정근로시간·휴일·연차를 적기",
+        "근로계약서를 직원에게 한 부 주기"
+      ],
+      "cited": [
+        "근로기준법 제17조"
+      ],
+      "quotes": [
+        "사용자는 근로계약을 체결할 때에 근로자에게 다음 각 호의 사항을 명시하여야 한다."
+      ]
+    }
+  },
+  "expect": {
+    "business_type": "일반음식점",
+    "summary": {
+      "high": 0,
+      "low": 2,
+      "unknown": 1,
+      "ok": 3
+    },
+    "items": {
+      "building_use": {
+        "verdict": "ok"
+      },
+      "building_violation": {
+        "verdict": "ok"
+      },
+      "trademark_similar": {
+        "verdict": "ok"
+      },
+      "permit_docs": {
+        "verdict": "low"
+      },
+      "labeling": {
+        "verdict": "unknown"
+      },
+      "labor_contract": {
+        "verdict": "low",
+        "evidence_article": "근로기준법 제17조"
+      }
+    },
+    "no_cards": true,
+    "checklist_min": 8
+  }
+}

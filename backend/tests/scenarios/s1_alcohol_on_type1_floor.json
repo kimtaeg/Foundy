@@ -1,0 +1,85 @@
+{
+  "mvp": "S1",
+  "description": "휴게음식점 용도 층 + 주류 판매",
+  "store": {
+    "store_id": "s1",
+    "name": "모노커피",
+    "business_type_input": "카페",
+    "address": "서울 성동구 성수이로 00",
+    "address_detail": "1층",
+    "opening_date": "2027-03-02",
+    "answers": {
+      "sells_alcohol": true,
+      "has_employees": false
+    },
+    "address_codes": {
+      "sigungu_cd": "11200"
+    }
+  },
+  "tools": {
+    "uses": [
+      "제1종근린생활시설"
+    ],
+    "violation": false,
+    "similar": []
+  },
+  "llm": {
+    "advise_building_use": {
+      "consequence": "이대로 계약하면 영업신고가 반려돼 보증금이 묶일 수 있어요.",
+      "option_summaries": [
+        {
+          "option_id": "o-1",
+          "summary": "술 없이 카페로 시작해요."
+        }
+      ],
+      "recommended_option_id": "o-1",
+      "recommendation_reason": "지금 바로 진행할 수 있는 방법이에요.",
+      "user_action_text": "구청 건축과에 전화로 문의하기",
+      "user_action_type": "send",
+      "user_action_est_minutes": 3
+    }
+  },
+  "expect": {
+    "business_type": "일반음식점",
+    "summary": {
+      "high": 1,
+      "low": 1,
+      "unknown": 1,
+      "ok": 2
+    },
+    "items": {
+      "building_use": {
+        "verdict": "high",
+        "decided_by": "ai",
+        "remedies": [
+          "change_business_type",
+          "request_use_change",
+          "find_other_site"
+        ],
+        "user_action": "send",
+        "contact": "성동구청 건축과"
+      },
+      "trademark_similar": {
+        "verdict": "ok"
+      },
+      "building_violation": {
+        "verdict": "ok"
+      },
+      "permit_docs": {
+        "verdict": "low",
+        "decided_by": "ai",
+        "evidence_contains": "영업소별로"
+      },
+      "labeling": {
+        "verdict": "unknown"
+      }
+    },
+    "absent": [
+      "ad_claims",
+      "alcohol_vs_type"
+    ],
+    "checklist_linked": {
+      "c-01": "building_use"
+    }
+  }
+}

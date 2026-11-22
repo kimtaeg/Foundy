@@ -1,0 +1,93 @@
+{
+  "mvp": "S2",
+  "description": "등록 상표와 비슷한 가게 이름",
+  "store": {
+    "store_id": "s1",
+    "name": "모노커피",
+    "business_type_input": "카페",
+    "address": "서울 성동구 성수이로 00",
+    "address_detail": "1층",
+    "opening_date": "2027-03-02",
+    "area_sqm": 40,
+    "answers": {
+      "sells_alcohol": false,
+      "has_employees": false
+    }
+  },
+  "tools": {
+    "uses": [
+      "제1종근린생활시설"
+    ],
+    "violation": false,
+    "similar": [
+      {
+        "reg_no": "4000000000001",
+        "name": "모노 커피",
+        "class_code": "43",
+        "status": "등록",
+        "url": "https://kipris/x"
+      }
+    ]
+  },
+  "llm": {
+    "judge_trademark": {
+      "verdict": "low",
+      "title": "'모노커피'와 비슷한 상표가 있어요",
+      "reason": "발음이 비슷한 등록 상표가 있어요.",
+      "cited_reg_nos": [
+        "4000000000001"
+      ],
+      "alternatives": [
+        "하루커피",
+        "달빛커피"
+      ]
+    },
+    "advise_trademark_similar": {
+      "consequence": "간판을 만든 뒤 문제되면 바꿔야 할 수 있어요.",
+      "recommended_option_id": "o-1",
+      "recommendation_reason": "지금 바꾸는 비용이 가장 낮아요.",
+      "user_action_text": "이름을 바꿀지 정하기",
+      "user_action_type": "decide"
+    }
+  },
+  "expect": {
+    "business_type": "휴게음식점",
+    "summary": {
+      "high": 0,
+      "low": 2,
+      "unknown": 1,
+      "ok": 2
+    },
+    "items": {
+      "building_use": {
+        "verdict": "ok"
+      },
+      "building_violation": {
+        "verdict": "ok"
+      },
+      "trademark_similar": {
+        "verdict": "low",
+        "decided_by": "ai",
+        "remedies": [
+          "rename_store",
+          "rename_store",
+          "proceed"
+        ],
+        "evidence_contains": "4000000000001",
+        "user_action": "decide"
+      },
+      "permit_docs": {
+        "verdict": "low"
+      },
+      "labeling": {
+        "verdict": "unknown"
+      }
+    },
+    "absent": [
+      "ad_claims"
+    ],
+    "checklist_linked": {
+      "c-02": "trademark_similar"
+    }
+  }
+}
