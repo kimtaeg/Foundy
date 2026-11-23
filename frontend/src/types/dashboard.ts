@@ -37,6 +37,10 @@ export interface OpeningWeekDay {
   weekday: string;
   isOpening: boolean;
 }
+export interface OpeningTimelineDay extends OpeningWeekDay {
+  isToday: boolean;
+  tasks: DashboardTask[];
+}
 /** API-ready display data; event handlers are supplied separately by the caller. */
 export interface DashboardViewData {
   store: DashboardStore;
@@ -50,6 +54,8 @@ export interface DashboardViewData {
   actions: DashboardAction[];
   /** Due-ordered preview including completed tasks so checked rows remain visible. */
   tasks: DashboardTask[];
+  /** Full checklist schedule for the horizontally scrollable opening timeline. */
+  timelineTasks?: DashboardTask[];
   /** Aggregated from the full task collection, not the upcoming task preview. */
   stages?: DashboardStageProgress[];
   /** @deprecated The opening week calendar uses store.opening instead. */

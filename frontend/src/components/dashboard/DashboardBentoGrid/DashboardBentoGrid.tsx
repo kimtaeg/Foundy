@@ -20,7 +20,7 @@ export function DashboardBentoGrid({ dashboard, population }: DashboardBentoGrid
   return (
     <div data-testid="dashboard-bento" className="relative grid grid-cols-1 gap-8 max-sm:gap-12 md:grid-cols-2 lg:gap-12 xl:grid-cols-12">
       <Suspense fallback={<SectionSkeleton appearance="plain" rows={1} label="개업 일정" className="min-h-24 md:col-span-2 xl:col-span-12" />}>
-        <OpeningScheduleCard opening={dashboard.store.opening} days={dashboard.days} className="md:col-span-2 xl:col-span-12" />
+        <OpeningScheduleCard opening={dashboard.store.opening} days={dashboard.days} asOf={dashboard.asOf} tasks={dashboard.timelineTasks ?? dashboard.tasks} className="md:col-span-2 xl:col-span-12" />
       </Suspense>
       <Suspense fallback={<SectionSkeleton appearance="plain" variant="chart" label="준비 현황" className="md:col-span-2 xl:col-span-7" />}>
         <PreparationProgressCard count={dashboard.taskCount} stages={dashboard.stages} className="md:col-span-2 xl:col-span-7" />
