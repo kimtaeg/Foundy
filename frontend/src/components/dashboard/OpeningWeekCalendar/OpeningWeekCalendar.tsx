@@ -1,26 +1,56 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useLayoutEffect, useRef } from "react";
 import { OpeningWeekCalendarDay } from "@/components/dashboard/OpeningWeekCalendarDay";
-import { buildOpeningWeek } from "@/lib/dashboard/opening-week";
+import { buildOpeningTimeline } from "@/lib/dashboard/opening-timeline";
+import type { DashboardTask } from "@/types/dashboard";
 
 export interface OpeningWeekCalendarProps {
   opening: string;
+  asOf?: string;
+  tasks?: DashboardTask[];
   className?: string;
 }
 
-export function OpeningWeekCalendar({ opening, className = "" }: OpeningWeekCalendarProps) {
-  const week = buildOpeningWeek(opening);
-  if (!week.length) return null;
-  const openingIndex = week.findIndex((day) => day.isOpening);
+export function OpeningWeekCalendar({ opening, asOf, tasks = [], className = "" }: OpeningWeekCalendarProps) {
+  const timeline = buildOpeningTimeline(opening, tasks, asOf);
+  const viewport = useRef<HTMLDivElement>(null);
+  const openingDay = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const scrollArea = viewport.current;
+    const anchor = openingDay.current;
+    if (!scrollArea || !anchor) return;
+    const center = () => {
+      scrollArea.scrollLeft = anchor.offsetLeft + anchor.offsetWidth / 2 - scrollArea.clientWidth / 2;
+    };
+    center();
+    const observer = new ResizeObserver(center);
+    observer.observe(scrollArea);
+    return () => observer.disconnect();
+  }, [opening, timeline.length]);
+
+  if (!timeline.length) return null;
+  const scheduledCount = timeline.reduce((count, day) => count + day.tasks.length, 0);
 
   return (
-    <figure aria-label="개업 주간 미니 캘린더" className={`@container relative m-0 min-w-0 overflow-hidden ${className}`}>
-      <figcaption className="sr-only">{week[0].date}부터 {week[6].date}까지, 개업일 {opening}</figcaption>
-      <div className="overflow-hidden [--calendar-fade:12%] [mask-image:linear-gradient(to_right,transparent,black_var(--calendar-fade),black_calc(100%_-_var(--calendar-fade)),transparent)] @min-[200px]:[--calendar-fade:22%] @min-[560px]:[--calendar-fade:30%]">
+    <figure aria-label="개업 일정 타임라인" className={`@container relative m-0 min-w-0 overflow-hidden ${className}`}>
+      <figcaption className="sr-only">
+        {timeline[0].date}부터 {timeline.at(-1)?.date}까지, 개업일 {opening}, 체크리스트 일정 {scheduledCount}개. 좌우로 스크롤해 날짜별 일정을 확인하세요.
+      </figcaption>
+      <div className="[mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)] @min-[560px]:[mask-image:linear-gradient(to_right,transparent,black_24%,black_76%,transparent)]">
         <div
-          className="relative left-1/2 grid w-[784px] -translate-x-[var(--opening-position)] grid-cols-[repeat(7,minmax(112px,1fr))] @min-[784px]:left-0 @min-[784px]:w-full @min-[784px]:translate-x-0"
-          style={{ "--opening-position": `${(openingIndex + 0.5) / 7 * 100}%` } as CSSProperties}
+          ref={viewport}
+          role="region"
+          aria-label="날짜별 준비 일정, 좌우로 스크롤"
+          tabIndex={0}
+          className="min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden focus-visible:outline-2 focus-visible:outline-foundy-primary"
         >
-          {week.map((day) => <OpeningWeekCalendarDay key={day.date} day={day} />)}
+          <div className="relative flex w-max min-w-full px-[calc(50%_-_4rem)] sm:px-[calc(50%_-_5rem)]">
+            {timeline.map((day) => (
+              <OpeningWeekCalendarDay key={day.date} day={day} openingRef={day.isOpening ? openingDay : undefined} />
+            ))}
+          </div>
         </div>
       </div>
     </figure>

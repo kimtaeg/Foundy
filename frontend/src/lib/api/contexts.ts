@@ -114,6 +114,7 @@ function dashboardFromApi(data: ApiDashboard, tasks: DashboardTask[]): Dashboard
   const store = data.store;
   return {
     ...buildDashboardPreparation(tasks),
+    timelineTasks: tasks,
     store: {
       name: store.registered_name,
       type: store.business_type_input,

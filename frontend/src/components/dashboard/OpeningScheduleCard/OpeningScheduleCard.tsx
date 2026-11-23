@@ -2,14 +2,17 @@ import { DashboardCard } from "@/components/dashboard/DashboardCard";
 import { DashboardSectionDivider } from "@/components/dashboard/DashboardSectionDivider";
 import { OpeningWeekCalendar } from "@/components/dashboard/OpeningWeekCalendar";
 import { buildOpeningWeek } from "@/lib/dashboard/opening-week";
+import type { DashboardTask } from "@/types/dashboard";
 
 export interface OpeningScheduleCardProps {
   opening: string;
   days: number;
+  asOf?: string;
+  tasks?: DashboardTask[];
   className?: string;
 }
 
-export function OpeningScheduleCard({ opening, days, className = "" }: OpeningScheduleCardProps) {
+export function OpeningScheduleCard({ opening, days, asOf, tasks = [], className = "" }: OpeningScheduleCardProps) {
   const hasDate = buildOpeningWeek(opening).length > 0;
   const hasCountdown = hasDate && Number.isFinite(days);
   const past = hasCountdown && days < 0;
@@ -24,7 +27,7 @@ export function OpeningScheduleCard({ opening, days, className = "" }: OpeningSc
             <p className="m-0 text-sm leading-relaxed text-neutral-600">{hasDate ? <time dateTime={opening}>{opening.replaceAll("-", ".")}</time> : "개업 예정일을 정해 주세요"}</p>
           </header>
         </div>
-        <OpeningWeekCalendar opening={opening} />
+        <OpeningWeekCalendar opening={opening} asOf={asOf} tasks={tasks} />
       </div>
       <DashboardSectionDivider className="absolute inset-x-0 -bottom-4 translate-y-1/2 max-sm:-bottom-6 lg:-bottom-6" />
     </DashboardCard>

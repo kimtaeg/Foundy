@@ -1,12 +1,16 @@
 "use client";
 
-import { DayPicker, type DayPickerProps } from "react-day-picker";
+import { DayPicker, type DayPickerProps, type DropdownProps } from "react-day-picker";
 import { ko } from "react-day-picker/locale/ko";
+import { ListboxSelect } from "@/components/ui/ListboxSelect";
 
 export type CalendarProps = DayPickerProps;
 
 const navButton =
   "inline-flex size-11 items-center justify-center rounded-lg border-0 bg-transparent text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 aria-disabled:opacity-30 focus-visible:outline-foundy-primary";
+
+const dropdownButton =
+  "inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-1.5 text-base font-semibold text-neutral-900 hover:bg-neutral-50 aria-expanded:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50";
 
 // Adapted from Origin UI's DayPicker calendar; the monthly agenda supplies its own day cells.
 const classes = {
@@ -21,9 +25,6 @@ const classes = {
   button_next: navButton,
   chevron: "size-4 fill-current",
   dropdowns: "flex items-center justify-center gap-1",
-  dropdown_root:
-    "relative inline-flex min-h-11 items-center rounded-md px-1.5 hover:bg-neutral-50 focus-within:outline-2 focus-within:outline-foundy-primary",
-  dropdown: "absolute inset-0 z-10 size-full cursor-pointer opacity-0",
   month_grid: "w-full table-fixed border-collapse",
   weekday: "h-8 p-0 text-center text-[13px] font-medium text-neutral-600",
   day: "group p-0.5 text-center",
@@ -34,9 +35,24 @@ const classes = {
   hidden: "invisible",
 };
 
+/** Year and month pickers use an in-page listbox; the native picker is unreliable inside popovers. */
+function CalendarDropdown({ options = [], value, onChange, disabled, "aria-label": ariaLabel }: DropdownProps) {
+  return (
+    <ListboxSelect
+      aria-label={ariaLabel}
+      value={value === undefined ? "" : String(value)}
+      options={options.map((option) => ({ value: option.value, label: option.label, disabled: option.disabled }))}
+      onChange={onChange}
+      disabled={disabled}
+      className={dropdownButton}
+    />
+  );
+}
+
 export function Calendar({
   className,
   classNames,
+  components,
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
@@ -46,6 +62,7 @@ export function Calendar({
       showOutsideDays={showOutsideDays}
       className={className ?? "w-full"}
       classNames={{ ...classes, ...classNames }}
+      components={{ Dropdown: CalendarDropdown, ...components }}
       {...props}
     />
   );
